@@ -99,7 +99,9 @@ namespace caffe {
   FUNC(Tile); \
   FUNC(TripletLoss); \
   FUNC(TsvData); \
-  FUNC(WindowData)
+  FUNC(WindowData); \
+  FUNC(ROIPooling); \
+  FUNC(SmoothL1Loss)
 
 #ifdef WITH_PYTHON_LAYER
 #define FOR_PYTHON_LAYER(FUNC) \

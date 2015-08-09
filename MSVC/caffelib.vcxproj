@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
@@ -198,11 +198,13 @@ exit 0</Command>
     <ClCompile Include="..\src\caffe\layers\relu_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\reshape_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\rnn_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\roi_pooling_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\scale_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\sigmoid_cross_entropy_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\sigmoid_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\silence_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\slice_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\smooth_L1_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\softmax_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\softmax_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\split_layer.cpp" />
@@ -283,11 +285,13 @@ exit 0</Command>
     <CudaCompile Include="..\src\caffe\layers\recurrent_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\reduction_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\relu_layer.cu" />
+    <CudaCompile Include="..\src\caffe\layers\roi_pooling_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\scale_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\sigmoid_cross_entropy_loss_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\sigmoid_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\silence_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\slice_layer.cu" />
+    <CudaCompile Include="..\src\caffe\layers\smooth_L1_loss_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\softmax_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\softmax_loss_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\split_layer.cu" />
@@ -376,11 +380,13 @@ exit 0</Command>
     <ClInclude Include="..\include\caffe\layers\relu_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\reshape_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\rnn_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\roi_pooling_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\scale_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\sigmoid_cross_entropy_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\sigmoid_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\silence_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\slice_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\smooth_L1_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\softmax_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\softmax_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\split_layer.hpp" />
