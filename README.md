@@ -15,12 +15,30 @@ Check out the [project site](http://caffe.berkeleyvision.org) for all the detail
 
 and step-by-step examples.
 
-[![Join the chat at https://gitter.im/BVLC/caffe](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/BVLC/caffe?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+**Note**: This repo is ported from `git@github.com:MSRDL/caffe.git` for research development. The **master** branch follows BVLC/Caffe master, and the **WinCaffe** branch will merge the latest changes from **master** and keep it compilable in Windows.
 
-Please join the [caffe-users group](https://groups.google.com/forum/#!forum/caffe-users) or [gitter chat](https://gitter.im/BVLC/caffe) to ask questions and talk about methods and models.
-Framework development discussions and thorough bug reports are collected on [Issues](https://github.com/BVLC/caffe/issues).
+## Windows Setup
+**Requirements**: Visual Studio 2013 and CUDA 7.5
 
-Happy brewing!
+Once the requirements are satisfied, run these commands
+```
+git clone git@github.com:MSRCCS/caffe.git
+cd caffe
+git clone git@github.com:MSRDL/wincaffe-3rdparty.git 3rdparty
+```
+Now, you should be able to build `caffe.sln` 
+
+## Development
+
+### Common issues when pulling new commits from BVLC's branch
+- If compilation fails: regenerate `caffe.pb.h` and `caffe.pb.cc` files. This can be done by removing `src\caffe\proto\caffe.pb.h` file. The build process will regenerate if this file is missing.
+- If linking fails: it's likely that there are new `cpp` files that need to be added to the `caffelib` project.
+
+## Development
+
+### Common issues when syncing from main branch
+- If compilation fails: regenerate `caffe.pb.h` and `caffe.pb.cc` files. This can be done by removing `src\caffe\proto\caffe.pb.h` file. The build process will regenerate if this file is missing.
+- If linking fails: it's likely that there are new `cpp` files that need to be added to the `caffelib` project so that they are compiled.
 
 ## License and Citation
 

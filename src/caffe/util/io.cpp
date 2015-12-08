@@ -8,16 +8,17 @@
 #include <opencv2/highgui/highgui_c.h>
 #include <opencv2/imgproc/imgproc.hpp>
 #endif  // USE_OPENCV
-#include <stdint.h>
 
-#include <algorithm>
 #include <fstream>  // NOLINT(readability/streams)
 #include <string>
-#include <vector>
 
 #include "caffe/common.hpp"
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/io.hpp"
+
+#ifdef _MSC_VER 
+#define open _open
+#endif
 
 const int kProtoReadBytesLimit = INT_MAX;  // Max size of 2 GB minus 1 byte.
 
@@ -37,7 +38,12 @@ bool ReadProtoFromTextFile(const char* filename, Message* proto) {
   FileInputStream* input = new FileInputStream(fd);
   bool success = google::protobuf::TextFormat::Parse(input, proto);
   delete input;
+#ifdef _MSC_VER 
+  _close(fd);
+#else
   close(fd);
+#endif
+
   return success;
 }
 
@@ -46,11 +52,22 @@ void WriteProtoToTextFile(const Message& proto, const char* filename) {
   FileOutputStream* output = new FileOutputStream(fd);
   CHECK(google::protobuf::TextFormat::Print(proto, output));
   delete output;
+#ifdef _MSC_VER 
+  _close(fd);
+#else
   close(fd);
+#endif
 }
 
 bool ReadProtoFromBinaryFile(const char* filename, Message* proto) {
-  int fd = open(filename, O_RDONLY);
+#ifndef _MSC_VER
+  int flags = O_RDONLY;
+#else
+  //When loading a binary file in Windows, you have to specify that it’s binary
+  int flags = O_RDONLY | O_BINARY;
+#endif
+  int fd = open(filename, flags);
+
   CHECK_NE(fd, -1) << "File not found: " << filename;
   ZeroCopyInputStream* raw_input = new FileInputStream(fd);
   CodedInputStream* coded_input = new CodedInputStream(raw_input);
@@ -60,7 +77,12 @@ bool ReadProtoFromBinaryFile(const char* filename, Message* proto) {
 
   delete coded_input;
   delete raw_input;
+#ifdef _MSC_VER 
+  _close(fd);
+#else
   close(fd);
+#endif
+
   return success;
 }
 
