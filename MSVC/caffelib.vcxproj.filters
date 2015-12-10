@@ -429,11 +429,17 @@
     <ClCompile Include="..\src\caffe\layers\cudnn_lrn_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\tsv_data_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\util\base64.cpp">
+      <Filter>Source Files\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\util\tsv_data_io.cpp">
+      <Filter>Source Files\util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\caffe\util\benchmark.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\caffe\blob.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
@@ -443,16 +449,7 @@
     <ClInclude Include="..\include\caffe\data_transformer.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\caffe\util\device_alternate.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\caffe\filler.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\caffe\util\im2col.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\caffe\util\insert_splits.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\internal_thread.hpp">
@@ -461,46 +458,16 @@
     <ClInclude Include="..\include\caffe\layer.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\caffe\util\math_functions.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\caffe\util\mkl_alternate.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\caffe\net.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\solver.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\caffe\util\thread.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\caffe\syncedmem.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\common.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\caffe\util\cudnn.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\caffe\util\io.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\caffe\util\rng.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\caffe\util\upgrade_proto.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\caffe\neuron_layers.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\3rdparty\include\cudnn.h">
-      <Filter>Head Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\caffe\util\msvc.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\absval_layer.hpp">
@@ -719,6 +686,72 @@
     <ClInclude Include="..\include\caffe\linker_hooks.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\tsv_data_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\blocking_queue.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\db.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\db_leveldb.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\db_lmdb.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\format.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\gpu_util.cuh">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\hdf5.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\signal_handler.h">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\base64.h">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\benchmark.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\cudnn.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\device_alternate.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\im2col.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\insert_splits.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\io.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\math_functions.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\mkl_alternate.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\msvc.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\rng.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\tsv_data_io.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\upgrade_proto.hpp">
+      <Filter>Head Files\util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Head Files">
@@ -738,6 +771,9 @@
     </Filter>
     <Filter Include="Source Files\solvers">
       <UniqueIdentifier>{6c32892c-608b-4028-bcb3-f5921a8edbcd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Head Files\util">
+      <UniqueIdentifier>{c09d7850-0b7e-45db-9751-86c7403a14ef}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

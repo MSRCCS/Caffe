@@ -87,6 +87,7 @@ namespace caffe {
   FUNC(TanH); \
   FUNC(Threshold); \
   FUNC(Tile); \
+  FUNC(TsvData); \
   FUNC(WindowData)
 
 #ifdef WITH_PYTHON_LAYER

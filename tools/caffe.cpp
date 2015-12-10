@@ -388,6 +388,9 @@ int main(int argc, char** argv) {
       "  time            benchmark model execution time");
   // Run tool or show usage.
   caffe::GlobalInit(&argc, &argv);
+#ifdef _MSC_VER
+  google::SetLogDestination(google::GLOG_INFO, "./");
+#endif
   if (argc == 2) {
 #ifdef WITH_PYTHON_LAYER
     try {
