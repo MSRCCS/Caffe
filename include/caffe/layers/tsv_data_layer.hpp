@@ -39,6 +39,8 @@ protected:
 	void transform_datum(thread_closure<Dtype> &c, size_t dst_index);
 	virtual void load_batch(Batch<Dtype>* batch);
 	TsvRawDataFile tsv_;
+	TsvRawDataFile tsv_label_;
+	bool has_separate_label_file_;
 };
 
 }  // namespace caffe

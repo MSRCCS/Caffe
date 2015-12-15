@@ -1084,6 +1084,7 @@ message MILDataParameter {
 message TsvDataParameter{
 	// Specify the data source.
 	optional string source = 1;
+	optional string source_label = 2;
 	// Specify the batch size.
 	optional uint32 batch_size = 4;
 	optional string mean_file = 3;
