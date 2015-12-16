@@ -1,5 +1,5 @@
-#ifndef CAFFE_DATA_LAYER_HPP_
-#define CAFFE_DATA_LAYER_HPP_
+#ifndef CAFFE_TSV_DATA_LAYER_HPP_
+#define CAFFE_TSV_DATA_LAYER_HPP_
 
 #include <vector>
 
@@ -44,4 +44,4 @@ protected:
 
 }  // namespace caffe
 
-#endif  // CAFFE_DATA_LAYER_HPP_
+#endif  // CAFFE_TSV_DATA_LAYER_HPP_
