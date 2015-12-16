@@ -50,11 +50,11 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   int col_image = this->layer_param().tsv_data_param().col_image();
   int col_label = this->layer_param().tsv_data_param().col_label();
   //int col_crop = this->layer_param().tsv_data_param().col_crop();
-  has_separate_label_file_ = this->layer_param().tsv_data_param().has_source_label();
+  bool has_separate_label_file = this->layer_param().tsv_data_param().has_source_label();
 
-  tsv_.Open(tsv_data.c_str(), col_image, has_separate_label_file_ ? -1 : col_label);
+  tsv_.Open(tsv_data.c_str(), col_image, has_separate_label_file ? -1 : col_label);
   tsv_.ShuffleData();
-  if (has_separate_label_file_)
+  if (has_separate_label_file)
   {
 	  string tsv_label = this->layer_param().tsv_data_param().source_label();
 	  tsv_label_.Open(tsv_label.c_str(), -1, col_label);
@@ -63,9 +63,10 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 		  << "Data and label files must have the same line number: " 
 		  << tsv_.TotalLines() << " vs. " << tsv_label_.TotalLines();
   }
+  int batch_size = this->layer_param().tsv_data_param().batch_size();
+  LOG(INFO) << "Total data: " << tsv_.TotalLines() << ", Batch size: " << batch_size << ", Epoch iterations: " << (float)tsv_.TotalLines() / batch_size;
 
   // initialize the prefetch and top blobs.
-  int batch_size = this->layer_param().tsv_data_param().batch_size();
   int new_width = this->layer_param().tsv_data_param().new_width();
   int new_height = this->layer_param().tsv_data_param().new_height();
   int is_color = this->layer_param().tsv_data_param().is_color();
@@ -88,10 +89,13 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       << top[0]->width();
   // label
   if (this->output_labels_) {
-    vector<int> label_shape(1, batch_size);
-    top[1]->Reshape(label_shape);
+	int label_dim = this->layer_param().tsv_data_param().label_dim();
+    vector<int> label_shape(2);
+    label_shape[0] = batch_size;
+    label_shape[1] = label_dim;
+	top[1]->Reshape(label_shape);
 	for (int i = 0; i < this->PREFETCH_COUNT; ++i) {
-		this->prefetch_[i].label_.Reshape(label_shape);
+	  this->prefetch_[i].label_.Reshape(label_shape);
 	}
   }
 }
@@ -108,6 +112,7 @@ public:
 	int batch_size;
 	int new_width, new_height;
 	bool is_color;
+    int label_dim;
 	vector<string>& base64coded_img;
 	vector<string>& label;
 	Dtype *top_data;
@@ -129,7 +134,20 @@ void TsvDataLayer<Dtype>::transform_datum(thread_closure<Dtype>& c, size_t dst_i
 	this->data_transformer_->Transform(datum, &(this->transformed_data_));
 	// Copy label.
 	if (this->output_labels_) {
-		c.top_label[i] = atoi(c.label[i].c_str());
+        if (c.label_dim == 1)   // single label case
+        {
+          c.top_label[i] = atoi(c.label[i].c_str());
+        }
+        else
+        {
+            std::stringstream lineStream(c.label[i]);
+            string cell;
+            while (std::getline(lineStream, cell, ';'))
+            {
+                int label = atoi(cell.c_str());
+                c.top_label[i * c.label_dim + label] = 1;
+            }
+        }
 	}
 }
 
@@ -152,6 +170,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	c.new_height = this->layer_param().tsv_data_param().new_height();
 	c.new_width = this->layer_param().tsv_data_param().new_width();
 	c.is_color = this->layer_param().tsv_data_param().is_color();
+    c.label_dim = this->layer_param().tsv_data_param().label_dim();
 	int crop_size = this->layer_param().transform_param().crop_size();
 
 	// initialize the prefetch and top blobs.
@@ -169,9 +188,11 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 
 	if (this->output_labels_) {
 		c.top_label = batch->label_.mutable_cpu_data();
+        memset(c.top_label, 0, batch->label_.count() * sizeof(Dtype));
 	}
 
-	timer.Start();
+    bool has_separate_label_file = this->layer_param().tsv_data_param().has_source_label();
+    timer.Start();
 	for (int item_id = 0; item_id < c.batch_size; ++item_id)
 	{
 		if (tsv_.ReadNextLine(base64coded_img, label) != 0)
@@ -180,7 +201,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 			tsv_.MoveToFirst();
 			tsv_.ReadNextLine(base64coded_img, label);
 		}
-		if (has_separate_label_file_)
+		if (has_separate_label_file)
 		{
 			if (tsv_label_.ReadNextLine(base64coded_img, label) != 0)
 			{

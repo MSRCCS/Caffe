@@ -40,7 +40,6 @@ protected:
 	virtual void load_batch(Batch<Dtype>* batch);
 	TsvRawDataFile tsv_;
 	TsvRawDataFile tsv_label_;
-	bool has_separate_label_file_;
 };
 
 }  // namespace caffe
