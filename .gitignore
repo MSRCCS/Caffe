@@ -75,7 +75,6 @@ build
 distribute/*
 *.testbin
 *.bin
-python/caffe/proto/
 cmake_build
 .cmake_build
 
@@ -94,7 +93,6 @@ LOG*
 CURRENT
 MANIFEST-*
 
-
 # Windows dev files
 Release/
 Debug/
@@ -103,3 +101,8 @@ Debug/
 *.deps
 *.suo
 *.suo
+
+# Python dll dependencies
+python/caffe/*.dll
+python/caffe/*.pyd
+python/caffe/*.pdb
