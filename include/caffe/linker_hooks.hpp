@@ -68,6 +68,7 @@ namespace caffe {
   FUNC(MemoryData); \
   FUNC(MIL); \
   FUNC(MILData); \
+  FUNC(MultiLabelLoss); \
   FUNC(MultinomialLogisticLoss); \
   FUNC(MVN); \
   FUNC(Pooling); \
