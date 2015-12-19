@@ -54,8 +54,8 @@ TYPED_TEST_CASE(MultiLabelLossLayerTest, TestDtypes);
 TYPED_TEST(MultiLabelLossLayerTest, TestGradient) {
   LayerParameter layer_param;
   layer_param.add_loss_weight(3);
-  MultiLabelLossLayer<Dtype> layer(layer_param);
-  GradientChecker<Dtype> checker(1e-2, 1e-2, 1701);
+  MultiLabelLossLayer<TypeParam> layer(layer_param);
+  GradientChecker<TypeParam> checker(1e-2, 1e-2, 1701);
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_, 0);
 }
@@ -63,8 +63,8 @@ TYPED_TEST(MultiLabelLossLayerTest, TestGradient) {
 TYPED_TEST(MultiLabelLossLayerTest, TestGradientUnnormalized) {
   LayerParameter layer_param;
   layer_param.mutable_loss_param()->set_normalize(false);
-  MultiLabelLossLayer<Dtype> layer(layer_param);
-  GradientChecker<Dtype> checker(1e-2, 1e-2, 1701);
+  MultiLabelLossLayer<TypeParam> layer(layer_param);
+  GradientChecker<TypeParam> checker(1e-2, 1e-2, 1701);
   checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
       this->blob_top_vec_, 0);
 }

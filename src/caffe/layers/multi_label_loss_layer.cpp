@@ -15,16 +15,14 @@ void MultiLabelLossLayer<Dtype>::Reshape(
 	LossLayer<Dtype>::Reshape(bottom, top);
     CHECK_GE(bottom[0]->shape(1), bottom[1]->shape(1) * 2)
         << "Data must have twice dimensions than label.";
-	prob_pos_.ReshapeLike(*bottom[1]);
-	prob_neg_.ReshapeLike(*bottom[1]);
+    // the prob output should have the same shape as data input / 2
+    vector<int> prob_shape = bottom[0]->shape();
+    prob_shape[1] /= 2;
+    prob_pos_.Reshape(prob_shape);
+	prob_neg_.Reshape(prob_shape);
 	normalize_ = this->layer_param_.loss_param().normalize();
 	if (top.size() >= 2)
-	{
-		// the prob output should have the same shape as data input / 2
-        vector<int> prob_shape = bottom[0]->shape();
-        prob_shape[1] /= 2;
 		top[1]->Reshape(prob_shape); 
-	}
 }
 
 template <typename Dtype>
