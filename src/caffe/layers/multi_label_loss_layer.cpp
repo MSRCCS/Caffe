@@ -33,9 +33,9 @@ void UnrollLabel(const Dtype* compact_label, int compact_label_dim, vector<int>&
     for (int i = 0; i < compact_label_dim; i++)
     {
         int value = static_cast<int>(compact_label[i]);
-        CHECK_LT(value, label.size()) << "Label value too large: " << value << " vs. " << label.size();
         if (value < 0)  // negative numbers are padding values
             break;
+        CHECK_LT(value, label.size()) << "Label value too large: " << value << " vs. " << label.size();
         label[value] = 1;
     }
 }
