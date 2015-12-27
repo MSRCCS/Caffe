@@ -106,3 +106,4 @@ Debug/
 python/caffe/*.dll
 python/caffe/*.pyd
 python/caffe/*.pdb
+*.ipch

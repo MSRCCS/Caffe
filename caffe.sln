@@ -11,6 +11,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "caffe.gtest", "MSVC\caffe.g
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "caffe.python", "MSVC\caffe.python.vcxproj", "{C209DCB1-C214-4182-B340-F171BB50B45B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "caffe.managed", "MSVC\caffe.managed\caffe.managed.vcxproj", "{350020CA-75B9-425E-85CA-DD8CF8CFBA9B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -33,6 +35,10 @@ Global
 		{C209DCB1-C214-4182-B340-F171BB50B45B}.Debug|x64.Build.0 = Debug|x64
 		{C209DCB1-C214-4182-B340-F171BB50B45B}.Release|x64.ActiveCfg = Release|x64
 		{C209DCB1-C214-4182-B340-F171BB50B45B}.Release|x64.Build.0 = Release|x64
+		{350020CA-75B9-425E-85CA-DD8CF8CFBA9B}.Debug|x64.ActiveCfg = Debug|x64
+		{350020CA-75B9-425E-85CA-DD8CF8CFBA9B}.Debug|x64.Build.0 = Debug|x64
+		{350020CA-75B9-425E-85CA-DD8CF8CFBA9B}.Release|x64.ActiveCfg = Release|x64
+		{350020CA-75B9-425E-85CA-DD8CF8CFBA9B}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
