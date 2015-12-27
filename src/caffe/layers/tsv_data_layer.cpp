@@ -114,6 +114,7 @@ public:
 	int new_width, new_height;
 	int channels;
     int label_dim;
+    bool unroll_label;
     TsvDataParameter::Base64DataFormat data_format;
 	vector<string>& base64coded_data;
 	vector<string>& label;
@@ -149,20 +150,35 @@ void TsvDataLayer<Dtype>::transform_datum(thread_closure<Dtype>& c, size_t dst_i
         }
         else
         {
-            vector<Dtype> labels;
             std::stringstream lineStream(c.label[i]);
             string cell;
-            while (std::getline(lineStream, cell, ';'))
+            vector<Dtype> labels;
+            if (c.unroll_label)  // for multi-hot labels
             {
-                labels.push_back(atoi(cell.c_str()));
-                if (labels.size() == c.label_dim)
+                labels.resize(c.label_dim);
+                memset(&labels[0], 0, c.label_dim * sizeof(int));
+                while (std::getline(lineStream, cell, ';'))
                 {
-                    LOG(FATAL) << "Too many labels! label_dim = " << c.label_dim << ", but labels are: " << c.label[i];
-                    break;
+                    int lbl = atoi(cell.c_str());
+                    CHECK_LT(lbl, c.label_dim) << "Label value is too large! Dim = " << c.label_dim << ", but label is: " << lbl;
+                    if (lbl >= 0)       // ignore negative padding values
+                        labels[lbl] = 1;
                 }
             }
-            for (int i = labels.size(); i < c.label_dim; i++)
-                labels.push_back(-1);
+            else  // for compact format labels
+            {
+                while (std::getline(lineStream, cell, ';'))
+                {
+                    labels.push_back(atoi(cell.c_str()));
+                    if (labels.size() == c.label_dim)
+                    {
+                        LOG(FATAL) << "Too many labels! label_dim = " << c.label_dim << ", but labels are: " << c.label[i];
+                        break;
+                    }
+                }
+                for (int i = labels.size(); i < c.label_dim; i++)
+                    labels.push_back(-1);
+            }
             caffe_copy(c.label_dim, &labels[0], c.top_label);
         }
 	}
@@ -190,6 +206,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	c.new_width = tsv_param.new_width();
 	c.channels = tsv_param.channels();
     c.label_dim = tsv_param.label_dim();
+    c.unroll_label = tsv_param.unroll_label();
     c.data_format = tsv_param.data_format();
 	int crop_size = this->layer_param().transform_param().crop_size();
 
