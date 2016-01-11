@@ -3,8 +3,7 @@
 #pragma once
 
 #include "_CaffeModel.h"
-#include <opencv2/core/core.hpp>
-
+#include <cuda_runtime.h> 
 #include <msclr\marshal_cppstd.h>
 
 using namespace std;
@@ -32,7 +31,21 @@ namespace CaffeLibMC {
 
 
 	public:
-		CaffeModel()
+        static int DeviceCount;
+
+        static CaffeModel()
+        {
+            int count;
+            cudaGetDeviceCount(&count);
+            DeviceCount = count;
+        }
+
+        static void SetDevice(int deviceId)
+        {
+            _CaffeModel::SetDevice(deviceId);
+        }
+
+        CaffeModel()
 		{
 			m_net = new _CaffeModel();
 			m_listLabelMap = gcnew List<String^>();
@@ -55,7 +68,7 @@ namespace CaffeLibMC {
 			}
 		}
 
-		void Init(String ^netFile, String ^modelFile, String^ label_map, bool useGpu)
+		void Init(String ^netFile, String ^modelFile, String^ label_map)
 		{
 			if (m_isInitialized)
 				return;
@@ -63,7 +76,7 @@ namespace CaffeLibMC {
 			string strNetFile = msclr::interop::marshal_as<string>(netFile);
 			string strModelFile = msclr::interop::marshal_as<string>(modelFile);
 
-			m_net->Init(strNetFile, strModelFile, useGpu);
+			m_net->Init(strNetFile, strModelFile);
 
 			StreamReader^ din = File::OpenText(label_map);
 			String^ str;

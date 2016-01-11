@@ -27,14 +27,16 @@ class _CaffeModel
 {
 	caffe::Net<float> *_net;
 public:
-	_CaffeModel();
+    static void SetDevice(int device_id); //Use a negative number for CPU only
+    
+    _CaffeModel();
 	~_CaffeModel();
 
 	int GetInputImageWidth();
 	int GetInputImageHeight();
 	int GetInputImageChannels();
 
-	void Init(const std::string &netFile, const std::string &modelFile, bool useGpu);
+	void Init(const std::string &netFile, const std::string &modelFile);
 
 	// legacy api, will be suppressed.
 	void ExtractFeatureFromFile(const std::string &imageFile, const std::string &blobName, std::vector<float> &feature);

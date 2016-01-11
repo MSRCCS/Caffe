@@ -35,6 +35,18 @@ _CaffeModel::~_CaffeModel()
 	}
 }
 
+void _CaffeModel::SetDevice(int deviceId)
+{
+    // Set GPU
+    if (deviceId >= 0)
+    {
+        Caffe::set_mode(Caffe::GPU);
+        Caffe::SetDevice(deviceId);
+    }
+    else
+        Caffe::set_mode(Caffe::CPU);
+}
+
 int _CaffeModel::GetInputImageWidth()
 {
 	MemoryDataLayer<float> * layer = (MemoryDataLayer<float>*)_net->layer_by_name("data").get();
@@ -53,18 +65,8 @@ int _CaffeModel::GetInputImageChannels()
 	return layer->channels();
 }
 
-void _CaffeModel::Init(const std::string &netFile, const std::string &modelFile, bool useGpu)
+void _CaffeModel::Init(const std::string &netFile, const std::string &modelFile)
 {
-	// Set GPU
-	if (useGpu)
-	{
-		Caffe::set_mode(Caffe::GPU);
-		int device_id = 0;
-		Caffe::SetDevice(device_id);
-	}
-	else
-		Caffe::set_mode(Caffe::CPU);
-
 	// Set to TEST Phase
 	_net = new Net<float>(netFile, caffe::TEST);
 	_net->CopyTrainedLayersFrom(modelFile);
