@@ -150,6 +150,7 @@ void TsvDataLayer<Dtype>::transform_datum(thread_closure<Dtype>& c, size_t dst_i
         }
         else
         {
+            int label_offset = c.batch->label_.offset(i);
             std::stringstream lineStream(c.label[i]);
             string cell;
             vector<Dtype> labels;
@@ -179,7 +180,7 @@ void TsvDataLayer<Dtype>::transform_datum(thread_closure<Dtype>& c, size_t dst_i
                 for (int i = labels.size(); i < c.label_dim; i++)
                     labels.push_back(-1);
             }
-            caffe_copy(c.label_dim, &labels[0], c.top_label);
+            caffe_copy(c.label_dim, &labels[0], c.top_label + label_offset);
         }
 	}
 }
