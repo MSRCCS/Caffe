@@ -438,9 +438,6 @@
     <ClCompile Include="..\src\caffe\util\tsv_data_io.cpp">
       <Filter>Source Files\util</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\caffe\layers\multi_label_loss_layer.cpp">
-      <Filter>Source Files\layers</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\caffe\blob.hpp">
@@ -754,9 +751,6 @@
     </ClInclude>
     <ClInclude Include="..\include\caffe\util\upgrade_proto.hpp">
       <Filter>Head Files\util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\caffe\layers\multi_label_loss_layer.hpp">
-      <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

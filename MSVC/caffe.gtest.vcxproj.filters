@@ -153,9 +153,6 @@
     <ClCompile Include="..\src\caffe\test\test_memory_data_layer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\caffe\test\test_multi_label_loss_layer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\caffe\test\test_multinomial_logistic_loss_layer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
