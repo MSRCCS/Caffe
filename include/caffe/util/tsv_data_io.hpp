@@ -71,10 +71,10 @@ public:
 
 	bool IsEOF();
 	void MoveToFirst();
+	void MoveToLine(int lineNo);
+	int TotalLines();
 
-	// read one line and do base64 decode
-	int ReadNextDatum(vector<BYTE> &imbuf, int &label);
 	// read lines to batch for parallel base64 decoding and image resizing.
-	int ReadNextLine(vector<string> &base64codedImg, vector<int> &label);
+	int ReadNextLine(vector<string> &base64codedImg, vector<string> &label);
 };
 }

@@ -189,58 +189,7 @@ bool TsvRawDataFile::IsEOF()
 	return ((_lineIndex.size() == 0 && _dataFile.IsEOF()) || (_lineIndex.size() > 0 && _currentLine >= _lineIndex.size()));
 }
 
-int TsvRawDataFile::ReadNextDatum(vector<BYTE> &imbuf, int &label)
-{
-	if (IsEOF())
-		return -1;
-
-	if (_lineIndex.size() > 0)
-		_dataFile.Seek(_lineIndex[_currentLine]);
-
-	std::string line;
-	_dataFile.ReadLine(line);
-	if (line.length() == 0)
-	{
-		_currentLine++;
-		return -1;
-	}
-
-	// the following block is to directly use data in the string buffer for fast speed.
-	vector<int64_t> cell_pos_list;
-	size_t line_size = line.size();
-	char *ptr = &line[0];
-	char *ptr_end = ptr + line_size;
-	cell_pos_list.push_back(0);
-	for (char *ptr = &line[0]; ptr < ptr_end; ptr++)
-	{
-		if (*ptr == '\t')
-		{
-			cell_pos_list.push_back(ptr - &line[0]);
-			cell_pos_list.push_back(ptr - &line[0] + 1);
-		}
-	}
-	cell_pos_list.push_back(line_size);
-	int result_num = (int)cell_pos_list.size() / 2;
-	CHECK_GT(result_num, _colData) << "colData is out of range of TSV columns.";
-	CHECK_GT(result_num, _colLabel) << "colLabel is out of range of TSV columns.";
-
-	char *data = &line[cell_pos_list[_colData * 2]];
-	int64_t data_size = cell_pos_list[_colData * 2 + 1] - cell_pos_list[_colData * 2];
-	imbuf = base64_decode_buffer(data, (int)data_size); 
-
-	if (_colLabel >= 0)
-	{
-		std::string cell(line.begin() + cell_pos_list[_colLabel * 2], line.begin() + cell_pos_list[_colLabel * 2 + 1]);
-		label = atoi(cell.c_str());
-	}
-
-	_currentLine++;
-
-	return 0;
-}
-
-
-int TsvRawDataFile::ReadNextLine(vector<string> &base64codedImg, vector<int> &label)
+int TsvRawDataFile::ReadNextLine(vector<string> &base64codedImg, vector<string> &label)
 {
 	if (IsEOF())
 		return -1;
@@ -272,15 +221,17 @@ int TsvRawDataFile::ReadNextLine(vector<string> &base64codedImg, vector<int> &la
 	}
 	cell_pos_list.push_back(line_size); //cell position, 0th: position the image string starts; 1st: position the image string ends; 2nd: position the label string starts; 3rd: position the label string ends; etc...
 	int result_num = (int)cell_pos_list.size() / 2;
-	CHECK_GT(result_num, _colData) << "colData is out of range of TSV columns.";
-	CHECK_GT(result_num, _colLabel) << "colLabel is out of range of TSV columns.";
 
-	base64codedImg.push_back(line.substr(cell_pos_list[_colData * 2], cell_pos_list[_colData * 2 + 1] - cell_pos_list[_colData * 2]));
+	if (_colData >= 0)
+	{
+		CHECK_GT(result_num, _colData) << "colData is out of range of TSV columns.";
+		base64codedImg.push_back(line.substr(cell_pos_list[_colData * 2], cell_pos_list[_colData * 2 + 1] - cell_pos_list[_colData * 2]));
+	}
 
 	if (_colLabel >= 0)
 	{
-		std::string cell(line.begin() + cell_pos_list[_colLabel * 2], line.begin() + cell_pos_list[_colLabel * 2 + 1]);
-		label.push_back(atoi(cell.c_str()));
+		CHECK_GT(result_num, _colLabel) << "colLabel is out of range of TSV columns.";
+		label.push_back(line.substr(cell_pos_list[_colLabel * 2], cell_pos_list[_colLabel * 2 + 1] - cell_pos_list[_colLabel * 2]));
 	}
 
 	_currentLine++;
@@ -295,6 +246,20 @@ void TsvRawDataFile::MoveToFirst()
 		_dataFile.Seek(_lineIndex[_currentLine]);
 	else
 		_dataFile.Seek(0);
+}
+
+void TsvRawDataFile::MoveToLine(int lineNo)
+{
+	CHECK_GT(_lineIndex.size(), 0) << "Tsv file without .lineidx cannot be randomly accessed.";
+	CHECK_GT(_lineIndex.size(), lineNo) << "LineNo (" << lineNo << ") cannot exceed the total line size (" << _lineIndex.size() << ").";
+	_currentLine = lineNo;
+	_dataFile.Seek(_lineIndex[_currentLine]);
+}
+
+int TsvRawDataFile::TotalLines()
+{
+	CHECK_GT(_lineIndex.size(), 0) << "Tsv file without .lineidx cannot use TotalLines.";
+	return _lineIndex.size();
 }
 
 }

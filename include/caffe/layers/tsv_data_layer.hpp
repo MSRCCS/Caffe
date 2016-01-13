@@ -1,5 +1,5 @@
-#ifndef CAFFE_DATA_LAYER_HPP_
-#define CAFFE_DATA_LAYER_HPP_
+#ifndef CAFFE_TSV_DATA_LAYER_HPP_
+#define CAFFE_TSV_DATA_LAYER_HPP_
 
 #include <vector>
 
@@ -39,8 +39,9 @@ protected:
 	void transform_datum(thread_closure<Dtype> &c, size_t dst_index);
 	virtual void load_batch(Batch<Dtype>* batch);
 	TsvRawDataFile tsv_;
+	TsvRawDataFile tsv_label_;
 };
 
 }  // namespace caffe
 
-#endif  // CAFFE_DATA_LAYER_HPP_
+#endif  // CAFFE_TSV_DATA_LAYER_HPP_
