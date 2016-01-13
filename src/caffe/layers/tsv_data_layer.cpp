@@ -37,6 +37,108 @@ cv::Mat ReadImageStreamToCVMat(vector<unsigned char>& imbuf, const int height, c
 	return cv_img;
 }
 
+cv::Mat CreateCVMat(const unsigned char* image, int width, int height, int channels, int stride)
+{
+    CHECK(image != nullptr && width > 0 && height > 0 && (channels == 1 || channels == 3 || channels == 4)
+        && stride >= width * channels) << "Invalid args";
+
+    cv::Mat cv_img;
+    if (channels == 1) // 8 bit gray scale palette (special case)
+    {
+        cv_img = cv::Mat(height, width, CV_8UC1);
+
+        unsigned char* u8_Src = (unsigned char*)image;
+        unsigned char* u8_Dst = cv_img.data;
+
+        for (int R = 0; R < height; R++)
+        {
+            memcpy(u8_Dst, u8_Src, width);
+            u8_Src += stride;
+            u8_Dst += cv_img.step;
+        }
+    }
+    else // 24 Bit / 32 Bit
+    {
+        int s32_CvType = channels == 3 ? CV_8UC3 : CV_8UC4;
+        // Create a Mat pointing to external memory
+        cv::Mat mat(height, width, s32_CvType, (void *)image, stride);
+
+        // Create a Mat with own memory
+        mat.copyTo(cv_img);
+    }
+
+    return cv_img;
+}
+
+#define PI 3.1415926
+
+void CropImageAndResize(const cv::Mat &cv_img,
+    std::string &dst, int dstWidth, int dstHeight,
+    float centerX, float centerY, float rotationRadius,
+    float baseWidth,
+    float cropUp, float cropDown, float cropLeft, float cropRight)
+{
+    // 1. rotate CV::Mat at center(x,y)
+    cv::Mat rotatedImage;
+    if (abs(rotationRadius) < 1E-4)
+    {
+        // skip rotation if the rotationRadius is 0.
+        rotatedImage = cv_img;
+    }
+    else
+    {
+        cv::Point2f rotation_center_pt(centerX, centerY);
+        cv::Mat rotation_mat = cv::getRotationMatrix2D(rotation_center_pt, -rotationRadius * 180 / PI, 1.0);
+        cv::warpAffine(cv_img, rotatedImage, rotation_mat, cv::Size(cv_img.cols, cv_img.rows));
+    }
+
+    // 2. crop CV::Mat from (x-cropLeft, y-cropUp, x+cropRight, y+cropDown)
+    int x1 = (int)(centerX - cropLeft * baseWidth);
+    int y1 = (int)(centerY - cropUp * baseWidth);
+    int x2 = (int)(centerX + cropRight * baseWidth);
+    int y2 = (int)(centerY + cropDown * baseWidth);
+    x1 = std::max(x1, 0);
+    x2 = std::min(x2, cv_img.cols);
+    y1 = std::max(y1, 0);
+    y2 = std::min(y2, cv_img.rows);
+    cv::Rect crop_rect(x1, y1, x2 - x1, y2 - y1);
+    // Crop the full image to that image contained by the rectangle crop_rect
+    // Note that this doesn't copy the data
+    cv::Mat croppedImage = rotatedImage(crop_rect);
+
+    // 3. resize to (dstWidth, dstHeight)
+    cv::Mat resizedImage;
+    cv::resize(croppedImage, resizedImage, cv::Size(dstWidth, dstHeight), 0, 0, 2); // 2 for bicubic interpolation
+
+    //cv::imshow("rotated", rotatedImage);
+    //cv::imshow("cropped", croppedImage);
+    //cv::imshow("resized", resizedImage);
+    //cv::waitKey(0);
+
+    // 4. CV::Mat => dst
+    Datum datum;
+    caffe::CVMatToDatum(resizedImage, &datum);
+    dst = datum.data();
+}
+
+// crop image by rotating the image at the specified center (x,y) and crop the region at 
+// (x1, y1, x2, y2), which is (centerX-cropLeft*baseWidth, centerY-cropUp*baseWidth, 
+//  centerX+cropRight*baseWidth, centerY+cropDown*baseWidth) 
+// The separate of baseWidth is for convenient so that the crop params can be relatively fixed for the same scenario.
+__declspec(dllexport) void CropImageAndResize(const unsigned char* image, int width, int height, int channels, int stride,
+    std::string &dst, int dstWidth, int dstHeight,
+    float centerX, float centerY, float ratationRadius,
+    float baseWidth, float cropUp, float cropDown, float cropLeft, float cropRight)
+{
+    // src => CV::Mat
+    cv::Mat cv_img = CreateCVMat(image, width, height, channels, stride);
+
+    // crop and resize
+    CropImageAndResize(cv_img, dst, dstWidth, dstHeight,
+        centerX, centerY, ratationRadius,
+        baseWidth, cropUp, cropDown, cropLeft, cropRight);
+}
+
 template <typename Dtype>
 TsvDataLayer<Dtype>::~TsvDataLayer() {
   this->StopInternalThread();
