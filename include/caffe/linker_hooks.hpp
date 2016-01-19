@@ -63,6 +63,7 @@ namespace caffe {
   FUNC(ImageData); \
   FUNC(InfogainLoss); \
   FUNC(InnerProduct); \
+  FUNC(L2Norm); \
   FUNC(Log); \
   FUNC(LRN); \
   FUNC(MemoryData); \

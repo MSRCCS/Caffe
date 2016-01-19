@@ -142,6 +142,9 @@
     <CudaCompile Include="..\src\caffe\layers\cudnn_lrn_layer.cu">
       <Filter>Source Files\layers</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\l2_norm_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\caffe\blob.cpp">
@@ -437,6 +440,9 @@
     </ClCompile>
     <ClCompile Include="..\src\caffe\util\tsv_data_io.cpp">
       <Filter>Source Files\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\l2_norm_layer.cpp">
+      <Filter>Source Files\layers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -751,6 +757,9 @@
     </ClInclude>
     <ClInclude Include="..\include\caffe\util\upgrade_proto.hpp">
       <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\l2_norm_layer.hpp">
+      <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
