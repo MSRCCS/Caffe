@@ -88,6 +88,7 @@ namespace caffe {
   FUNC(TanH); \
   FUNC(Threshold); \
   FUNC(Tile); \
+  FUNC(TripletLoss); \
   FUNC(TsvData); \
   FUNC(WindowData)
 
