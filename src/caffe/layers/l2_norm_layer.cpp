@@ -12,13 +12,11 @@ void L2NormLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   top[0]->ReshapeLike(*bottom[0]);
 
-  vector<int> mult_dims(1, bottom[0]->count(1));
-  sum_multiplier_.Reshape(mult_dims);
+  sum_multiplier_.Reshape(bottom[0]->count(1), 1, 1, 1);
   Dtype* multiplier_data = sum_multiplier_.mutable_cpu_data();
   caffe_set(sum_multiplier_.count(), Dtype(1), multiplier_data);
 
-  vector<int> norm_dims(1, bottom[0]->num());
-  norm_.Reshape(norm_dims);
+  norm_.Reshape(bottom[0]->num(), 1, 1, 1);
 }
 
 template <typename Dtype>
