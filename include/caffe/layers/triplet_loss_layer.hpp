@@ -48,7 +48,7 @@ class TripletLossLayer : public LossLayer<Dtype> {
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
   void CollectTripets(Blob<Dtype>& label_blob);
-  vector<Triplet<Dtype>> triplets_;
+  vector< Triplet<Dtype> > triplets_;
 };
 
 }  // namespace caffe
