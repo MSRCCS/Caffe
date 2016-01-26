@@ -213,6 +213,12 @@
     <ClCompile Include="..\src\caffe\test\test_caffe_main.cpp">
       <Filter>Source Files\main</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\caffe\test\test_l2_norm_layer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\test\test_triplet_loss_layer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\caffe\test\test_gradient_check_util.hpp">

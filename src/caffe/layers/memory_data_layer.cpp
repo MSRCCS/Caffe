@@ -4,6 +4,7 @@
 
 #include <vector>
 
+#include "caffe/common.hpp"
 #include "caffe/layers/memory_data_layer.hpp"
 
 namespace caffe {
@@ -20,7 +21,7 @@ void MemoryDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       "batch_size, channels, height, and width must be specified and"
       " positive in memory_data_param";
   // modified by leizhang, 7/12/2015, 9/25/2015 (for added_data_.Reshape)
-  int crop_size = transform_param_.crop_size();
+  int crop_size = this->transform_param_.crop_size();
   if (crop_size > 0)
   {
 	  top[0]->Reshape(batch_size_, channels_, crop_size, crop_size);
@@ -52,7 +53,7 @@ void MemoryDataLayer<Dtype>::AddDatumVector(const vector<Datum>& datum_vector) {
   CHECK_EQ(num % batch_size_, 0) <<
       "The added data must be a multiple of the batch size.";
   // modified by leizhang, 9/25/2015
-  int crop_size = transform_param_.crop_size();
+  int crop_size = this->transform_param_.crop_size();
   if (crop_size > 0)
 	  added_data_.Reshape(num, channels_, crop_size, crop_size);
   else
@@ -84,7 +85,7 @@ void MemoryDataLayer<Dtype>::AddMatVector(const vector<cv::Mat>& mat_vector,
   CHECK_EQ(num % batch_size_, 0) <<
       "The added data must be a multiple of the batch size.";
   // modified by leizhang, 9/25/2015
-  int crop_size = transform_param_.crop_size();
+  int crop_size = this->transform_param_.crop_size();
   if (crop_size > 0)
 	  added_data_.Reshape(num, channels_, crop_size, crop_size);
   else
@@ -138,7 +139,7 @@ void MemoryDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   CHECK(data_) << "MemoryDataLayer needs to be initalized by calling Reset";
   // modified by leizhang, 9/25/2015
-  int crop_size = transform_param_.crop_size();
+  int crop_size = this->transform_param_.crop_size();
   if (crop_size > 0)
 	  top[0]->Reshape(batch_size_, channels_, crop_size, crop_size);
   else

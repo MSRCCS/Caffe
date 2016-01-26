@@ -39,7 +39,7 @@ cv::Mat ReadImageStreamToCVMat(vector<unsigned char>& imbuf, const int height, c
 
 cv::Mat CreateCVMat(const unsigned char* image, int width, int height, int channels, int stride)
 {
-    CHECK(image != nullptr && width > 0 && height > 0 && (channels == 1 || channels == 3 || channels == 4)
+    CHECK(image != NULL && width > 0 && height > 0 && (channels == 1 || channels == 3 || channels == 4)
         && stride >= width * channels) << "Invalid args";
 
     cv::Mat cv_img;
@@ -125,7 +125,10 @@ void CropImageAndResize(const cv::Mat &cv_img,
 // (x1, y1, x2, y2), which is (centerX-cropLeft*baseWidth, centerY-cropUp*baseWidth, 
 //  centerX+cropRight*baseWidth, centerY+cropDown*baseWidth) 
 // The separate of baseWidth is for convenient so that the crop params can be relatively fixed for the same scenario.
-__declspec(dllexport) void CropImageAndResize(const unsigned char* image, int width, int height, int channels, int stride,
+#ifdef _MSC_VER
+ __declspec(dllexport)
+#endif
+void CropImageAndResize(const unsigned char* image, int width, int height, int channels, int stride,
     std::string &dst, int dstWidth, int dstHeight,
     float centerX, float centerY, float ratationRadius,
     float baseWidth, float cropUp, float cropDown, float cropLeft, float cropRight)

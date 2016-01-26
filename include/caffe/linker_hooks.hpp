@@ -63,6 +63,7 @@ namespace caffe {
   FUNC(ImageData); \
   FUNC(InfogainLoss); \
   FUNC(InnerProduct); \
+  FUNC(L2Norm); \
   FUNC(Log); \
   FUNC(LRN); \
   FUNC(MemoryData); \
@@ -87,6 +88,7 @@ namespace caffe {
   FUNC(TanH); \
   FUNC(Threshold); \
   FUNC(Tile); \
+  FUNC(TripletLoss); \
   FUNC(TsvData); \
   FUNC(WindowData)
 
