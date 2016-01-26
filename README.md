@@ -24,12 +24,15 @@ Once the requirements are satisfied, run these commands
 ```
 git clone git@github.com:MSRCCS/caffe.git
 cd caffe
-git clone git@github.com:MSRDL/wincaffe-3rdparty.git 3rdparty
+git clone git@github.com:leizhangcn/wincaffe-3rdparty.git 3rdparty
 ```
 
 Download `cuDNN v3` [from nVidia website](https://developer.nvidia.com/cudnn). Then run `.\scripts\installCuDNN.ps1 $downloadedZipFile` in PowerShell where `$downloadedZipFile` is the path to your downloaded cuDNN file. Example: `.\scripts\installCuDNN.ps1 ~\Downloads\cudnn-7.0-win-x64-v3.0-prod.zip`
 
-Now, you should be able to build `caffe.sln` 
+Now, you should be able to build `caffe.sln`, except for the caffe.python project.
+
+## Python Setup
+To build caffe.python and use the python wrapper on Windows, please follow [Python Setup](python/SetupPython.md) to setup the python environment. 
 
 ## Development
 
