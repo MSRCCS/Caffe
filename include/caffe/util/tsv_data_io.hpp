@@ -67,7 +67,7 @@ public:
 
 	int Open(const char *fileName, int colData, int colLabel);
 	void Close();
-	void ShuffleData();
+	void ShuffleData(string filename);
 
 	bool IsEOF();
 	void MoveToFirst();

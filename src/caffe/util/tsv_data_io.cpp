@@ -153,35 +153,26 @@ void TsvRawDataFile::Close()
 	_dataFile.Close();
 }
 
-void TsvRawDataFile::ShuffleData()
+void TsvRawDataFile::ShuffleData(string filename)
 {
 	LOG(INFO) << "Loading idx file...";
 	LoadLineIndex(ChangeFileExtension(_tsvFileName, "lineidx").c_str(), _lineIndex);
-		
-	string shuffleFile = ChangeFileExtension(_tsvFileName, "shuffle");
-	std::ifstream infile(shuffleFile.c_str());
-	bool existShuffleFile = infile.good();
-	infile.close();
-		
-	if (!existShuffleFile)
-	{
-		// if lineNumFile is not specified, just do random shuffle
-		std::random_shuffle(_lineIndex.begin(), _lineIndex.end());
-	}
-	else
-	{
-		LOG(INFO) << "Loading shuffle file...";
-		// shuffle file consists of random line numbers (not line index which corresponds to file position of each line)
-		// this kind of shuffle is useful for constructing pairwise or triplet data
-		// note that the shuffle file may contains more lines than index file, which means that data could be repeatedly used
-		// for triplet training.
-		vector<int64_t> shuffle;
-		LoadLineIndex(shuffleFile.c_str(), shuffle);
-		vector<int64_t> newLineIndex(shuffle.size());
-		for (int i = 0; i < shuffle.size(); i++)
-			newLineIndex[i] = _lineIndex[shuffle[i]];
-		_lineIndex = newLineIndex;
-	}
+
+    string shuffleFile = filename;
+    if (shuffleFile.size() == 0)
+        shuffleFile = ChangeFileExtension(_tsvFileName, "shuffle");
+
+    LOG(INFO) << "Loading shuffle file...";
+	// shuffle file consists of random line numbers (not line index which corresponds to file position of each line)
+	// this kind of shuffle is useful for constructing pairwise or triplet data
+	// note that the shuffle file may contains more lines than index file, which means that data could be repeatedly used
+	// for triplet training.
+	vector<int64_t> shuffle;
+	LoadLineIndex(shuffleFile.c_str(), shuffle);
+	vector<int64_t> newLineIndex(shuffle.size());
+	for (int i = 0; i < shuffle.size(); i++)
+		newLineIndex[i] = _lineIndex[shuffle[i]];
+	_lineIndex = newLineIndex;
 }
 
 bool TsvRawDataFile::IsEOF()
