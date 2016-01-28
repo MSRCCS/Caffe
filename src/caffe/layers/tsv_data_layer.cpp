@@ -153,18 +153,19 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
   // open TSV file
   string tsv_data = tsv_param.source();
+  string tsv_shuffle = tsv_param.source_shuffle();  // shuffle file is required
   int col_data = tsv_param.col_data();
   int col_label = tsv_param.col_label();
   //int col_crop = tsv_param.col_crop();
   bool has_separate_label_file = tsv_param.has_source_label();
 
   tsv_.Open(tsv_data.c_str(), col_data, has_separate_label_file ? -1 : col_label);
-  tsv_.ShuffleData();
+  tsv_.ShuffleData(tsv_shuffle);
   if (has_separate_label_file)
   {
 	  string tsv_label = tsv_param.source_label();
 	  tsv_label_.Open(tsv_label.c_str(), -1, col_label);
-	  tsv_label_.ShuffleData();
+	  tsv_label_.ShuffleData(tsv_shuffle);
 	  CHECK_EQ(tsv_.TotalLines(), tsv_label_.TotalLines())
 		  << "Data and label files must have the same line number: " 
 		  << tsv_.TotalLines() << " vs. " << tsv_label_.TotalLines();
