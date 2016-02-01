@@ -211,8 +211,8 @@ template <typename Dtype>
 class thread_closure
 {
 public:
-	thread_closure(vector<string>& b64data, vector<string>& rlabel):
-		base64coded_data(b64data), label(rlabel)
+	thread_closure(vector<string>& b64data, vector<string>& rlabel, vector<Datum>& vdatum):
+        base64coded_data(b64data), label(rlabel), vec_datum(vdatum)
 	{ 
 	}
 	Batch<Dtype>* batch;
@@ -224,6 +224,7 @@ public:
     TsvDataParameter::Base64DataFormat data_format;
 	vector<string>& base64coded_data;
 	vector<string>& label;
+    vector<Datum>& vec_datum;
 	Dtype *top_data;
 	Dtype *top_label;
 };
@@ -239,10 +240,10 @@ void TsvDataLayer<Dtype>::transform_datum(thread_closure<Dtype>& c, size_t dst_i
     if (c.data_format == TsvDataParameter_Base64DataFormat_Image)
     {
         cv::Mat cvImg = ReadImageStreamToCVMat(data, c.new_height, c.new_width, c.channels > 1);
-        Datum datum;
+        Datum &datum = c.vec_datum[i];
         CVMatToDatum(cvImg, &datum);
-        this->transformed_data_.set_cpu_data(c.top_data + offset);
-        this->data_transformer_->Transform(datum, &(this->transformed_data_));
+        //this->transformed_data_.set_cpu_data(c.top_data + offset);
+        //this->data_transformer_->Transform(datum, &(this->transformed_data_));
     }
     else if (c.data_format == TsvDataParameter_Base64DataFormat_RawData)
     {
@@ -306,7 +307,8 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     
     vector<string> base64coded_data;
 	vector<string> label;
-	thread_closure<Dtype> c(base64coded_data, label);
+    vector<Datum> vec_datum;
+	thread_closure<Dtype> c(base64coded_data, label, vec_datum);
 	c.batch = batch;
 	c.batch_size = tsv_param.batch_size();
 	c.new_height = tsv_param.new_height();
@@ -316,6 +318,8 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     c.unroll_label = tsv_param.unroll_label();
     c.data_format = tsv_param.data_format();
 	int crop_size = this->layer_param().transform_param().crop_size();
+
+    vec_datum.resize(c.batch_size);
 
 	// initialize the prefetch and top blobs.
 	vector<int> top_shape(4);
@@ -381,6 +385,18 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	}
 	threads.join_all();
 
+    // boost random number generator (boost::mt19937) is used in DataTransformer, but not thread-safe.
+    // also it is not thread-safe to use set_cpu_data for the same transformed_data_ in multiple threads.
+    for (size_t i = 0; i < base64coded_data.size(); i++)
+    {
+        if (c.data_format == TsvDataParameter_Base64DataFormat_Image)
+        {
+            int offset = c.batch->data_.offset(i);
+            Datum &datum = vec_datum[i];
+            this->transformed_data_.set_cpu_data(c.top_data + offset);
+            this->data_transformer_->Transform(datum, &(this->transformed_data_));
+        }
+    }
 	trans_time += timer.MicroSeconds();
 
 	timer.Stop();
