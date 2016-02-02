@@ -15,6 +15,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "caffe.managed", "MSVC\caffe
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "caffe.native", "MSVC\caffe.native\caffe.native.vcxproj", "{214F9422-476A-4B18-83A5-2E1FD5D57AC7}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{4C888461-AAC1-42DE-9D81-68DF314FB5C3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tsv", "MSVC\tsv\Tsv.csproj", "{E3B2891E-0C41-4438-BBD3-640CC27B36BF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CmdParser", "MSVC\CmdParser\CmdParser.csproj", "{5F0E7B5B-5924-4F2A-8CFE-D016003997D0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -45,8 +51,20 @@ Global
 		{214F9422-476A-4B18-83A5-2E1FD5D57AC7}.Debug|x64.Build.0 = Debug|x64
 		{214F9422-476A-4B18-83A5-2E1FD5D57AC7}.Release|x64.ActiveCfg = Release|x64
 		{214F9422-476A-4B18-83A5-2E1FD5D57AC7}.Release|x64.Build.0 = Release|x64
+		{E3B2891E-0C41-4438-BBD3-640CC27B36BF}.Debug|x64.ActiveCfg = Debug|x64
+		{E3B2891E-0C41-4438-BBD3-640CC27B36BF}.Debug|x64.Build.0 = Debug|x64
+		{E3B2891E-0C41-4438-BBD3-640CC27B36BF}.Release|x64.ActiveCfg = Release|x64
+		{E3B2891E-0C41-4438-BBD3-640CC27B36BF}.Release|x64.Build.0 = Release|x64
+		{5F0E7B5B-5924-4F2A-8CFE-D016003997D0}.Debug|x64.ActiveCfg = Debug|x64
+		{5F0E7B5B-5924-4F2A-8CFE-D016003997D0}.Debug|x64.Build.0 = Debug|x64
+		{5F0E7B5B-5924-4F2A-8CFE-D016003997D0}.Release|x64.ActiveCfg = Release|x64
+		{5F0E7B5B-5924-4F2A-8CFE-D016003997D0}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{E3B2891E-0C41-4438-BBD3-640CC27B36BF} = {4C888461-AAC1-42DE-9D81-68DF314FB5C3}
+		{5F0E7B5B-5924-4F2A-8CFE-D016003997D0} = {4C888461-AAC1-42DE-9D81-68DF314FB5C3}
 	EndGlobalSection
 EndGlobal
