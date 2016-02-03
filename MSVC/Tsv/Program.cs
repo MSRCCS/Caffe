@@ -529,8 +529,11 @@ namespace TsvTool
                 .AsParallel().AsOrdered()
                 .Where((tp, i) =>
                 {
-                    Console.Write("Lines processed in input TSV: {0}\r", ++count);
-                    return lineDict.Contains(i);
+                    bool keep = lineDict.Contains(i);
+                    if (keep)
+                        ++count;
+                    Console.Write("Lines processed in input TSV: {0}\r", count);
+                    return keep;
                 });
 
             File.WriteAllLines(cmd.outTsv, outLines);
