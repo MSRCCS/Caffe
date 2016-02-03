@@ -3,5 +3,7 @@
 // but are changed infrequently
 
 #pragma once
-
+#include <msclr\marshal_cppstd.h>
+#include <cuda_runtime.h> 
+#include "_CaffeModel.h"
 
