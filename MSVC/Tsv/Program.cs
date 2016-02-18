@@ -77,7 +77,10 @@ namespace TsvTool
                     }
                     else
                     {
-                        cls_id = dict[label];
+                        if (dict.ContainsKey(label))
+                            cls_id = dict[label];
+                        else
+                            cls_id = -1;
                     }
                     Console.Write("Line processed: {0}\r", ++count);
                     return new List<string>() { label, cls_id.ToString() };
@@ -89,7 +92,7 @@ namespace TsvTool
 
             if (cmd.labelmap == null)
             {
-                File.WriteAllLines(Path.ChangeExtension(cmd.inTsv, ".labelmap"), 
+                File.WriteAllLines(Path.ChangeExtension(cmd.inTsv, ".labelmap"),
                     dict.Select(kv => kv.Key + "\t" + kv.Value.ToString()));
                 Console.WriteLine("Labelmap file saved.");
             }
@@ -171,7 +174,7 @@ namespace TsvTool
         {
             Console.WriteLine("Finding images in {0}...", cmd.inFolder);
             var allFiles = Directory.GetFiles(cmd.inFolder, "*.*", SearchOption.AllDirectories)
-                            .Where(file => file.ToLower().EndsWith("jpg") 
+                            .Where(file => file.ToLower().EndsWith("jpg")
                                             || file.ToLower().EndsWith("bmp")
                                             || file.ToLower().EndsWith("png"))
                             .OrderBy(file => file)
@@ -183,7 +186,7 @@ namespace TsvTool
             {
                 int count = 0;
                 foreach (string file in allFiles)
-                { 
+                {
                     byte[] img = File.ReadAllBytes(file);
                     count++;
                     string imageFileName = file.Substring(cmd.inFolder.Length + 1);
@@ -264,7 +267,7 @@ namespace TsvTool
             int total_lines = 0;
             int count = 0;
             var lines = File.ReadLines(cmd.inTsv).AsParallel().AsOrdered()
-            .Where(line => 
+            .Where(line =>
                 {
                     var cols = line.Split('\t');
                     string strImage = cols[cmd.imageCol];
@@ -350,6 +353,148 @@ namespace TsvTool
             Console.WriteLine("\nDone!");
         }
 
+        class ArgsClassSplit
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for label string")]
+            public int labelCol = -1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Training data ratio")]
+            public double ratio = 0.8;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Minimal Training Sample Number: ignore the class with less than [min] samples")]
+            public int min = 1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Maximal Training Sample Number: drop the extra data after a class has [max] samples, -1 (default value) means no drop/use all samples")]
+            public int max = -1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output Train Shuffle file (default: replace inTsv file ext. with .train.shuffle")]
+            public string outShuffleTrain = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output Train Shuffle file (default: replace inTsv file ext. with .test.shuffle")]
+            public string outShuffleTest = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output intermediate file (default: replace inTsv file ext. with .inter.tsv")]
+            public string outIntermediate = null;
+        }
+
+        static void ClassSplit(ArgsClassSplit cmd)
+        {
+            Random rnd = new Random();
+
+            if (cmd.outShuffleTrain == null)
+                cmd.outShuffleTrain = Path.ChangeExtension(cmd.inTsv, ".train.shuffle");
+            if (cmd.outShuffleTest == null)
+                cmd.outShuffleTest = Path.ChangeExtension(cmd.inTsv, ".test.shuffle");
+            if (cmd.outIntermediate == null)
+                cmd.outIntermediate = Path.ChangeExtension(cmd.inTsv, ".split.inter.tsv");
+            var sw_intermediate = new StreamWriter(cmd.outIntermediate);
+
+            int count = 0;
+            int total_sample_selected, total_train, total_test;
+            total_train = total_test = total_sample_selected = 0;
+            int group = 0;
+            int small_group = 0;    //counter for groups which has less than cmd.min samples, all the samples in these groups will be ignored
+            int total_ignored_small = 0;
+            int big_group = 0;      //counter for groups which has more than cmd.max samples, the extra samples (after cmd.max) will be ignored (randomly)
+            int total_ignored_big = 0;
+
+            var split = File.ReadLines(cmd.inTsv)
+                //.AsParallel()
+                .Select((line, i) =>
+                {
+                    Console.Write("lines processed: {0}\r", ++count);
+                    var cols = line.Split('\t');
+                    var label = cols[cmd.labelCol];
+                    return new
+                    {
+                        lineNumber = i,
+                        clsLabel = label
+                    };
+                })
+                .GroupBy(tp => tp.clsLabel)
+                //.AsParallel()   //will this conflict with Random shuffle below?
+                .Where(g =>
+                {
+                    Console.Write("groups processed: {0}\r", ++group); 
+
+                    var total = g.Count();
+                    if (total < cmd.min)
+                    {
+                        small_group++;
+                        total_ignored_small += total;
+                        sw_intermediate.WriteLine(
+                            "Group[{0}]\tClassLabel:{1}\tTotalSample#:{2}\t<min({3}), ignored",
+                            group, g.Key, total, cmd.min);
+                    }
+                    return total >= cmd.min;
+                })
+                .Select(g =>
+                {
+                    int total = g.Count();
+                    int sample_selected = (cmd.max >= cmd.min && cmd.max > 0) ? Math.Min(cmd.max, total) : total;
+                    int train_num = (int)(Math.Ceiling(sample_selected * cmd.ratio));
+                    int test_num = sample_selected - train_num;
+                    int ignored_num = total - sample_selected;
+                    if (total > sample_selected)
+                    {
+                        big_group++;
+                        total_ignored_big += ignored_num;
+                    }
+                    total_sample_selected += sample_selected;
+                    total_train += train_num;
+                    total_test += test_num;
+
+                    var shuffle = g.AsEnumerable()
+                        .Select(tp => Tuple.Create(tp.lineNumber, rnd.Next()))
+                        .OrderBy(tp => tp.Item2)
+                        .Select(tp => tp.Item1)
+                        .Take(sample_selected)
+                        .ToArray();
+
+                    var train = shuffle.Take(train_num).ToArray();
+                    var test = shuffle.Skip(train_num).ToArray();
+
+                    sw_intermediate.WriteLine(
+                        "Group[{0}]\tClassLabel:{1}\tTotalSample#:{2}\tTrainSampleNum:{3}\tTestSampleNum:{4}\tIgnoredSampleNum:{5}",
+                        group, g.Key, total, train_num, test_num, ignored_num);
+                    return Tuple.Create(train, test, g.Key);                    
+                })
+                .ToList();
+
+            var train_shuffle = split
+                .SelectMany(train_test => train_test.Item1)
+                .Select(num => Tuple.Create(num, rnd.Next()))
+                .OrderBy(tp => tp.Item2)
+                .Select(tp => tp.Item1.ToString());
+
+            var test_shuffle = split
+                .SelectMany(train_test => train_test.Item2)
+                .Select(num => Tuple.Create(num, rnd.Next()))
+                .OrderBy(tp => tp.Item2)
+                .Select(tp => tp.Item1.ToString());
+
+            var LabelList = split
+                .Select((tp, i) => tp.Item3 + "\t" + i.ToString());
+
+            File.WriteAllLines(cmd.outShuffleTrain, train_shuffle);
+            File.WriteAllLines(cmd.outShuffleTest, test_shuffle);
+            File.WriteAllLines(Path.ChangeExtension(cmd.inTsv, ".selected.labelmap"), LabelList);
+            Console.WriteLine("\nDone!");
+
+            var ClassSummary = String.Format(
+                "\nTotal Classes: {0}\tsmall_class(sample#<{1}): {2}({6}%)\tbig_class(sample#>{3}({7}%)): {4}\tselected_class: {5}({8}%)\n",
+                group, cmd.min, small_group, cmd.max, big_group, group - small_group,
+                small_group * 100.0f / group, big_group * 100.0f / group, (group - small_group) * 100.0f / group);
+            var SampleSummary = String.Format(
+                "\nTotal Lines: {0}\ttrain: {1}({5}%)\ttest: {2}({6}%)\tignored_in_small_class: {3}({7}%)\tignored_in_big_class: {4}({8}%)\n",
+                count, total_train, total_test, total_ignored_small, total_ignored_big,
+                total_train * 100.0f / count, total_test * 100.0f / count, total_ignored_small * 100.0f / count, total_ignored_big * 100.0f / count);
+
+            Console.WriteLine(ClassSummary);
+            Console.WriteLine(SampleSummary);
+
+            sw_intermediate.WriteLine(ClassSummary);
+            sw_intermediate.WriteLine(SampleSummary);
+            sw_intermediate.Close();
+
+        }
+
         class ArgsTriplet
         {
             [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
@@ -372,10 +517,10 @@ namespace TsvTool
             Console.WriteLine("Loading labels ...");
             var labels = File.ReadLines(cmd.inTsv)
                 .Select(line => line.Split('\t'))
-                .Select((cols, idx) => new {label = Convert.ToInt32(cols[cmd.labelCol]), line_num = idx})
+                .Select((cols, idx) => new { label = Convert.ToInt32(cols[cmd.labelCol]), line_num = idx })
                 .ToArray();
             Console.WriteLine("Labels loaded: {0}", labels.Count());
-            
+
             var groups = labels
                 .GroupBy(x => x.label)
                 .ToArray();
@@ -475,23 +620,23 @@ namespace TsvTool
             var dict = whitelist.OrderBy(x => x)
                     .Select((x, i) => Tuple.Create(x, i))
                     .ToDictionary(x => x.Item1, x => x.Item2);
-            
+
             string labelmap = Path.ChangeExtension(cmd.inTsv, ".labelmap");
-            File.WriteAllLines(labelmap, 
+            File.WriteAllLines(labelmap,
                     dict.ToArray().OrderBy(kv => kv.Value).Select(kv => kv.Key + "\t" + kv.Value.ToString()));
             Console.WriteLine("Labelmap file saved to: {0}", labelmap);
 
             int count = 0;
             var lines = File.ReadLines(cmd.inTsv)
                 //.AsParallel().AsOrdered()
-                .Select(line => 
+                .Select(line =>
                 {
                     ++count;
                     if (count % 1000 == 0)
                         Console.Write("Lines processed: {0}\r", count);
                     return line.Split('\t').ToList();
                 })
-                .Select(cols => 
+                .Select(cols =>
                     {
                         int cls_id;
                         if (!dict.TryGetValue(cols[cmd.labelCol], out cls_id))
@@ -554,6 +699,7 @@ namespace TsvTool
             ParserX.AddTask<ArgsTriplet>(Triplet, "Generate triplet shuffle file");
             ParserX.AddTask<ArgsFilterLabels>(FilterLabels, "Filter data based on label dict");
             ParserX.AddTask<ArgsFilterLines>(FilterLines, "Filter lines based on line number files (normally a shuffle file)");
+            ParserX.AddTask<ArgsClassSplit>(ClassSplit, "Split data into training and testing acording to class labels");
             if (ParserX.ParseArgumentsWithUsage(args))
             {
                 Stopwatch timer = Stopwatch.StartNew();
