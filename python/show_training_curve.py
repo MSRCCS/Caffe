@@ -70,11 +70,11 @@ def PlotTrainingLog(logfile):
     except:
         print ' '
 
+    plt.plot(iterList, iterTimeCostList, 'y-', label='time cost(sec)')
     plt.plot(iterList, lossList, 'r-', label='train loss')    
     plt.plot(iterTestList, testScoreList1, 'b*-', label='test loss')
     plt.plot(iterTestList, testScoreList0, 'g*-', label='test accuracy * 10')
     plt.plot(itrLrList, lrList, 'k-', label='learning rate')
-    plt.plot(iterList, iterTimeCostList, 'y-', label='time cost(sec)')
     return plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2, mode="expand", borderaxespad=0.)
 
 def main(argv):
