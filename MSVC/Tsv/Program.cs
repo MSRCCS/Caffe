@@ -651,7 +651,7 @@ namespace TsvTool
             Console.WriteLine("\nDone.");
         }
 
-        class ArgsFilterLines
+        class ArgsCutRow
         {
             [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
             public string inTsv = null;
@@ -661,7 +661,7 @@ namespace TsvTool
             public string outTsv = null;
         }
 
-        static void FilterLines(ArgsFilterLines cmd)
+        static void CutRow(ArgsCutRow cmd)
         {
             var lines = File.ReadLines(cmd.lines)
                 .Select(line => line.Split('\t')[0])
@@ -685,21 +685,102 @@ namespace TsvTool
             Console.WriteLine("\nDone.");
         }
 
+        class ArgsCutCol
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.Required, HelpText = "Columns to cut, e.g. 0,2,4,7")]
+            public string columns = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace inTsv .ext with .cut.tsv)")]
+            public string outTsv = null;
+        }
+
+        static void CutCol(ArgsCutCol cmd)
+        {
+            if (cmd.outTsv == null)
+                cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".cut.tsv");
+
+            var col_indices = cmd.columns.Split(',').Select(x => Convert.ToInt32(x)).ToArray();
+
+            int count = 0;
+            var lines = File.ReadLines(cmd.inTsv)
+                .AsParallel().AsOrdered()
+                .Select(line => line.Split('\t'))
+                .Select(cols =>
+                {
+                    var new_cols = col_indices.Select(col_idx => cols[col_idx]);
+                    if (++count % 100 == 0)
+                        Console.Write("Lines processed: {0}\r", count);
+                    return new_cols;
+                })
+                .Select(cols => string.Join("\t", cols));
+
+            File.WriteAllLines(cmd.outTsv, lines);
+            Console.Write("Lines processed: {0}", count);
+            Console.WriteLine("\nDone.");
+        }
+
+        class ArgsFilterLines
+        {
+            [Argument(ArgumentType.Required, HelpText = "TSV A with optional col index (default 0) prefixed with '?'. E.g. abc.tsv?1")]
+            public string a = null;
+            [Argument(ArgumentType.Required, HelpText = "TSV B with optional col index (default 0) prefixed with '?'. E.g. abc.tsv?1")]
+            public string b = null;
+            [Argument(ArgumentType.Required, HelpText = "Output TSV file")]
+            public string outTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Reverse Cut (default: false). That is, keep lines in A with keys NOT in B")]
+            public bool reverse = false;
+        }
+
+        static void FilterLines(ArgsFilterLines cmd)
+        {
+            var arg_a = cmd.a.Split('?');
+            var arg_b = cmd.b.Split('?');
+            cmd.a = arg_a[0];
+            cmd.b = arg_b[0];
+            int col_a = arg_a.Length > 1 ? Convert.ToInt32(arg_a[1]) : 0;
+            int col_b = arg_b.Length > 1 ? Convert.ToInt32(arg_b[1]) : 0;
+
+            var set_b = new HashSet<string>(File.ReadLines(cmd.b)
+                                            .Select(line => line.Split('\t')[col_b])
+                                            .Distinct(),
+                                            StringComparer.Ordinal);
+            Console.WriteLine("Distinct labels in B: {0}", set_b.Count());
+
+            int count = 0;
+            var lines = File.ReadLines(cmd.a)
+                .Where(line =>
+                {
+                    Console.Write("Lines processed: {0}\r", ++count);
+                    bool contain = set_b.Contains(line.Split('\t')[col_a]);
+                    return cmd.reverse ? !contain : contain;
+                });
+
+            File.WriteAllLines(cmd.outTsv, lines);
+            Console.WriteLine("\nDone.");
+        }
+
         static void Main(string[] args)
         {
             ParserX.AddTask<ArgsLabel>(Label, "Generate label file with class id and generate (or use) .labelmap file");
             ParserX.AddTask<ArgsIndex>(Index, "Build line index for random access");
             ParserX.AddTask<ArgsShuffle>(Shuffle, "Shuffle data by generating shuffle line number list");
+            
+            ParserX.AddTask<ArgsCutCol>(CutCol, "Cut columns from TSV file");
+            ParserX.AddTask<ArgsCutRow>(CutRow, "Cut rows based on line number files (normally a shuffle file)");
+            ParserX.AddTask<ArgsFilterLines>(FilterLines, "Filter lines in A with keys in B (or reversely, not in B), according to the specified column");
+            ParserX.AddTask<ArgsClassSplit>(ClassSplit, "Split data into training and testing acording to class labels");
+
             ParserX.AddTask<ArgsList2Tsv>(List2Tsv, "Generate TSV file from list file");
             ParserX.AddTask<ArgsFolder2Tsv>(Folder2Tsv, "Generate TSV file from folder images");
             ParserX.AddTask<ArgsTsv2Folder>(Tsv2Folder, "Unpack images in TSV file to folder images");
+            
             ParserX.AddTask<ArgsRemoveNonImage>(RemoveNonImage, "Remove non image lines in TSV");
             ParserX.AddTask<ArgsDumpB64>(DumpB64, "Dump and decode base64_encoded data");
+
             ParserX.AddTask<ArgsSplit>(Split, "Split data into training and testing");
             ParserX.AddTask<ArgsTriplet>(Triplet, "Generate triplet shuffle file");
             ParserX.AddTask<ArgsFilterLabels>(FilterLabels, "Filter data based on label dict");
-            ParserX.AddTask<ArgsFilterLines>(FilterLines, "Filter lines based on line number files (normally a shuffle file)");
-            ParserX.AddTask<ArgsClassSplit>(ClassSplit, "Split data into training and testing acording to class labels");
             if (ParserX.ParseArgumentsWithUsage(args))
             {
                 Stopwatch timer = Stopwatch.StartNew();
