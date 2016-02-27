@@ -19,6 +19,8 @@ namespace CaffeExtract
             public string proto = null;
             [Argument(ArgumentType.Required, HelpText = "Caffe model file")]
             public string model = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Caffe model label map file")]
+            public string labelmap = null;
             [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
             public string inTsv = null;
             [Argument(ArgumentType.Required, HelpText = "Column index for image stream")]
@@ -27,6 +29,8 @@ namespace CaffeExtract
             public string[] blob = new string[]{};
             [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace inTsv .ext with .blobname.tsv")]
             public string outTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Top k prediction, when labelmap is provided")]
+            public int topK = 5;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Gpu Id (default: 0, -1 for cpu)")]
             public int gpu = 0;
         }
@@ -38,6 +42,11 @@ namespace CaffeExtract
 
             CaffeModel.SetDevice(cmd.gpu);
             CaffeModel predictor = new CaffeModel(cmd.proto, cmd.model);
+
+            var labelmap = cmd.labelmap == null ? null :
+                File.ReadLines(cmd.labelmap)
+                    .Select(line => line.Split('\t')[0])
+                    .ToArray();
 
             Stopwatch timer = Stopwatch.StartNew();
             int count = 0;
@@ -52,9 +61,20 @@ namespace CaffeExtract
                         float[][] features = predictor.ExtractOutputs(img, cmd.blob);
                         foreach (var blob_feature in features)
                         {
-                            byte[] fea = new byte[blob_feature.Length * sizeof(float)];
-                            Buffer.BlockCopy(blob_feature, 0, fea, 0, blob_feature.Length * sizeof(float));
-                            cols.Add(Convert.ToBase64String(fea));
+                            if (labelmap == null)
+                            {
+                                byte[] fea = new byte[blob_feature.Length * sizeof(float)];
+                                Buffer.BlockCopy(blob_feature, 0, fea, 0, blob_feature.Length * sizeof(float));
+                                cols.Add(Convert.ToBase64String(fea));
+                            }
+                            else
+                            {
+                                var topk = blob_feature.Select((x, idx) => Tuple.Create(x, idx))
+                                    .OrderByDescending(tp => tp.Item1)
+                                    .Take(cmd.topK)
+                                    .Select(tp => labelmap[tp.Item2] + ":" + tp.Item1);
+                                cols.Add(string.Join(";", topk));                                    
+                            }
                         }
                     }
                     Console.Write("{0}\r", ++count);
