@@ -19,6 +19,8 @@ namespace CaffeExtract
             public string proto = null;
             [Argument(ArgumentType.Required, HelpText = "Caffe model file")]
             public string model = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Image mean binary proto file")]
+            public string trainMean = null;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Caffe model label map file")]
             public string labelmap = null;
             [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
@@ -42,6 +44,8 @@ namespace CaffeExtract
 
             CaffeModel.SetDevice(cmd.gpu);
             CaffeModel predictor = new CaffeModel(cmd.proto, cmd.model);
+            if (cmd.trainMean != null)
+                predictor.SetMeanFile(cmd.trainMean);
 
             var labelmap = cmd.labelmap == null ? null :
                 File.ReadLines(cmd.labelmap)
