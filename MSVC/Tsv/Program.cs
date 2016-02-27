@@ -671,7 +671,6 @@ namespace TsvTool
 
             int count = 0;
             var outLines = File.ReadLines(cmd.inTsv)
-                .AsParallel().AsOrdered()
                 .Where((tp, i) =>
                 {
                     bool keep = lineDict.Contains(i);
@@ -704,7 +703,6 @@ namespace TsvTool
 
             int count = 0;
             var lines = File.ReadLines(cmd.inTsv)
-                .AsParallel().AsOrdered()
                 .Select(line => line.Split('\t'))
                 .Select(cols =>
                 {
@@ -760,6 +758,31 @@ namespace TsvTool
             Console.WriteLine("\nDone.");
         }
 
+        class ArgsPasteCol
+        {
+            [Argument(ArgumentType.Required, HelpText = "TSV A ")]
+            public string a = null;
+            [Argument(ArgumentType.Required, HelpText = "TSV B")]
+            public string b = null;
+            [Argument(ArgumentType.Required, HelpText = "Output TSV file")]
+            public string outTsv = null;
+        }
+
+        static void PasteCol(ArgsPasteCol cmd)
+        {
+            int count = 0;
+            var b_lines = File.ReadLines(cmd.b);
+            var lines = File.ReadLines(cmd.a)
+                .Zip(b_lines, (first, second) =>
+                {
+                    Console.Write("Lines processed: {0}\r", ++count);
+                    return first + "\t" + second;
+                });
+
+            File.WriteAllLines(cmd.outTsv, lines);
+            Console.WriteLine("\nDone.");
+        }
+
         static void Main(string[] args)
         {
             ParserX.AddTask<ArgsLabel>(Label, "Generate label file with class id and generate (or use) .labelmap file");
@@ -768,6 +791,7 @@ namespace TsvTool
             
             ParserX.AddTask<ArgsCutCol>(CutCol, "Cut columns from TSV file");
             ParserX.AddTask<ArgsCutRow>(CutRow, "Cut rows based on line number files (normally a shuffle file)");
+            ParserX.AddTask<ArgsPasteCol>(PasteCol, "Paste two TSV files by concatenating corresponding lines seperated by TAB");
             ParserX.AddTask<ArgsFilterLines>(FilterLines, "Filter lines in A with keys in B (or reversely, not in B), according to the specified column");
             ParserX.AddTask<ArgsClassSplit>(ClassSplit, "Split data into training and testing acording to class labels");
 
