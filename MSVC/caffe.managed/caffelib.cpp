@@ -20,6 +20,7 @@ namespace CaffeLibMC {
     {
     private:
         _CaffeModel *m_net;
+        String ^_netFile;
 
     public:
         static int DeviceCount;
@@ -38,7 +39,14 @@ namespace CaffeLibMC {
 
         CaffeModel(String ^netFile, String ^modelFile)
         {
+            _netFile = Path::GetFullPath(netFile);
             m_net = new _CaffeModel(TO_NATIVE_STRING(netFile), TO_NATIVE_STRING(modelFile));
+        }
+
+        CaffeModel(CaffeModel ^other)
+        {
+            String ^netFile = other->_netFile;
+            m_net = new _CaffeModel(TO_NATIVE_STRING(netFile), other->m_net);
         }
 
         // destructor to call finalizer
@@ -54,27 +62,22 @@ namespace CaffeLibMC {
             m_net = NULL;
         }
 
-        array<float>^ ExtractOutputs(String^ imageFile, int interpolation, String^ blobName)
+        String^ GetNetFileName()
         {
-            FloatArray intermediate = m_net->ExtractOutputs(TO_NATIVE_STRING(imageFile), interpolation, TO_NATIVE_STRING(blobName));
-            MARSHAL_ARRAY(intermediate, outputs)
-                return outputs;
+            return _netFile;
         }
 
-        array<array<float>^>^ ExtractOutputs(String^ imageFile, int interpolation, array<String^>^ blobNames)
+        void SetMeanFile(String ^meanFile)
         {
-            std::vector<std::string> names;
-            for each(String^ name in blobNames)
-                names.push_back(TO_NATIVE_STRING(name));
-            std::vector<FloatArray> intermediates = m_net->ExtractOutputs(TO_NATIVE_STRING(imageFile), interpolation, names);
-            auto outputs = gcnew array<array<float>^>(names.size());
-            for (int i = 0; i < names.size(); ++i)
-            {
-                auto intermediate = intermediates[i];
-                MARSHAL_ARRAY(intermediate, values)
-                    outputs[i] = values;
-            }
-            return outputs;
+            m_net->SetMeanFile(TO_NATIVE_STRING(Path::GetFullPath(meanFile)));
+        }
+
+        void SetMeanValue(array<float> ^meanValue)
+        {
+            vector<float> mean_value(meanValue->Length);
+            pin_ptr<float> pma = &meanValue[0];
+            memcpy(&mean_value[0], pma, meanValue->Length * sizeof(float));
+            m_net->SetMeanValue(mean_value);
         }
 
         string ConvertToDatum(Bitmap ^imgData)
@@ -146,6 +149,6 @@ namespace CaffeLibMC {
             }
             return outputs;
         }
-
     };
+
 }
