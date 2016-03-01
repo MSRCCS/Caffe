@@ -55,6 +55,10 @@
       <Project>{5f0e7b5b-5924-4f2a-8cfe-d016003997d0}</Project>
       <Name>CmdParser</Name>
     </ProjectReference>
+    <ProjectReference Include="..\TsvTool.Utility\TsvTool.Utility.csproj">
+      <Project>{19ad9555-4cd9-45ad-9c07-a55f415dc2ed}</Project>
+      <Name>TsvTool.Utility</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
