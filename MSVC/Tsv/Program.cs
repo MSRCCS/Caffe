@@ -9,6 +9,7 @@ using System.IO;
 using System.Drawing;
 using System.Diagnostics;
 using CmdParser;
+using TsvTool.Utility;
 
 namespace TsvTool
 {
@@ -669,16 +670,9 @@ namespace TsvTool
             var lineDict = new HashSet<int>(lines);
             Console.WriteLine("Line numbers loaded: {0}", lines.Count());
 
-            int count = 0;
             var outLines = File.ReadLines(cmd.inTsv)
-                .Where((tp, i) =>
-                {
-                    bool keep = lineDict.Contains(i);
-                    if (keep)
-                        ++count;
-                    Console.Write("Lines processed in input TSV: {0}\r", count);
-                    return keep;
-                });
+                .Where((tp, i) => lineDict.Contains(i))
+                .ReportProgress("Lines saved");
 
             File.WriteAllLines(cmd.outTsv, outLines);
             Console.WriteLine("\nDone.");
@@ -783,6 +777,38 @@ namespace TsvTool
             Console.WriteLine("\nDone.");
         }
 
+        class ArgsDistinct
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for key (default: 0)")]
+            public int key = 0;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace inTsv .ext with .distinct.tsv)")]
+            public string outTsv = null;
+        }
+
+        static void Distinct(ArgsDistinct cmd)
+        {
+            if (cmd.outTsv == null)
+                cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".distinct.tsv");
+
+            var key_set = new HashSet<string>();
+            var lines = File.ReadLines(cmd.inTsv)
+                .ReportProgress("Lines processed")
+                .Select(line =>
+                {
+                    var key = line.Split('\t')[cmd.key];
+                    bool distinct = !key_set.Contains(key);
+                    key_set.Add(key);
+                    return Tuple.Create(line, distinct);
+                })
+                .Where(tp => tp.Item2)
+                .Select(tp => tp.Item1);
+
+            File.WriteAllLines(cmd.outTsv, lines);
+            Console.WriteLine("\nDone.");
+        }
+
         static void Main(string[] args)
         {
             ParserX.AddTask<ArgsLabel>(Label, "Generate label file with class id and generate (or use) .labelmap file");
@@ -793,6 +819,7 @@ namespace TsvTool
             ParserX.AddTask<ArgsCutRow>(CutRow, "Cut rows based on line number files (normally a shuffle file)");
             ParserX.AddTask<ArgsPasteCol>(PasteCol, "Paste two TSV files by concatenating corresponding lines seperated by TAB");
             ParserX.AddTask<ArgsFilterLines>(FilterLines, "Filter lines in A with keys in B (or reversely, not in B), according to the specified column");
+            ParserX.AddTask<ArgsDistinct>(Distinct, "Find distinct lines based on the specified key column");
             ParserX.AddTask<ArgsClassSplit>(ClassSplit, "Split data into training and testing acording to class labels");
 
             ParserX.AddTask<ArgsList2Tsv>(List2Tsv, "Generate TSV file from list file");

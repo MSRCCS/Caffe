@@ -114,6 +114,12 @@ void _CaffeModel::SetMeanValue(const vector<float> &meanValue)
     _data_transformer->InitRand();
 }
 
+int _CaffeModel::GetInputImageNum()
+{
+    Blob<float>* input_blob = _net->input_blobs()[0];
+    return input_blob->num();
+}
+
 int _CaffeModel::GetInputImageWidth()
 {
     if (_mean_file.size() > 0)
@@ -136,36 +142,45 @@ int _CaffeModel::GetInputImageChannels()
     return input_blob->channels();
 }
 
-void _CaffeModel::EvaluateBitmap(const string &imageData, int interpolation)
+void _CaffeModel::EvaluateBitmap(const std::vector<std::string> &imageData, int interpolation)
 {
     Blob<float>* input_blob = _net->input_blobs()[0];
-    float* input_data = input_blob->mutable_cpu_data();
+
+    CHECK_LE(imageData.size(), input_blob->num()) << "Input images (" << imageData.size() 
+            << ") should be no more than batch size (" << input_blob->num() << ")";
+
     if (_data_transformer)
     {
+        vector<Datum> datum_vector;
         Datum datum;
         datum.set_channels(3);
         datum.set_height(this->GetInputImageHeight());
         datum.set_width(this->GetInputImageWidth());
-        datum.set_label(0);
         datum.clear_data();
         datum.clear_float_data();
-        datum.set_data(imageData);
 
-        _data_transformer->Transform(datum, input_blob);
+        for (int n = 0; n < imageData.size(); n++)
+        {
+            datum.set_data(imageData[n]);
+            datum_vector.push_back(datum);
+        }
+        _data_transformer->Transform(datum_vector, input_blob);
     }
     else
     {
-        Blob<float>* input_blob = _net->input_blobs()[0];
         int height = input_blob->height();
         int width = input_blob->width();
 
+        float* input_data = input_blob->mutable_cpu_data();
+        float *input_data_ptr = input_data;
         // imageData is already in the format of c*h*w
-        BYTE * src_data = (BYTE *)&imageData[0];
-        for (int i = 0; i < 3; ++i)
+        for (int n = 0; n < imageData.size(); n++)
         {
-            *input_data = (float)src_data[i];
+            const string &img_data = imageData[n];
+            BYTE * src_data = (BYTE *)&img_data[0];
+            for (int i = 0; i < input_blob->count(); ++i)
+                *input_data_ptr++ = (float)src_data[i];
         }
-
     }
 
     float loss = 0.0;
@@ -173,14 +188,14 @@ void _CaffeModel::EvaluateBitmap(const string &imageData, int interpolation)
 
 }
 
-FloatArray _CaffeModel::ExtractBitmapOutputs(const std::string &imageData, int interpolation, const string &blobName)
+FloatArray _CaffeModel::ExtractBitmapOutputs(const std::vector<std::string> &imageData, int interpolation, const string &blobName)
 {
     EvaluateBitmap(imageData, interpolation);
     auto blob = _net->blob_by_name(blobName);
     return FloatArray(blob->cpu_data(), blob->count());
 }
 
-vector<FloatArray> _CaffeModel::ExtractBitmapOutputs(const std::string &imageData, int interpolation, const vector<string> &layerNames)
+vector<FloatArray> _CaffeModel::ExtractBitmapOutputs(const std::vector<std::string> &imageData, int interpolation, const vector<string> &layerNames)
 {
     EvaluateBitmap(imageData, interpolation);
     vector<FloatArray> results;

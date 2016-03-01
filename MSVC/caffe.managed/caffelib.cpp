@@ -67,6 +67,11 @@ namespace CaffeLibMC {
             return _netFile;
         }
 
+        int GetInputImageNum()
+        {
+            return m_net->GetInputImageNum();
+        }
+
         void SetMeanFile(String ^meanFile)
         {
             m_net->SetMeanFile(TO_NATIVE_STRING(Path::GetFullPath(meanFile)));
@@ -90,16 +95,10 @@ namespace CaffeLibMC {
             Drawing::Rectangle rc = Drawing::Rectangle(0, 0, width, height);
 
             // resize image
-            Bitmap ^resizedBmp;
-            if (width == imgData->Width && height == imgData->Height)
-            {
-                resizedBmp = imgData->Clone(rc, PixelFormat::Format24bppRgb);
-            }
-            else
-            {
-                resizedBmp = gcnew Bitmap((Image ^)imgData, width, height);
-                resizedBmp = resizedBmp->Clone(rc, PixelFormat::Format24bppRgb);
-            }
+            Bitmap ^temp_bmp = gcnew Bitmap((Image ^)imgData, width, height);
+            Bitmap ^resizedBmp = temp_bmp->Clone(rc, PixelFormat::Format24bppRgb);
+            delete temp_bmp;
+
             // get image data block
             BitmapData ^bmpData = resizedBmp->LockBits(rc, ImageLockMode::ReadOnly, resizedBmp->PixelFormat);
             pin_ptr<char> bmpBuffer = (char *)bmpData->Scan0.ToPointer();
@@ -119,27 +118,32 @@ namespace CaffeLibMC {
                 }
             }
             resizedBmp->UnlockBits(bmpData);
+            delete resizedBmp;
 
             return datum_string;
         }
 
-        array<float>^ ExtractOutputs(Bitmap^ imgData, String^ blobName)
+        array<float>^ ExtractOutputs(array<Bitmap^> ^imgData, String^ blobName)
         {
-            string datum_string = ConvertToDatum(imgData);
+            vector<string> datums(imgData->Length);
+            for (int i = 0; i < imgData->Length; i++)
+                datums[i] = ConvertToDatum(imgData[i]);
 
-            FloatArray intermediate = m_net->ExtractBitmapOutputs(datum_string, 0, TO_NATIVE_STRING(blobName));
+            FloatArray intermediate = m_net->ExtractBitmapOutputs(datums, 0, TO_NATIVE_STRING(blobName));
             MARSHAL_ARRAY(intermediate, outputs)
                 return outputs;
         }
 
-        array<array<float>^>^ ExtractOutputs(Bitmap^ imgData, array<String^>^ blobNames)
+        array<array<float>^>^ ExtractOutputs(array<Bitmap^> ^imgData, array<String^>^ blobNames)
         {
-            string datum_string = ConvertToDatum(imgData);
+            vector<string> datums(imgData->Length);
+            for (int i = 0; i < imgData->Length; i++)
+                datums[i] = ConvertToDatum(imgData[i]);
 
             vector<string> names;
             for each(String^ name in blobNames)
                 names.push_back(TO_NATIVE_STRING(name));
-            vector<FloatArray> intermediates = m_net->ExtractBitmapOutputs(datum_string, 0, names);
+            vector<FloatArray> intermediates = m_net->ExtractBitmapOutputs(datums, 0, names);
             auto outputs = gcnew array<array<float>^>(names.size());
             for (int i = 0; i < names.size(); ++i)
             {

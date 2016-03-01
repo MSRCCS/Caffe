@@ -38,7 +38,7 @@ class _CaffeModel
     int _data_mean_width;   // _data_mean_width and _data_mean_height are only valid when _mean_file is set
     int _data_mean_height;
 
-    void EvaluateBitmap(const std::string &imageData, int interpolation);
+    void EvaluateBitmap(const std::vector<std::string> &imageData, int interpolation);
 
 public:
     static void SetDevice(int device_id); //Use a negative number for CPU only
@@ -51,6 +51,7 @@ public:
     void SetMeanFile(const std::string &meanFile);
     void SetMeanValue(const std::vector<float> &meanValue);
 
+    int GetInputImageNum();
     int GetInputImageWidth();
     int GetInputImageHeight();
     int GetInputImageChannels();
@@ -61,6 +62,6 @@ public:
 
     // imageData needs to be of size channel*height*width as required by the "data" blob. 
     // The C++/CLI caller can use GetInputImageWidth()/Height/Channels to get the desired dimension.
-    FloatArray ExtractBitmapOutputs(const std::string &imageData, int interpolation, const std::string &layerName);
-    std::vector<FloatArray> ExtractBitmapOutputs(const std::string &imageData, int interpolation, const std::vector<std::string> &layerNames);
+    FloatArray ExtractBitmapOutputs(const std::vector<std::string> &imageData, int interpolation, const std::string &layerName);
+    std::vector<FloatArray> ExtractBitmapOutputs(const std::vector<std::string> &imageData, int interpolation, const std::vector<std::string> &layerNames);
 };
