@@ -316,6 +316,44 @@ namespace TsvTool
             File.WriteAllBytes(cmd.outFile, data);
         }
 
+        class ArgsResizeImage
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace InTsv .ext with .resize.tsv)")]
+            public string outTsv = null;
+            [Argument(ArgumentType.Required, HelpText = "Column index for image")]
+            public int image = -1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Max image size (default: 256)")]
+            public int size = 256;
+        }
+
+        static void ResizeImage(ArgsResizeImage cmd)
+        {
+            if (cmd.outTsv == null)
+                cmd.outTsv = Path.ChangeExtension(cmd.inTsv, string.Format(".resize{0}.tsv", cmd.size));
+
+            var lines = File.ReadLines(cmd.inTsv)
+                .ReportProgress("Lines progressed")
+                .AsParallel().AsOrdered()
+                .Select(line => line.Split('\t'))
+                .Select(cols =>
+                {
+                    using (var ms = new MemoryStream(Convert.FromBase64String(cols[cmd.image])))
+                    using (var bmp = new Bitmap(ms))
+                    {
+                        Bitmap img = ImageUtility.DownsizeImage(bmp, cmd.size);
+                        byte[] img_buf = ImageUtility.SaveImageToJpegInBuffer(img, 90L);
+                        cols[cmd.image] = Convert.ToBase64String(img_buf);
+                        return cols;
+                    }
+                })
+                .Select(cols => string.Join("\t", cols));
+
+            File.WriteAllLines(cmd.outTsv, lines);
+            Console.WriteLine("Done.");
+        }
+
         class ArgsSplit
         {
             [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
@@ -809,6 +847,40 @@ namespace TsvTool
             Console.WriteLine("\nDone.");
         }
 
+        class ArgsCountLabel
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace InTsv .ext with .stat.tsv)")]
+            public string outTsv = null;
+            [Argument(ArgumentType.Required, HelpText = "Column index for label")]
+            public int label = -1;
+        }
+
+        static void CountLabel(ArgsCountLabel cmd)
+        {
+            if (cmd.outTsv == null)
+                cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".stat.tsv");
+
+            int count = 0;
+            var lines = File.ReadLines(cmd.inTsv)
+                .AsParallel().AsOrdered()
+                .Select(line =>
+                {
+                    if (++count % 100 == 0)
+                        Console.Write("Lines processed: {0}\r", count);
+                    return line.Split('\t')[cmd.label];
+                })
+                .GroupBy(label => label)
+                .Select(g => Tuple.Create(g.Key, g.Count()))
+                .OrderByDescending(tp => tp.Item2)
+                .Select(tp => tp.Item1 + "\t" + tp.Item2);
+
+            File.WriteAllLines(cmd.outTsv, lines);
+            Console.Write("Lines processed: {0}\r", count);
+            Console.WriteLine("\nDone.");
+        }
+
         static void Main(string[] args)
         {
             ParserX.AddTask<ArgsLabel>(Label, "Generate label file with class id and generate (or use) .labelmap file");
@@ -820,12 +892,14 @@ namespace TsvTool
             ParserX.AddTask<ArgsPasteCol>(PasteCol, "Paste two TSV files by concatenating corresponding lines seperated by TAB");
             ParserX.AddTask<ArgsFilterLines>(FilterLines, "Filter lines in A with keys in B (or reversely, not in B), according to the specified column");
             ParserX.AddTask<ArgsDistinct>(Distinct, "Find distinct lines based on the specified key column");
+            ParserX.AddTask<ArgsCountLabel>(CountLabel, "Count for each distinct label");
             ParserX.AddTask<ArgsClassSplit>(ClassSplit, "Split data into training and testing acording to class labels");
 
             ParserX.AddTask<ArgsList2Tsv>(List2Tsv, "Generate TSV file from list file");
             ParserX.AddTask<ArgsFolder2Tsv>(Folder2Tsv, "Generate TSV file from folder images");
             ParserX.AddTask<ArgsTsv2Folder>(Tsv2Folder, "Unpack images in TSV file to folder images");
-            
+
+            ParserX.AddTask<ArgsResizeImage>(ResizeImage, "Resize image");
             ParserX.AddTask<ArgsRemoveNonImage>(RemoveNonImage, "Remove non image lines in TSV");
             ParserX.AddTask<ArgsDumpB64>(DumpB64, "Dump and decode base64_encoded data");
 

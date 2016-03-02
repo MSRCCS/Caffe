@@ -64,7 +64,6 @@ namespace CaffeExtract
             Stopwatch timer = Stopwatch.StartNew();
             int count = 0;
             var lines = File.ReadLines(cmd.inTsv)
-                .Take(500)
                 .Select(line => line.Split('\t').ToList())
                 .Batch(batch_size)
                 .Select(batch =>
