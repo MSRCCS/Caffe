@@ -394,11 +394,15 @@ namespace TsvTool
 
         class ArgsClassSplit
         {
-            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file, which includes both label column and data column")]
             public string inTsv = null;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for label string")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for label string, the samples will be grouped by it and then split into train/test set")]
             public int labelCol = -1;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Training data ratio")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "filter file with optional label col index (default 0) prefixed with '?'. E.g. abc.tsv?1")]
+            public string filterFile = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "by default reverse is off, filter file will be used as blacklist. When reverse is on, the filter file will be used as whitelist")]
+            public bool  reverse = false;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Training data ratio, default = 0.8")]
             public double ratio = 0.8;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Minimal Training Sample Number: ignore the class with less than [min] samples")]
             public int min = 1;
@@ -424,10 +428,28 @@ namespace TsvTool
                 cmd.outIntermediate = Path.ChangeExtension(cmd.inTsv, ".split.inter.tsv");
             var sw_intermediate = new StreamWriter(cmd.outIntermediate);
 
+            var arg_filter = cmd.filterFile.Split('?');
+            cmd.filterFile = arg_filter[0];
+            int col_filter = arg_filter.Length > 1 ? Convert.ToInt32(arg_filter[1]) : 0;
+            var set_filter = new HashSet<string>(File.ReadLines(cmd.filterFile)
+                                            .Select(line => line.Split('\t')[col_filter].Trim())
+                                            .Distinct(), StringComparer.Ordinal);
+            if (set_filter.Count() > 0)
+            {
+                Console.WriteLine("Loaded {0} distinct labels from filter file: {1}, column {2}", set_filter.Count(), cmd.filterFile, col_filter);
+                if (!cmd.reverse)
+                    Console.WriteLine("Samples with above labels will be dropped.");
+                else
+                    Console.WriteLine("Samples with above labels will be kept.");
+            }
+            
             int count = 0;
+            int selected_group = 0;
             int total_sample_selected, total_train, total_test;
             total_train = total_test = total_sample_selected = 0;
             int group = 0;
+            int invalid_group = 0; //counter for groups which are dropped due to blacklist/whitelist
+            int total_ignored_invalid = 0;
             int small_group = 0;    //counter for groups which has less than cmd.min samples, all the samples in these groups will be ignored
             int total_ignored_small = 0;
             int big_group = 0;      //counter for groups which has more than cmd.max samples, the extra samples (after cmd.max) will be ignored (randomly)
@@ -439,7 +461,7 @@ namespace TsvTool
                 {
                     Console.Write("lines processed: {0}\r", ++count);
                     var cols = line.Split('\t');
-                    var label = cols[cmd.labelCol];
+                    var label = cols[cmd.labelCol].Trim();
                     return new
                     {
                         lineNumber = i,
@@ -450,9 +472,24 @@ namespace TsvTool
                 //.AsParallel()   //will this conflict with Random shuffle below?
                 .Where(g =>
                 {
-                    Console.Write("groups processed: {0}\r", ++group); 
+                    Console.Write("groups processed: {0}\t\t\t\t\r", ++group);
 
                     var total = g.Count();
+
+                    //count filtered classes
+                    bool contain = set_filter.Contains(g.Key, StringComparer.OrdinalIgnoreCase);
+                    bool shouldDrop = cmd.reverse ? !contain : contain;
+                    if (shouldDrop)
+                    {
+                        invalid_group++;
+                        total_ignored_invalid += total;
+                        sw_intermediate.WriteLine(
+                            "Group[{0}]\tClassLabel:{1}\tTotalSample#:{2}\tAll filtered Out",
+                            group, g.Key, total);
+                        return false;
+                    }
+                    
+                    //count small classes which are kept after filtering
                     if (total < cmd.min)
                     {
                         small_group++;
@@ -490,8 +527,12 @@ namespace TsvTool
                     var test = shuffle.Skip(train_num).ToArray();
 
                     sw_intermediate.WriteLine(
-                        "Group[{0}]\tClassLabel:{1}\tTotalSample#:{2}\tTrainSampleNum:{3}\tTestSampleNum:{4}\tIgnoredSampleNum:{5}",
-                        group, g.Key, total, train_num, test_num, ignored_num);
+                        "Group[{0}]\tClassLabel:{1}\tTotalSample#:{2}\tTrainSampleNum:{3}\tTestSampleNum:{4}\tIgnoredSampleNum:{5}\tClassID:{6}",
+                        group, g.Key, total, train_num, test_num, ignored_num, selected_group);
+
+                    selected_group++; 
+
+                    Debug.Assert(selected_group == group - small_group - invalid_group);
                     return Tuple.Create(train, test, g.Key);                    
                 })
                 .ToList();
@@ -517,13 +558,18 @@ namespace TsvTool
             Console.WriteLine("\nDone!");
 
             var ClassSummary = String.Format(
-                "\nTotal Classes: {0}\tsmall_class(sample#<{1}): {2}({6}%)\tbig_class(sample#>{3}({7}%)): {4}\tselected_class: {5}({8}%)\n",
-                group, cmd.min, small_group, cmd.max, big_group, group - small_group,
-                small_group * 100.0f / group, big_group * 100.0f / group, (group - small_group) * 100.0f / group);
+                "\nTotal Classes: {0}\tsmall_class(sample#<{1}): {2}({3}%)\tbig_class(sample#>{4}): {5}({6}%)\tdropped_class: {7}({8}%)\tselected_class: {9}({10}%)\n",
+                group, cmd.min, small_group, small_group * 100.0f / group,
+                cmd.max, big_group, big_group * 100.0f / group,
+                invalid_group, invalid_group * 100.0f / group,
+                selected_group, selected_group * 100.0f / group);
             var SampleSummary = String.Format(
-                "\nTotal Lines: {0}\ttrain: {1}({5}%)\ttest: {2}({6}%)\tignored_in_small_class: {3}({7}%)\tignored_in_big_class: {4}({8}%)\n",
-                count, total_train, total_test, total_ignored_small, total_ignored_big,
-                total_train * 100.0f / count, total_test * 100.0f / count, total_ignored_small * 100.0f / count, total_ignored_big * 100.0f / count);
+                "\nTotal Lines: {0}\ttrain: {1}({2}%)\ttest: {3}({4}%)\tignored_in_small_class: {5}({6}%)\tignored_in_big_class: {7}({8}%)\tdropped lines: {9}({10}%)\n",
+                count, total_train, total_train * 100.0f / count,
+                total_test, total_test * 100.0f / count,
+                total_ignored_small, total_ignored_small * 100.0f / count,
+                total_ignored_big, total_ignored_big * 100.0f / count, 
+                total_ignored_invalid, total_ignored_invalid * 100.0f / count);
 
             Console.WriteLine(ClassSummary);
             Console.WriteLine(SampleSummary);
