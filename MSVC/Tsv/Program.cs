@@ -396,7 +396,7 @@ namespace TsvTool
         {
             [Argument(ArgumentType.Required, HelpText = "Input TSV file, which includes both label column and data column")]
             public string inTsv = null;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for label string, the samples will be grouped by it and then split into train/test set")]
+            [Argument(ArgumentType.Required, HelpText = "Column index for label string, the samples will be grouped by it and then split into train/test set")]
             public int labelCol = -1;
             [Argument(ArgumentType.AtMostOnce, HelpText = "filter file with optional label col index (default 0) prefixed with '?'. E.g. abc.tsv?1")]
             public string filterFile = null;
@@ -428,21 +428,39 @@ namespace TsvTool
                 cmd.outIntermediate = Path.ChangeExtension(cmd.inTsv, ".split.inter.tsv");
             var sw_intermediate = new StreamWriter(cmd.outIntermediate);
 
-            var arg_filter = cmd.filterFile.Split('?');
-            cmd.filterFile = arg_filter[0];
-            int col_filter = arg_filter.Length > 1 ? Convert.ToInt32(arg_filter[1]) : 0;
-            var set_filter = new HashSet<string>(File.ReadLines(cmd.filterFile)
-                                            .Select(line => line.Split('\t')[col_filter].Trim())
-                                            .Distinct(), StringComparer.Ordinal);
-            if (set_filter.Count() > 0)
+
+            HashSet<string> set_filter;
+
+            if (!string.IsNullOrEmpty(cmd.filterFile))
             {
-                Console.WriteLine("Loaded {0} distinct labels from filter file: {1}, column {2}", set_filter.Count(), cmd.filterFile, col_filter);
-                if (!cmd.reverse)
-                    Console.WriteLine("Samples with above labels will be dropped.");
-                else
-                    Console.WriteLine("Samples with above labels will be kept.");
+                var arg_filter = cmd.filterFile.Split('?');
+                cmd.filterFile = arg_filter[0];
+                int col_filter = arg_filter.Length > 1 ? Convert.ToInt32(arg_filter[1]) : 0;
+                set_filter = new HashSet<string>(File.ReadLines(cmd.filterFile)
+                                                .Select(line => line.Split('\t')[col_filter].Trim())
+                                                .Distinct(), StringComparer.Ordinal);
+                if (set_filter.Count() > 0)
+                {
+                    Console.WriteLine("Loaded {0} distinct labels from filter file: {1}, column {2}", set_filter.Count(), cmd.filterFile, col_filter);
+                    if (!cmd.reverse)
+                        Console.WriteLine("Samples with above labels will be dropped.");
+                    else
+                        Console.WriteLine("Samples with above labels will be kept.");
+                }
+
             }
-            
+            else
+            {
+                set_filter = new HashSet<string>();
+            }
+
+            if (cmd.reverse && set_filter.Count() == 0)
+            {
+                Console.WriteLine("Warning: -Reverse=true, but -filterFile is null or empty, i.e. \"empty whitelist\", which will lead to empty output. ");
+                Console.WriteLine("Warning: -Reverse will be ignored, since -filterFile is null or empty");
+                cmd.reverse = false;
+            }
+
             int count = 0;
             int selected_group = 0;
             int total_sample_selected, total_train, total_test;
