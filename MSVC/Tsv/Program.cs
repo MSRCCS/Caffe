@@ -35,7 +35,7 @@ namespace TsvTool
 
         class ArgsShuffle
         {
-            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file, please make sure its lineIdx file is also there")]
             public string inTsv = null;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Ignore label (default: null, include all data)")]
             public string ignoreLabel = null;
@@ -129,6 +129,38 @@ namespace TsvTool
             }
             Console.WriteLine("Distinct: {0}", randomLineNumbers.Distinct().Count());
             File.WriteAllLines(Path.ChangeExtension(cmd.inTsv, "shuffle"), randomLineNumbers);
+        }
+
+        class ArgsRandomShuffle 
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file, the result file will be stored in the same file name with *.shuffled.tsv file extension")]
+            public string inTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "store a copy of the line index map file, i.e. the .shuffle file")]
+            public string outMapTsv = null;
+        }
+
+        static void RandomShuffle(ArgsRandomShuffle cmd)
+        {
+            Random rnd = new Random();
+
+            var randomLinesWithIdx = File.ReadLines(cmd.inTsv)
+                .Select((line, i) => new Tuple<string, int, int>(line, rnd.Next(), i))
+                .OrderBy(tp => tp.Item2)
+                .Select(tp => new Tuple<string, int>(tp.Item1, tp.Item3))
+                .ToArray();
+
+            var randomLines = randomLinesWithIdx
+                .Select(tp => tp.Item1);
+                
+            Console.WriteLine("Distinct: {0}", randomLines.Distinct().Count());
+            File.WriteAllLines(Path.ChangeExtension(cmd.inTsv, "shuffled.tsv"), randomLines);
+
+            if (!string.IsNullOrEmpty(cmd.outMapTsv))
+            {
+                var lineMap = randomLinesWithIdx
+                    .Select(tp => Convert.ToString(tp.Item2));
+                File.WriteAllLines(cmd.outMapTsv, lineMap);
+            }
         }
 
         class ArgsList2Tsv
@@ -968,6 +1000,7 @@ namespace TsvTool
             ParserX.AddTask<ArgsDumpB64>(DumpB64, "Dump and decode base64_encoded data");
 
             ParserX.AddTask<ArgsSplit>(Split, "Split data into training and testing");
+            ParserX.AddTask<ArgsRandomShuffle>(RandomShuffle, "randomly shuffle the lines in a tsv file");
             ParserX.AddTask<ArgsTriplet>(Triplet, "Generate triplet shuffle file");
             ParserX.AddTask<ArgsFilterLabels>(FilterLabels, "Filter data based on label dict");
             if (ParserX.ParseArgumentsWithUsage(args))
