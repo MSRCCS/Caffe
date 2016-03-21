@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Diagnostics;
 
 namespace TsvTool.Utility
 {
@@ -12,9 +13,11 @@ namespace TsvTool.Utility
         public static IEnumerable<T> ReportProgress<T>(this IEnumerable<T> source, string reportMsg)
         {
             int count = 0;
+            Stopwatch tt = Stopwatch.StartNew();
             foreach (var item in source)
             {
-                Console.Write("{0}: {1}\r", reportMsg, ++count);
+                double through_put = count > 10 ? (double)count / tt.Elapsed.TotalSeconds : 0;
+                Console.Write("{0}: {1}, throughput per second: {2:F2}\r", reportMsg, ++count, through_put);
                 yield return item;
             }
         }
