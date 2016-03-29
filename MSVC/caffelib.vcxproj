@@ -135,10 +135,12 @@
     <ClCompile Include="..\src\caffe\layers\base_data_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\batch_norm_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\batch_reindex_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\bias_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\bnll_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\concat_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\contrastive_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\conv_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\crop_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\cross_entropy_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\cudnn_conv_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\cudnn_lcn_layer.cpp" />
@@ -153,6 +155,7 @@
     <ClCompile Include="..\src\caffe\layers\dropout_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\dummy_data_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\eltwise_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\elu_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\embed_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\euclidean_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\exp_layer.cpp" />
@@ -165,6 +168,7 @@
     <ClCompile Include="..\src\caffe\layers\image_data_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\infogain_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\inner_product_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\input_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\l2_norm_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\log_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\loss_layer.cpp" />
@@ -181,6 +185,7 @@
     <ClCompile Include="..\src\caffe\layers\reduction_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\relu_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\reshape_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\scale_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\sigmoid_cross_entropy_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\sigmoid_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\silence_layer.cpp" />
@@ -228,10 +233,12 @@
     <CudaCompile Include="..\src\caffe\layers\base_data_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\batch_norm_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\batch_reindex_layer.cu" />
+    <CudaCompile Include="..\src\caffe\layers\bias_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\bnll_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\concat_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\contrastive_loss_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\conv_layer.cu" />
+    <CudaCompile Include="..\src\caffe\layers\crop_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\cudnn_conv_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\cudnn_lcn_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\cudnn_lrn_layer.cu" />
@@ -243,6 +250,7 @@
     <CudaCompile Include="..\src\caffe\layers\deconv_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\dropout_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\eltwise_layer.cu" />
+    <CudaCompile Include="..\src\caffe\layers\elu_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\embed_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\euclidean_loss_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\exp_layer.cu" />
@@ -260,6 +268,7 @@
     <CudaCompile Include="..\src\caffe\layers\prelu_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\reduction_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\relu_layer.cu" />
+    <CudaCompile Include="..\src\caffe\layers\scale_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\sigmoid_cross_entropy_loss_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\sigmoid_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\silence_layer.cu" />
@@ -271,6 +280,12 @@
     <CudaCompile Include="..\src\caffe\layers\threshold_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\tile_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\triplet_loss_layer.cu" />
+    <CudaCompile Include="..\src\caffe\solvers\adadelta_solver.cu" />
+    <CudaCompile Include="..\src\caffe\solvers\adagrad_solver.cu" />
+    <CudaCompile Include="..\src\caffe\solvers\adam_solver.cu" />
+    <CudaCompile Include="..\src\caffe\solvers\nesterov_solver.cu" />
+    <CudaCompile Include="..\src\caffe\solvers\rmsprop_solver.cu" />
+    <CudaCompile Include="..\src\caffe\solvers\sgd_solver.cu" />
     <CudaCompile Include="..\src\caffe\util\im2col.cu" />
     <CudaCompile Include="..\src\caffe\util\math_functions.cu" />
   </ItemGroup>
@@ -291,10 +306,12 @@
     <ClInclude Include="..\include\caffe\layers\base_data_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\batch_norm_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\batch_reindex_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\bias_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\bnll_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\concat_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\contrastive_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\conv_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\crop_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\cross_entropy_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\cudnn_conv_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\cudnn_lcn_layer.hpp" />
@@ -309,6 +326,7 @@
     <ClInclude Include="..\include\caffe\layers\dropout_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\dummy_data_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\eltwise_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\elu_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\embed_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\euclidean_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\exp_layer.hpp" />
@@ -321,6 +339,7 @@
     <ClInclude Include="..\include\caffe\layers\image_data_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\infogain_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\inner_product_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\input_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\l2_norm_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\log_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\loss_layer.hpp" />
@@ -338,6 +357,7 @@
     <ClInclude Include="..\include\caffe\layers\reduction_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\relu_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\reshape_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\scale_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\sigmoid_cross_entropy_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\sigmoid_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\silence_layer.hpp" />
