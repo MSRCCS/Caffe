@@ -41,15 +41,18 @@ namespace caffe {
   FUNC(ArgMax); \
   FUNC(BatchNorm); \
   FUNC(BatchReindex); \
+  FUNC(Bias); \
   FUNC(BNLL); \
   FUNC(Concat); \
   FUNC(ContrastiveLoss); \
   FUNC(Convolution); \
+  FUNC(Crop); \
   FUNC(CrossEntropyLoss); \
   FUNC(Deconvolution); \
   FUNC(Dropout); \
   FUNC(DummyData); \
   FUNC(Eltwise); \
+  FUNC(ELU); \
   FUNC(EuclideanLoss); \
   FUNC(Exp); \
   FUNC(Embed); \
@@ -63,6 +66,7 @@ namespace caffe {
   FUNC(ImageData); \
   FUNC(InfogainLoss); \
   FUNC(InnerProduct); \
+  FUNC(Input); \
   FUNC(L2Norm); \
   FUNC(Log); \
   FUNC(LRN); \
@@ -77,6 +81,7 @@ namespace caffe {
   FUNC(Reduction); \
   FUNC(ReLU); \
   FUNC(Reshape); \
+  FUNC(Scale); \
   FUNC(Sigmoid); \
   FUNC(Silence); \
   FUNC(Slice); \
