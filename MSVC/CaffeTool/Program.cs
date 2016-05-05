@@ -34,6 +34,8 @@ namespace CaffeExtract
             public string outTsv = null;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Top k prediction, when labelmap is provided")]
             public int topK = 5;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Confidence threshold (default: 0.001 to output all)")]
+            public float conf = 0.001f;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Gpu Id (default: 0, -1 for cpu)")]
             public int gpu = 0;
         }
@@ -117,7 +119,7 @@ namespace CaffeExtract
                             else
                             {
                                 var topk = f.Select((value, idx) => Tuple.Create(value, idx))
-                                    .Where(tp => tp.Item1 > 0.001)    // small trick to speed up
+                                    .Where(tp => tp.Item1 > cmd.conf)    // small trick to speed up
                                     .OrderByDescending(tp => tp.Item1)
                                     .Take(cmd.topK)
                                     .Select(tp => labelmap[tp.Item2] + ":" + tp.Item1);
