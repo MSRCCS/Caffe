@@ -814,6 +814,38 @@ namespace TsvTool
             Console.WriteLine("\nDone.");
         }
 
+        class ArgsCatAddCol
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.Required, HelpText = "Columns to concatenate, e.g. 0,2,4,7")]
+            public string columns = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace inTsv .ext with .catadd.tsv)")]
+            public string outTsv = null;
+        }
+
+        static void CatAddCol(ArgsCatAddCol cmd)
+        {
+            if (cmd.outTsv == null)
+                cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".catadd.tsv");
+
+            var col_indices = cmd.columns.Split(',').Select(x => Convert.ToInt32(x)).ToArray();
+
+            var lines = File.ReadLines(cmd.inTsv)
+                .ReportProgress("Lines processed")
+                .Select(line => line.Split('\t').ToList())
+                .Select(cols =>
+                {
+                    var new_col = string.Join("_", col_indices.Select(col_idx => cols[col_idx]));
+                    cols.Add(new_col);
+                    return cols;
+                })
+                .Select(cols => string.Join("\t", cols));
+
+            File.WriteAllLines(cmd.outTsv, lines);
+            Console.WriteLine("\nDone.");
+        }
+
         class ArgsFilterLines
         {
             [Argument(ArgumentType.Required, HelpText = "TSV A with optional col index (default 0) prefixed with '?'. E.g. abc.tsv?1")]
@@ -954,6 +986,7 @@ namespace TsvTool
             ParserX.AddTask<ArgsCutCol>(CutCol, "Cut columns from TSV file");
             ParserX.AddTask<ArgsCutRow>(CutRow, "Cut rows based on line number files (normally a shuffle file)");
             ParserX.AddTask<ArgsPasteCol>(PasteCol, "Paste two TSV files by concatenating corresponding lines seperated by TAB");
+            ParserX.AddTask<ArgsCatAddCol>(CatAddCol, "Concatenate columns and add as a new column");
             ParserX.AddTask<ArgsFilterLines>(FilterLines, "Filter lines in A with keys in B (or reversely, not in B), according to the specified column");
             ParserX.AddTask<ArgsDistinct>(Distinct, "Find distinct lines based on the specified key column");
             ParserX.AddTask<ArgsCountLabel>(CountLabel, "Count for each distinct label");
