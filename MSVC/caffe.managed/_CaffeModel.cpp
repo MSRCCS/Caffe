@@ -15,6 +15,7 @@
 using namespace boost;
 using namespace caffe;
 
+FloatArray::FloatArray() : Data(NULL), Size(0) {}
 FloatArray::FloatArray(const float* data, int size) : Data(data), Size(size) {}
 
 _CaffeModel::_CaffeModel(const string &netFile, const string &modelFile)
@@ -140,6 +141,50 @@ int _CaffeModel::GetInputImageChannels()
 {
     Blob<float>* input_blob = _net->input_blobs()[0];
     return input_blob->channels();
+}
+
+std::vector<string> _CaffeModel::GetLayerNames()
+{
+    return _net->layer_names();
+}
+
+std::vector<FloatArray> _CaffeModel::GetParams(const std::string layerName)
+{
+    Layer<float>* layer = _net->layer_by_name(layerName).get();
+    CHECK(layer != NULL) << "Cannot find layer " << layerName;
+
+    vector<FloatArray> results;
+    for (auto& blob : layer->blobs())
+    {
+        results.push_back(FloatArray(blob.get()->cpu_data(), blob.get()->count()));
+    }
+    return results;
+}
+
+void _CaffeModel::SetParams(const std::string layerName, std::vector<FloatArray>& params)
+{
+    Layer<float>* layer = _net->layer_by_name(layerName).get();
+    CHECK(layer != NULL) << "Cannot find layer " << layerName;
+
+    CHECK_EQ(layer->blobs().size(), params.size()) << "Param blob numbers mismatch. Expected: " 
+        << layer->blobs().size() << ", Actual: " << params.size();
+
+    for (int i = 0; i < params.size(); i++)
+    {
+        FloatArray src = params[i];
+        Blob<float>* blob = layer->blobs()[i].get();
+        CHECK_EQ(src.Size, blob->count()) << "Blob size mismatch. Expected: "
+            << blob->count() << ", Actual: " << src.Size;
+
+        caffe_copy<float>(src.Size, src.Data, blob->mutable_cpu_data());
+    }
+}
+
+void _CaffeModel::SaveModel(const std::string modelFile)
+{
+    NetParameter net_param;
+    _net->ToProto(&net_param, false);
+    WriteProtoToBinaryFile(net_param, modelFile);
 }
 
 void _CaffeModel::EvaluateBitmap(const std::vector<std::string> &imageData, int interpolation)

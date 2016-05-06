@@ -22,6 +22,44 @@ namespace CaffeLibMC {
         _CaffeModel *m_net;
         String ^_netFile;
 
+        string ConvertToDatum(Bitmap ^imgData)
+        {
+            string datum_string;
+
+            int width = m_net->GetInputImageWidth();
+            int height = m_net->GetInputImageHeight();
+
+            Drawing::Rectangle rc = Drawing::Rectangle(0, 0, width, height);
+
+            // resize image
+            Bitmap ^temp_bmp = gcnew Bitmap((Image ^)imgData, width, height);
+            Bitmap ^resizedBmp = temp_bmp->Clone(rc, PixelFormat::Format24bppRgb);
+            delete temp_bmp;
+
+            // get image data block
+            BitmapData ^bmpData = resizedBmp->LockBits(rc, ImageLockMode::ReadOnly, resizedBmp->PixelFormat);
+            pin_ptr<char> bmpBuffer = (char *)bmpData->Scan0.ToPointer();
+
+            // prepare string buffer to call Caffe model
+            datum_string.resize(3 * width * height);
+            char *buff = &datum_string[0];
+            for (int c = 0; c < 3; ++c)
+            {
+                for (int h = 0; h < height; ++h)
+                {
+                    int line_offset = h * bmpData->Stride + c;
+                    for (int w = 0; w < width; ++w)
+                    {
+                        *buff++ = bmpBuffer[line_offset + w * 3];
+                    }
+                }
+            }
+            resizedBmp->UnlockBits(bmpData);
+            delete resizedBmp;
+
+            return datum_string;
+        }
+
     public:
         static int DeviceCount;
 
@@ -85,42 +123,47 @@ namespace CaffeLibMC {
             m_net->SetMeanValue(mean_value);
         }
 
-        string ConvertToDatum(Bitmap ^imgData)
+        array<String^>^ GetLayerNames()
         {
-            string datum_string;
+            vector<string> names = m_net->GetLayerNames();
+            auto outputs = gcnew array<String^>(names.size());
+            for (int i = 0; i < names.size(); i++)
+                outputs[i] = gcnew String(names[i].c_str());
+            return outputs;
+        }
 
-            int width = m_net->GetInputImageWidth();
-            int height = m_net->GetInputImageHeight();
+        array<array<float>^>^ GetParams(String^ layerName)
+        {
+            auto params = m_net->GetParams(TO_NATIVE_STRING(layerName));
 
-            Drawing::Rectangle rc = Drawing::Rectangle(0, 0, width, height);
-
-            // resize image
-            Bitmap ^temp_bmp = gcnew Bitmap((Image ^)imgData, width, height);
-            Bitmap ^resizedBmp = temp_bmp->Clone(rc, PixelFormat::Format24bppRgb);
-            delete temp_bmp;
-
-            // get image data block
-            BitmapData ^bmpData = resizedBmp->LockBits(rc, ImageLockMode::ReadOnly, resizedBmp->PixelFormat);
-            pin_ptr<char> bmpBuffer = (char *)bmpData->Scan0.ToPointer();
-
-            // prepare string buffer to call Caffe model
-            datum_string.resize(3 * width * height);
-            char *buff = &datum_string[0];
-            for (int c = 0; c < 3; ++c)
+            auto outputs = gcnew array<array<float>^>(params.size());
+            for (int i = 0; i < params.size(); ++i)
             {
-                for (int h = 0; h < height; ++h)
-                {
-                    int line_offset = h * bmpData->Stride + c;
-                    for (int w = 0; w < width; ++w)
-                    {
-                        *buff++ = bmpBuffer[line_offset + w * 3];
-                    }
-                }
+                MARSHAL_ARRAY(params[i], values)
+                outputs[i] = values;
             }
-            resizedBmp->UnlockBits(bmpData);
-            delete resizedBmp;
+            return outputs;
 
-            return datum_string;
+        }
+
+        void SetParams(String^ layerName, array<array<float>^>^ param_blobs)
+        {
+            vector<FloatArray> native_params(param_blobs->Length);
+            // just pin one element to pin the entire object, according to:
+            // https://msdn.microsoft.com/en-us/library/18132394.aspx
+            pin_ptr<float> pin_params = &param_blobs[0][0];
+            for (int i = 0; i < param_blobs->Length; ++i)
+            {
+                pin_ptr<float> pinned_buffer = &param_blobs[i][0];
+                native_params[i].Data = pinned_buffer;
+                native_params[i].Size = param_blobs[i]->Length;
+            }
+            m_net->SetParams(TO_NATIVE_STRING(layerName), native_params);
+        }
+
+        void SaveModel(String^ modelFile)
+        {
+            m_net->SaveModel(TO_NATIVE_STRING(modelFile));
         }
 
         array<float>^ ExtractOutputs(array<Bitmap^> ^imgData, String^ blobName)
