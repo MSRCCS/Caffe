@@ -404,10 +404,12 @@ namespace TsvTool
             public bool  reverse = false;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Training data ratio, default = 0.8")]
             public double ratio = 0.8;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Minimal Training Sample Number: ignore the class with less than [min] samples")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Minimal Training Sample Number: ignore the class with less than [min] samples (default: 1)")]
             public int min = 1;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Maximal Training Sample Number: drop the extra data after a class has [max] samples, -1 (default value) means no drop/use all samples")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Maximal Training Sample Number: drop the extra data after a class has [max] samples, (default: -1, use all samples")]
             public int max = -1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Repeat line numbers to get more virtual samples per class (default: 1, no repeat)")]
+            public int minrepeat = 1;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Output Train Shuffle file (default: replace inTsv file ext. with .train.shuffle")]
             public string outShuffleTrain = null;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Output Train Shuffle file (default: replace inTsv file ext. with .test.shuffle")]
@@ -520,7 +522,15 @@ namespace TsvTool
                 })
                 .Select(g =>
                 {
-                    int total = g.Count();
+                    var group_samples = g.AsEnumerable().ToList();
+                    int g_count = g.Count();
+                    while (group_samples.Count() < cmd.minrepeat)
+                    {
+                        int num_to_insert = Math.Min(g_count, cmd.minrepeat - group_samples.Count());
+                        group_samples.AddRange(g.AsEnumerable().Take(num_to_insert));
+                    }
+
+                    int total = group_samples.Count();
                     int sample_selected = (cmd.max >= cmd.min && cmd.max > 0) ? Math.Min(cmd.max, total) : total;
                     int train_num = (int)(Math.Ceiling(sample_selected * cmd.ratio));
                     int test_num = sample_selected - train_num;
@@ -534,7 +544,7 @@ namespace TsvTool
                     total_train += train_num;
                     total_test += test_num;
 
-                    var shuffle = g.AsEnumerable()
+                    var shuffle = group_samples//.AsEnumerable()
                         .Select(tp => Tuple.Create(tp.lineNumber, rnd.Next()))
                         .OrderBy(tp => tp.Item2)
                         .Select(tp => tp.Item1)
@@ -550,7 +560,7 @@ namespace TsvTool
 
                     selected_group++; 
 
-                    Debug.Assert(selected_group == group - small_group - invalid_group);
+                    Trace.Assert(selected_group == group - small_group - invalid_group);
                     return Tuple.Create(train, test, g.Key);                    
                 })
                 .ToList();
@@ -814,6 +824,38 @@ namespace TsvTool
             Console.WriteLine("\nDone.");
         }
 
+        class ArgsCatAddCol
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.Required, HelpText = "Columns to concatenate, e.g. 0,2,4,7")]
+            public string columns = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace inTsv .ext with .catadd.tsv)")]
+            public string outTsv = null;
+        }
+
+        static void CatAddCol(ArgsCatAddCol cmd)
+        {
+            if (cmd.outTsv == null)
+                cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".catadd.tsv");
+
+            var col_indices = cmd.columns.Split(',').Select(x => Convert.ToInt32(x)).ToArray();
+
+            var lines = File.ReadLines(cmd.inTsv)
+                .ReportProgress("Lines processed")
+                .Select(line => line.Split('\t').ToList())
+                .Select(cols =>
+                {
+                    var new_col = string.Join("_", col_indices.Select(col_idx => cols[col_idx]));
+                    cols.Add(new_col);
+                    return cols;
+                })
+                .Select(cols => string.Join("\t", cols));
+
+            File.WriteAllLines(cmd.outTsv, lines);
+            Console.WriteLine("\nDone.");
+        }
+
         class ArgsFilterLines
         {
             [Argument(ArgumentType.Required, HelpText = "TSV A with optional col index (default 0) prefixed with '?'. E.g. abc.tsv?1")]
@@ -954,6 +996,7 @@ namespace TsvTool
             ParserX.AddTask<ArgsCutCol>(CutCol, "Cut columns from TSV file");
             ParserX.AddTask<ArgsCutRow>(CutRow, "Cut rows based on line number files (normally a shuffle file)");
             ParserX.AddTask<ArgsPasteCol>(PasteCol, "Paste two TSV files by concatenating corresponding lines seperated by TAB");
+            ParserX.AddTask<ArgsCatAddCol>(CatAddCol, "Concatenate columns and add as a new column");
             ParserX.AddTask<ArgsFilterLines>(FilterLines, "Filter lines in A with keys in B (or reversely, not in B), according to the specified column");
             ParserX.AddTask<ArgsDistinct>(Distinct, "Find distinct lines based on the specified key column");
             ParserX.AddTask<ArgsCountLabel>(CountLabel, "Count for each distinct label");
