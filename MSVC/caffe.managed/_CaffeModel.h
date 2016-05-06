@@ -23,6 +23,7 @@ struct FloatArray
 {
     const float* Data;
     int Size;
+    FloatArray();
     FloatArray(const float* data, int size);
 };
 
@@ -55,6 +56,11 @@ public:
     int GetInputImageWidth();
     int GetInputImageHeight();
     int GetInputImageChannels();
+
+    std::vector<std::string> GetLayerNames();
+    std::vector<FloatArray> GetParams(const std::string layerName);
+    void SetParams(const std::string layerName, std::vector<FloatArray>& params);
+    void SaveModel(const std::string modelFile);
 
     //REVIEW ktran: these APIs only make sense for images
     FloatArray ExtractOutputs(const std::string &imageFile, int interpolation, const std::string &layerName);
