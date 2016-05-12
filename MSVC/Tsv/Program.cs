@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Net;
 using System.IO;
@@ -15,6 +16,7 @@ namespace TsvTool
 {
     class Program
     {
+        const int monitorInterval = 100; 
         class ArgsLabel
         {
             [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
@@ -278,7 +280,7 @@ namespace TsvTool
                         using (var ms = new MemoryStream(Convert.FromBase64String(strImage)))
                         using (var bmp = new Bitmap(ms))
                         {
-                            count++;
+                            Interlocked.Increment(ref count);
                         }
                     }
                     catch (Exception)
@@ -287,8 +289,10 @@ namespace TsvTool
                         Console.WriteLine();
                         Console.WriteLine("Skip: {0}", line.Substring(0, Math.Min(120, line.Length)));
                     }
-                    total_lines++;
-                    Console.Write("Total lines read {0}, skipped {1}\r", total_lines, total_lines - count);
+                    var tLines = Interlocked.Increment(ref total_lines);
+                    if ( tLines % monitorInterval ==0 ) 
+                        // Only show total lines read, skip line can't be reliably computed here 
+                        Console.Write("Total lines read {0}\r", tLines);
                     return imageValid;
                 });
 
@@ -353,6 +357,112 @@ namespace TsvTool
             File.WriteAllLines(cmd.outTsv, lines);
             Console.WriteLine("Done.");
         }
+
+
+         class ArgsStatisticsImage  
+         {  
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]  
+            public string inTsv = null;  
+            [Argument(ArgumentType.Required, HelpText = "Column index for image")]  
+            public int image = -1;  
+         }  
+ 
+         static void ShowHistogram( int[] hist, string fmt )  
+         {  
+            var size = hist.Length;  
+            var agg = new int[size];  
+            var pastValue = 0;   
+            var min = -1;  
+            var max = 0;   
+            for ( var i = 0; i<size; i++ )  
+            {  
+                if (hist[i] != 0) max = i;  
+                pastValue = hist[i] + pastValue;  
+                agg[i] = pastValue;  
+                if (pastValue == 0) min = i;  
+            }  
+            
+            for (var i = min + 1; i <= max; i++ )  
+            {   
+                if (hist[i]!=0)  
+                    Console.WriteLine(fmt, i, hist[i], (float) agg[i] * 100.0 / agg[max] );  
+            }  
+        }  
+ 
+        // Try to obtain statistics of the image data set,   
+        static void StatisticsImage(ArgsStatisticsImage cmd)  
+        {  
+            const int MaxSize = 4096; // We assume that the maximum image widht/height is 4096,   
+            const int Pixel2Bin = 1000;  
+            var histX = new int[MaxSize];  
+            var histY = new int[MaxSize];  
+            var MaxBin = MaxSize * MaxSize / Pixel2Bin;  
+            var histSize = new int[MaxBin];  
+            var MaxX = 0;  
+            var MaxY = 0;  
+            var MaxB = 0;   
+ 
+            int total_lines = 0;  
+            int count = 0;  
+            var lines = File.ReadLines(cmd.inTsv).AsParallel().AsOrdered()  
+                .Where(line =>  
+                {  
+                    var tLine = Interlocked.Increment(ref total_lines);   
+                    var cols = line.Split('\t');  
+                    string strImage = cols[cmd.image];  
+                    bool imageValid = true;  
+                    try  
+                    {  
+                        try  
+                        {  
+                            using (var ms = new MemoryStream(Convert.FromBase64String(strImage)))  
+                            using (var bmp = new Bitmap(ms))  
+                            {  
+                                var sizeX = bmp.Width;  
+                                var sizeY = bmp.Height;  
+                                var sizeBin = sizeX * sizeY / Pixel2Bin;  
+                                lock (histSize)  
+                                {  
+                                    if (MaxX < sizeX) { MaxX = sizeX; };  
+                                    histX[Math.Min(sizeX, MaxSize - 1)] = histX[Math.Min(sizeX, MaxSize - 1)] + 1;  
+                                    if (MaxY < sizeY) { MaxY = sizeY; };  
+                                    histY[Math.Min(sizeY, MaxSize - 1)] = histY[Math.Min(sizeY, MaxSize - 1)] + 1;  
+                                    if (MaxB < sizeBin) { MaxB = sizeBin; };  
+                                    histSize[Math.Min(sizeBin, MaxBin - 1)] = histSize[Math.Min(sizeBin, MaxBin - 1)] + 1;  
+                                    count = count + 1;  
+                                }  
+                            }  
+                        }  
+                        catch (Exception)  
+                        {  
+                            imageValid = false;  
+                            Console.WriteLine();  
+                            Console.WriteLine("Skip: {0}", line.Substring(0, Math.Min(120, line.Length)));  
+                        }  
+                    }  
+                    finally  
+                    {   
+                        if ( tLine % monitorInterval ==0 )
+                            Console.Write("Total lines read {0}\r", tLine);  
+                    }  
+                    return imageValid;  
+                });  
+    
+                foreach (var line in lines)   
+                {  
+                }  
+                Console.WriteLine();  
+                Console.WriteLine("Total lines: {0}, valid images: {1}", total_lines, count);  
+                Console.WriteLine("Max Width === {0}, Max Height === {1}, Max Size === {2}000", MaxX, MaxY, MaxB);  
+                Console.WriteLine("================== Image Width Statistics ==================== " );  
+                ShowHistogram(histX, "# of Images with width {0,4} === {1,5} (Aggregate: {2:0.#}%)" );  
+                Console.WriteLine("================== Image Height Statistics ==================== ");  
+                ShowHistogram(histY, "# of Images with height {0,4} === {1,5} (Aggregate: {2:0.#}%)" );  
+                Console.WriteLine("================== Image Size Statistics ==================== ");  
+                ShowHistogram(histSize, "# of Images with size {0,4}000 === {1,5} (Aggregate: {2:0.#}%)");   
+            }  
+  
+
 
         class ArgsSplit
         {
@@ -1007,6 +1117,7 @@ namespace TsvTool
             ParserX.AddTask<ArgsTsv2Folder>(Tsv2Folder, "Unpack images in TSV file to folder images");
 
             ParserX.AddTask<ArgsResizeImage>(ResizeImage, "Resize image");
+            ParserX.AddTask<ArgsStatisticsImage>(StatisticsImage, "Image Statistics"); 
             ParserX.AddTask<ArgsRemoveNonImage>(RemoveNonImage, "Remove non image lines in TSV");
             ParserX.AddTask<ArgsDumpB64>(DumpB64, "Dump and decode base64_encoded data");
 

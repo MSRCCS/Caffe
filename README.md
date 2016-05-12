@@ -18,13 +18,12 @@ and step-by-step examples.
 **Note**: This repo is ported from `git@github.com:MSRDL/caffe.git` for research development. The **master** branch follows BVLC/Caffe master, and the **WinCaffe** branch will merge the latest changes from **master** and keep it compilable in Windows.
 
 ## Windows Setup
-**Requirements**: Visual Studio 2013 and CUDA 7.5
+**Requirements**: Visual Studio 2013 (Visual Studio 2015 is not supported at this moment) and CUDA 7.5
 
-Once the requirements are satisfied, run these commands
+Please recursively clone the repository via:
+
 ```
-git clone git@github.com:MSRCCS/caffe.git
-cd caffe
-git clone git@github.com:leizhangcn/wincaffe-3rdparty.git 3rdparty
+git clone git@github.com:MSRCCS/caffe.git --recursive
 ```
 
 Download `cuDNN` [from nVidia website](https://developer.nvidia.com/cudnn). Please specifically select v3 of CuDnn, which is the version that verifies to build with this WinCaffe package. 
