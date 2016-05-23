@@ -16,14 +16,18 @@ namespace CaffeExtract
     {
         class ArgsExtract
         {
-            [Argument(ArgumentType.Required, HelpText = "Caffe prototxt file")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Model config file. If provided, other args (proto, model, mean, and labelmap) are optional, but can be used to overwrite the params specified in config file.")]
+            public string modelcfg = null;
+
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Caffe prototxt file")]
             public string proto = null;
-            [Argument(ArgumentType.Required, HelpText = "Caffe model file")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Caffe model file")]
             public string model = null;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Image mean binary proto file")]
             public string mean = null;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Caffe model label map file (for getting human-readable topk predictions)")]
             public string labelmap = null;
+            
             [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
             public string inTsv = null;
             [Argument(ArgumentType.Required, HelpText = "Column index for image stream")]
@@ -45,19 +49,50 @@ namespace CaffeExtract
             if (cmd.outTsv == null)
                 cmd.outTsv = Path.ChangeExtension(cmd.inTsv, string.Join(".", cmd.blob) + ".tsv");
 
-            if (cmd.labelmap != null && cmd.blob.Length > 1)
+            // prepare model file names
+            string protoFile = null;
+            string modelFile = null;
+            string meanFile = null;
+            string labelmapFile = null;
+
+            if (cmd.modelcfg != null)
+            {
+                var modelDict = File.ReadLines(cmd.modelcfg)
+                    .Where(line => line.Trim().StartsWith("#") == false)
+                    .Select(line => line.Split(':'))
+                    .ToDictionary(cols => cols[0].Trim(), cols => cols[1].Trim(), StringComparer.OrdinalIgnoreCase);
+
+                var modelDir = Path.GetDirectoryName(cmd.modelcfg);
+                var getPath = new Func<string, string>(file => Path.Combine(modelDir, file));
+
+                protoFile = getPath(modelDict["proto"]);
+                modelFile = getPath(modelDict["model"]);
+                meanFile = getPath(modelDict["mean"]);
+                labelmapFile = getPath(modelDict["labelmap"]);
+            }
+
+            if (cmd.proto != null)
+                protoFile = cmd.proto;
+            if (cmd.model != null)
+                modelFile = cmd.model;
+            if (cmd.mean != null)
+                meanFile = cmd.mean;
+            if (cmd.labelmap != null)
+                labelmapFile = cmd.labelmap;
+
+            if (string.IsNullOrEmpty(labelmapFile) && cmd.blob.Length > 1)
             {
                 Console.WriteLine("When labelmap is provided (for getting topk prediction), only one blob (e.g. prob) can be specified.");
                 return;
             }
 
             CaffeModel.SetDevice(cmd.gpu);
-            CaffeModel predictor = new CaffeModel(cmd.proto, cmd.model);
-            if (cmd.mean != null)
-                predictor.SetMeanFile(cmd.mean);
+            CaffeModel predictor = new CaffeModel(protoFile, modelFile);
+            if (!string.IsNullOrEmpty(meanFile))
+                predictor.SetMeanFile(meanFile);
 
-            var labelmap = cmd.labelmap == null ? null :
-                File.ReadLines(cmd.labelmap)
+            var labelmap = string.IsNullOrEmpty(labelmapFile) ? null :
+                File.ReadLines(labelmapFile)
                     .Select(line => line.Split('\t')[0])
                     .ToArray();
 
