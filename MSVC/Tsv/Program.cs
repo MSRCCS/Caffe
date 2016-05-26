@@ -1097,6 +1097,47 @@ namespace TsvTool
             Console.WriteLine("\nDone.");
         }
 
+        class ArgsCountPhrase
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace InTsv .ext with .phrase.tsv)")]
+            public string outTsv = null;
+            [Argument(ArgumentType.Required, HelpText = "Column index for label")]
+            public int label = -1;
+            [Argument(ArgumentType.Required, HelpText = "Column index for count")]
+            public int countID = -1;
+        }
+
+        static void CountPhrase(ArgsCountPhrase cmd)
+        {
+            if (cmd.outTsv == null)
+                cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".phrase.tsv");
+
+            int count = 0;
+            var lines = File.ReadLines(cmd.inTsv)
+                .Select(line =>
+                {
+                    if (++count % 100 == 0)
+                        Console.Write("Lines processed: {0}\r", count);
+                    return line.Split('\t');
+                })
+                .GroupBy(items => items[cmd.label])
+                .Select(g => new
+                {
+                    phrase = g.Key,
+                    counts = g.Sum(i => Convert.ToInt32(i[cmd.countID]))
+                })
+                .OrderByDescending(x => x.counts)
+                .Select(y => y.phrase + "\t" + y.counts);
+
+            File.WriteAllLines(cmd.outTsv, lines);
+            Console.Write("Lines processed: {0}\r", count);
+            Console.WriteLine("\nDone.");
+
+        }
+
+
         static void Main(string[] args)
         {
             ParserX.AddTask<ArgsLabel>(Label, "Generate label file with class id and generate (or use) .labelmap file");
@@ -1110,6 +1151,7 @@ namespace TsvTool
             ParserX.AddTask<ArgsFilterLines>(FilterLines, "Filter lines in A with keys in B (or reversely, not in B), according to the specified column");
             ParserX.AddTask<ArgsDistinct>(Distinct, "Find distinct lines based on the specified key column");
             ParserX.AddTask<ArgsCountLabel>(CountLabel, "Count for each distinct label");
+            ParserX.AddTask<ArgsCountPhrase>(CountPhrase, "Count for each distinct phrase");
             ParserX.AddTask<ArgsClassSplit>(ClassSplit, "Split data into training and testing acording to class labels");
 
             ParserX.AddTask<ArgsList2Tsv>(List2Tsv, "Generate TSV file from list file");
