@@ -178,6 +178,12 @@
     <CudaCompile Include="..\src\caffe\solvers\sgd_solver.cu">
       <Filter>Source Files\solvers</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\lstm_unit_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\recurrent_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\caffe\blob.cpp">
@@ -493,6 +499,21 @@
       <Filter>Source Files\layers</Filter>
     </ClCompile>
     <ClCompile Include="..\src\caffe\layers\bias_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\lstm_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\lstm_unit_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\parameter_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\recurrent_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\rnn_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
   </ItemGroup>
@@ -828,6 +849,18 @@
       <Filter>Head Files\layers</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\scale_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\lstm_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\parameter_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\recurrent_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\rnn_layer.hpp">
       <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>

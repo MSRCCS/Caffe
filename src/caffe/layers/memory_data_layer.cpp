@@ -29,8 +29,8 @@ void MemoryDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   }
   else
   {
-	  top[0]->Reshape(batch_size_, channels_, height_, width_);
-	  added_data_.Reshape(batch_size_, channels_, height_, width_);
+  top[0]->Reshape(batch_size_, channels_, height_, width_);
+  added_data_.Reshape(batch_size_, channels_, height_, width_);
   }
   //top[0]->Reshape(batch_size_, channels_, height_, width_);
   // end modification
@@ -57,7 +57,7 @@ void MemoryDataLayer<Dtype>::AddDatumVector(const vector<Datum>& datum_vector) {
   if (crop_size > 0)
 	  added_data_.Reshape(num, channels_, crop_size, crop_size);
   else
-	  added_data_.Reshape(num, channels_, height_, width_);
+  added_data_.Reshape(num, channels_, height_, width_);
   //added_data_.Reshape(num, channels_, height_, width_);
   // end modification
   added_label_.Reshape(num, 1, 1, 1);
@@ -89,7 +89,7 @@ void MemoryDataLayer<Dtype>::AddMatVector(const vector<cv::Mat>& mat_vector,
   if (crop_size > 0)
 	  added_data_.Reshape(num, channels_, crop_size, crop_size);
   else
-	  added_data_.Reshape(num, channels_, height_, width_);
+  added_data_.Reshape(num, channels_, height_, width_);
   //added_data_.Reshape(num, channels_, height_, width_);
   // end modification
   added_label_.Reshape(num, 1, 1, 1);
@@ -143,7 +143,7 @@ void MemoryDataLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   if (crop_size > 0)
 	  top[0]->Reshape(batch_size_, channels_, crop_size, crop_size);
   else
-	  top[0]->Reshape(batch_size_, channels_, height_, width_);
+  top[0]->Reshape(batch_size_, channels_, height_, width_);
   //top[0]->Reshape(batch_size_, channels_, height_, width_);
   // end modification
   top[1]->Reshape(batch_size_, 1, 1, 1);
