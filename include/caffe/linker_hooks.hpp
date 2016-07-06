@@ -70,17 +70,21 @@ namespace caffe {
   FUNC(L2Norm); \
   FUNC(Log); \
   FUNC(LRN); \
+  FUNC(LSTM); \
+  FUNC(LSTMUnit); \
   FUNC(MemoryData); \
   FUNC(MIL); \
   FUNC(MILData); \
   FUNC(MultinomialLogisticLoss); \
   FUNC(MVN); \
+  FUNC(Parameter); \
   FUNC(Pooling); \
   FUNC(Power); \
   FUNC(PReLU); \
   FUNC(Reduction); \
   FUNC(ReLU); \
   FUNC(Reshape); \
+  FUNC(RNN); \
   FUNC(Scale); \
   FUNC(Sigmoid); \
   FUNC(Silence); \
