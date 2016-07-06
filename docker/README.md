@@ -8,6 +8,18 @@ docker build -t caffe:cpu standalone/cpu
 for example. (Here `gpu` can be substituted for `cpu`, but to keep the readme simple, only the `cpu` case will be discussed in detail).
 
 Note that the GPU standalone requires a CUDA 7.5 capable driver to be installed on the system and [nvidia-docker] for running the Docker containers. Here it is generally sufficient to use `nvidia-docker` instead of `docker` in any of the commands mentioned.
+Note also that the repository built is the BVLC master branch. 
+
+# Caffe Philly build
+
+The `standalone\philly` subfolder contains docker files for generating GPU executable images for Caffe. The images can be built by running:
+
+```
+docker build -t caffe:philly standalone/philly
+```
+
+The repository being built is the WinCaffe branch at MSRCCS. 
+
 
 # Running Caffe using the docker image
 
