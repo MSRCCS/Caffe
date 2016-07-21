@@ -9,6 +9,7 @@ using System.Net;
 using System.IO;
 using System.Drawing;
 using System.Diagnostics;
+using System.IO.Compression;
 using CmdParser;
 using TsvTool.Utility;
 
@@ -252,6 +253,110 @@ namespace TsvTool
                 File.WriteAllBytes(image_file_name, Convert.FromBase64String(cols[cmd.colImage]));
                 Console.Write("Images saved: {0}\r", ++count);
             }
+            Console.WriteLine("\nDone!");
+        }
+
+        class ArgsTsv2CNTKImageReader
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output CNTK ImageReader File")]
+            public string outFile = null;
+            [Argument(ArgumentType.Required, HelpText = "Column index for base64 encoded image")]
+            public int colImage = -1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for sub folder name (default: use subfolder name in TSV)")]
+            public int colSubFolder = -1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for file name (default: use GUID as filename)")]
+            public int colFileName = -1;
+            [Argument(ArgumentType.Required, HelpText = "Column index for label")]
+            public int colLabel = -1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "NumRandom")]
+            public int numRandom = -1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "FileName Prefix")]
+            public string namePrefix = null;
+        }
+
+        static void ConvertToCNTK(ArgsTsv2CNTKImageReader cmd, StreamWriter imageReader, ZipArchive imageZip, string line)
+        {
+            var cols = line.Split('\t');
+            string subfolder = null, filename;
+            if (cmd.colFileName >= 0)
+            {
+                filename = cols[cmd.colFileName];
+                if (string.IsNullOrEmpty(Path.GetExtension(filename)))
+                    filename = filename + ".jpg";
+                subfolder = Path.GetDirectoryName(filename);
+                if (string.IsNullOrEmpty(subfolder) && cmd.colSubFolder >= 0)
+                    subfolder = cols[cmd.colSubFolder];
+                var invalids = System.IO.Path.GetInvalidFileNameChars();
+                subfolder = String.Join("_", subfolder.Split(invalids, StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
+                filename = Path.GetFileName(filename);
+            }
+            else
+            {
+                filename = Guid.NewGuid().ToString() + ".jpg";
+                if (cmd.colSubFolder >= 0)
+                    subfolder = cols[cmd.colSubFolder];
+            }
+            //string image_file_name = Path.Combine(subfolder, filename);
+            string image_file_name = null;
+            string zipName = subfolder + "/" + filename;
+            if (null == cmd.namePrefix)
+            {
+                image_file_name = subfolder + "/" + filename;
+            }
+            else
+            {
+                image_file_name = cmd.namePrefix + "/" + subfolder + "/" + filename;
+            }
+            imageReader.WriteLine("{0}\t{1}", image_file_name, cols[cmd.colLabel]);
+            var imageEntry = imageZip.CreateEntry(zipName, CompressionLevel.NoCompression);
+            BinaryWriter imageWriter = new BinaryWriter(imageEntry.Open());
+            var im = Convert.FromBase64String(cols[cmd.colImage]);
+            imageWriter.Write(im);
+            imageWriter.Flush();
+            imageWriter.Close();
+            imageWriter.Dispose();
+        }
+
+        static void Tsv2CNTKImageReader(ArgsTsv2CNTKImageReader cmd)
+        {
+            if (cmd.outFile == null)
+                cmd.outFile = Path.GetFileNameWithoutExtension(cmd.inTsv);
+            var fileBase = Path.GetFileNameWithoutExtension(cmd.outFile);
+            var imageReader = new StreamWriter(fileBase + ".cntk.txt");
+            var imageZipFile = File.Open(fileBase + ".cntk.zip", FileMode.Create, FileAccess.Write);
+            var imageZip = new ZipArchive(imageZipFile, ZipArchiveMode.Create);
+            var tsvFileR = new StreamReader(cmd.inTsv);
+            var count = 0;
+            if (-1 == cmd.numRandom)
+            {
+
+                string line = null;
+                while ((line = tsvFileR.ReadLine()) != null)
+                {
+                    Program.ConvertToCNTK(cmd, imageReader, imageZip, line);
+                    Console.Write("Images saved: {0}\r", ++count);
+                }
+
+            }
+            else
+            {
+                var lineIdx = File.ReadLines(Path.ChangeExtension(cmd.inTsv, ".lineidx")).Select(line => Convert.ToInt64(line)).ToArray();
+                Random rnd = new Random(1234);
+                for (int i=0; i < cmd.numRandom; i++)
+                {
+                    var seekPos = lineIdx[rnd.Next(lineIdx.Length)];
+                    tsvFileR.BaseStream.Seek(seekPos, SeekOrigin.Begin);
+                    string line = tsvFileR.ReadLine();
+                    Program.ConvertToCNTK(cmd, imageReader, imageZip, line);
+                    tsvFileR.DiscardBufferedData();
+                    Console.Write("Images saved: {0}\r", ++count);
+                }
+            }
+            tsvFileR.Dispose();
+            imageReader.Dispose();
+            imageZip.Dispose();
             Console.WriteLine("\nDone!");
         }
 
@@ -1115,6 +1220,8 @@ namespace TsvTool
             ParserX.AddTask<ArgsList2Tsv>(List2Tsv, "Generate TSV file from list file");
             ParserX.AddTask<ArgsFolder2Tsv>(Folder2Tsv, "Generate TSV file from folder images");
             ParserX.AddTask<ArgsTsv2Folder>(Tsv2Folder, "Unpack images in TSV file to folder images");
+
+            ParserX.AddTask<ArgsTsv2CNTKImageReader>(Tsv2CNTKImageReader, "Unpack and repack for use in CNTK");
 
             ParserX.AddTask<ArgsResizeImage>(ResizeImage, "Resize image");
             ParserX.AddTask<ArgsStatisticsImage>(StatisticsImage, "Image Statistics"); 
