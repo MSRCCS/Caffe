@@ -1110,7 +1110,7 @@ namespace TsvTool
             public int countID = -1;
         }
 
-		static void CountPhrase(ArgsCountPhrase cmd)
+        static void CountPhrase(ArgsCountPhrase cmd)
 		{
 			if (cmd.outTsv == null)
 				cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".phrase.tsv");
@@ -1152,77 +1152,79 @@ namespace TsvTool
 			File.WriteAllLines(cmd.outTsv, outputLines);
 			Console.WriteLine("\nDone.");
 
-		}
+        }
 
-		class ArgsPhrase2Image
-		{
-			[Argument(ArgumentType.Required, HelpText = "Input TSV file with imageID")]
-			public string inTsv = null;
-			[Argument(ArgumentType.Required, HelpText = "Input TSV file of CountPhrase (i.e. .phrase.tsv)")]
-			public string inTsv_Phrase = null;
-			[Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace InTsv .ext with .phrase2image.tsv)")]
-			public string outTsv = null;
-			[Argument(ArgumentType.Required, HelpText = "Column index for imageID in inTsv")]
-			public int image = -1;
-			[Argument(ArgumentType.Required, HelpText = "Column index for phrase in inTsv")]
-			public int phraseAll= -1;
-			[Argument(ArgumentType.Required, HelpText = "Column index for Phrase in inTsv_Phrase")]
-			public int phrase = -1;
-			[Argument(ArgumentType.Required, HelpText = "Column index for Phrase count number in inTsv_Phrase")]
-			public int phraseCount = -1;
-		}
+        class ArgsPhrase2Image
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file with imageID")]
+            public string inTsv = null;
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file of CountPhrase (i.e. .phrase.tsv)")]
+            public string inTsv_Phrase = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace InTsv .ext with .phrase2image.tsv)")]
+            public string outTsv = null;
+            [Argument(ArgumentType.Required, HelpText = "Column index for imageID in inTsv")]
+            public int image = -1;
+            [Argument(ArgumentType.Required, HelpText = "Column index for phrase in inTsv")]
+            public int phraseAll = -1;
+            [Argument(ArgumentType.Required, HelpText = "Column index for Phrase in inTsv_Phrase")]
+            public int phrase = -1;
+            [Argument(ArgumentType.Required, HelpText = "Column index for Phrase count number in inTsv_Phrase")]
+            public int phraseCount = -1;
+        }
 
-		static void Phrase2Image(ArgsPhrase2Image cmd)
-		{
-			if (cmd.outTsv == null)
-				cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".phrase2image.tsv");
+        static void Phrase2Image(ArgsPhrase2Image cmd)
+        {
+            if (cmd.outTsv == null)
+                cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".phrase2image.tsv");
 
-			DataTable ImagePhrase = new DataTable();
+            DataTable ImagePhrase = new DataTable();
 
-			DataColumn column;
-			DataRow row;
+            DataColumn column;
+            DataRow row;
 
-			int count1 = 0;
-			var dic1 = new Dictionary<string, string> (StringComparer.OrdinalIgnoreCase);
-			dic1 = File.ReadLines(cmd.inTsv)
-				.Select(line => {
-					if (++count1 % 100 == 0)
-						Console.Write("Lines of inTsv processed: {0}\r", count1);
-					return line.Split('\t');})
-				.GroupBy(col => col[cmd.phraseAll])
-				.Select(grp => grp.First())
-				.ToDictionary(cols => cols[cmd.phraseAll], cols => cols[cmd.image], StringComparer.OrdinalIgnoreCase);
+            int count1 = 0;
+            var dic1 = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            dic1 = File.ReadLines(cmd.inTsv)
+                .Select(line =>
+                {
+                    if (++count1 % 100 == 0)
+                        Console.Write("Lines of inTsv processed: {0}\r", count1);
+                    return line.Split('\t');})
+                .GroupBy(col => col[cmd.phraseAll])
+                .Select(grp => grp.First())
+                .ToDictionary(cols => cols[cmd.phraseAll], cols => cols[cmd.image], StringComparer.OrdinalIgnoreCase);
 
-			Console.WriteLine ("\n");
-			int count2 = 0;
-			var dic2 = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-			dic2 = File.ReadLines(cmd.inTsv_Phrase)
-				.Select(line => {
-					if (++count2 % 100 == 0)
-						Console.Write("Lines of inTsv_Phrase processed: {0}\r", count2);
-					return line.Split('\t');})
-				.ToDictionary(cols => cols[cmd.phrase], cols => cols[cmd.phraseCount], StringComparer.OrdinalIgnoreCase);
+            Console.WriteLine("\n");
+            int count2 = 0;
+            var dic2 = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            dic2 = File.ReadLines(cmd.inTsv_Phrase)
+                .Select(line =>
+                {
+                    if (++count2 % 100 == 0)
+                        Console.Write("Lines of inTsv_Phrase processed: {0}\r", count2);
+                    return line.Split('\t');})
+                .ToDictionary(cols => cols[cmd.phrase], cols => cols[cmd.phraseCount], StringComparer.OrdinalIgnoreCase);
 
-			Console.WriteLine ("\n");
-			var dic = dic2.Concat(dic1)
-				.GroupBy(kvp => kvp.Key, kvp => kvp.Value)
-				.ToDictionary(g => g.Key, g => g.Last());
+            Console.WriteLine("\n");
+            var dic = dic2.Concat(dic1)
+                .GroupBy(kvp => kvp.Key, kvp => kvp.Value)
+                .ToDictionary(g => g.Key, g => g.Last());
 
-			int count = 0;
-			var arr = dic.ToArray ();
-			var outputLines = arr.Select(kv =>
-				{
-					if (++count % 100 == 0)
-						Console.Write("Lines processed: {0}\r", count);
-					return kv.Key + "\t" + kv.Value;
-				}
-			);
-			File.WriteAllLines(cmd.outTsv, outputLines);
+            int count = 0;
+            var arr = dic.ToArray();
+            var outputLines = arr.Select(kv =>
+            {
+                if (++count % 100 == 0)
+                    Console.Write("Lines processed: {0}\r", count);
+                return kv.Key + "\t" + kv.Value;
+            }
+            );
+            File.WriteAllLines(cmd.outTsv, outputLines);
 
-			Console.Write("\nLines processed: {0}\r", count);
-			Console.WriteLine("\nDone.");
+            Console.Write("\nLines processed: {0}\r", count);
+            Console.WriteLine("\nDone.");
 
-		}
+        }
 
 
 
@@ -1241,7 +1243,7 @@ namespace TsvTool
             ParserX.AddTask<ArgsDistinct>(Distinct, "Find distinct lines based on the specified key column");
             ParserX.AddTask<ArgsCountLabel>(CountLabel, "Count for each distinct label");
             ParserX.AddTask<ArgsCountPhrase>(CountPhrase, "Count for each distinct phrase");
-			ParserX.AddTask<ArgsPhrase2Image> (Phrase2Image, "Get image ID of popular phrase");
+            ParserX.AddTask<ArgsPhrase2Image>(Phrase2Image, "Get image ID of popular phrase");
             ParserX.AddTask<ArgsClassSplit>(ClassSplit, "Split data into training and testing acording to class labels");
 
             ParserX.AddTask<ArgsList2Tsv>(List2Tsv, "Generate TSV file from list file");
