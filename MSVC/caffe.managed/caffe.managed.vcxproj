@@ -61,7 +61,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <AdditionalIncludeDirectories>..\..\include;..\..\src;..\..\3rdparty\include;..\..\3rdparty\include\openblas;..\..\3rdparty\include\hdf5;..\..\3rdparty\include\lmdb;..\..\3rdparty\include\opencv;..\..\cudnn\cuda\include;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS   /FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -84,7 +84,7 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <AdditionalIncludeDirectories>..\..\include;..\..\src;..\..\3rdparty\include;..\..\3rdparty\include\openblas;..\..\3rdparty\include\hdf5;..\..\3rdparty\include\lmdb;..\..\3rdparty\include\opencv;..\..\cudnn\cuda\include;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS   /FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

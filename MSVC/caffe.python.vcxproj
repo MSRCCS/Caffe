@@ -79,7 +79,7 @@
       <PreprocessorDefinitions>WIN32;USE_CUDNN;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>../include;../src;../3rdparty/include;../3rdparty/include/openblas;../3rdparty/include/hdf5;../3rdparty/include/lmdb;..\cudnn\cuda\include;$(PYTHON_ROOT)\include;$(PYTHON_ROOT)\Lib\site-packages\numpy\core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS   /FS %(AdditionalOptions)</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
@@ -110,7 +110,7 @@ EXIT 0</Command>
       <PreprocessorDefinitions>WITH_PYTHON_LAYER;WIN32;USE_CUDNN;NDEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>../include;../src;../3rdparty/include;../3rdparty/include/openblas;../3rdparty/include/hdf5;../3rdparty/include/lmdb;..\cudnn\cuda\include;$(PYTHON_ROOT)\include;$(PYTHON_ROOT)\Lib\site-packages\numpy\core\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS   /FS %(AdditionalOptions)</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>

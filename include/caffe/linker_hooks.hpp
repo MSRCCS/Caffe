@@ -49,6 +49,7 @@ namespace caffe {
   FUNC(Crop); \
   FUNC(CrossEntropyLoss); \
   FUNC(Deconvolution); \
+  FUNC(DenseLoss); \
   FUNC(Dropout); \
   FUNC(DummyData); \
   FUNC(Eltwise); \
@@ -85,11 +86,14 @@ namespace caffe {
   FUNC(ReLU); \
   FUNC(Reshape); \
   FUNC(RNN); \
+  FUNC(ROIPooling); \
   FUNC(Scale); \
+  FUNC(SgmLoss); \
   FUNC(Sigmoid); \
   FUNC(Silence); \
   FUNC(Slice); \
   FUNC(SigmoidCrossEntropyLoss); \
+  FUNC(SmoothL1Loss); \
   FUNC(Softmax); \
   FUNC(SoftmaxWithLoss); \
   FUNC(Split); \
@@ -99,9 +103,9 @@ namespace caffe {
   FUNC(Tile); \
   FUNC(TripletLoss); \
   FUNC(TsvData); \
+  FUNC(WSgmLoss); \
   FUNC(WindowData); \
-  FUNC(ROIPooling); \
-  FUNC(SmoothL1Loss)
+  FUNC(XCovLoss)
 
 #ifdef WITH_PYTHON_LAYER
 #define FOR_PYTHON_LAYER(FUNC) \

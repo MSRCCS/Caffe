@@ -367,6 +367,7 @@ message LayerParameter {
   optional ConvolutionParameter convolution_param = 106;
   optional CropParameter crop_param = 144;
   optional DataParameter data_param = 107;
+  optional DenseLossParameter dense_loss_param = 0x00444E53; //"DNS"
   optional DropoutParameter dropout_param = 108;
   optional DummyDataParameter dummy_data_param = 109;
   optional EltwiseParameter eltwise_param = 110;
@@ -409,6 +410,8 @@ message LayerParameter {
   optional MILParameter mil_param = 0x004d494c; //"MIL"
   optional TsvDataParameter tsv_data_param = 0x00545356; // "TSV"
   optional TripletLossParameter triplet_loss_param = 0x00545249; // "TRI"
+  optional WSgmParameter wsgm_param = 0x00575347; //"WSG"
+  optional XCovParameter xcov_param = 0x00584356; //"XCV"
 }
 
 // Message that stores parameters used to apply transformation
@@ -662,6 +665,11 @@ message DataParameter {
   // Prefetch queue (Number of batches to prefetch to host memory, increase if
   // data access bandwidth varies).
   optional uint32 prefetch = 10 [default = 4];
+}
+
+message DenseLossParameter {
+   required uint32 num_classes = 1;
+   optional FillerParameter weight_filler = 2;
 }
 
 message DropoutParameter {
@@ -1130,6 +1138,19 @@ message SmoothL1LossParameter {
   optional float sigma = 1 [default = 1];
 }
 
+message WSgmParameter {
+   required uint32 num_classes = 1;//[default = 10];
+}
+
+message XCovParameter {
+  optional bool subtract_diagonal = 1 [default = true];
+  optional bool report_covmat = 2 [default = false];
+  // Filter out all covmat entries not on blocks of this width.
+  optional int32 block_width = 3 [default = -1];
+  // Filter out all covmat entries not inside the band of this width around the
+  // diagonal. This is the max horizontal distance of an included cell.
+  optional int32 band_width = 4 [default = -1];
+}
 message SliceParameter {
   // The axis along which to slice -- may be negative to index from the end
   // (e.g., -1 for the last axis).
