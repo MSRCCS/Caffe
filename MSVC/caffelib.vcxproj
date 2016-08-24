@@ -70,7 +70,7 @@
       <PreprocessorDefinitions>USE_CUDNN;USE_OPENCV;USE_LEVELDB;USE_LMDB;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>..\include;..\src;..\3rdparty\include;..\3rdparty\include\openblas;..\3rdparty\include\hdf5;..\3rdparty\include\lmdb;..\3rdparty\include\opencv;..\cudnn\cuda\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS   /FS %(AdditionalOptions)</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -107,7 +107,7 @@ exit 0</Command>
       <PreprocessorDefinitions>WITH_PYTHON_LAYER;USE_CUDNN;USE_OPENCV;USE_LEVELDB;USE_LMDB;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>..\include;..\src;..\3rdparty\include;..\3rdparty\include\openblas;..\3rdparty\include\hdf5;..\3rdparty\include\lmdb;..\3rdparty\include\opencv;$(PYTHON_ROOT)\include;..\cudnn\cuda\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/Zo</AdditionalOptions>
+      <AdditionalOptions>/Zo  /FS</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
@@ -160,6 +160,7 @@ exit 0</Command>
     <ClCompile Include="..\src\caffe\layers\cudnn_tanh_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\data_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\deconv_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\dense_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\dropout_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\dummy_data_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\eltwise_layer.cpp" />
@@ -200,6 +201,7 @@ exit 0</Command>
     <ClCompile Include="..\src\caffe\layers\rnn_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\roi_pooling_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\scale_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\sgm_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\sigmoid_cross_entropy_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\sigmoid_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\silence_layer.cpp" />
@@ -215,6 +217,8 @@ exit 0</Command>
     <ClCompile Include="..\src\caffe\layers\triplet_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\tsv_data_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\window_data_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\wsgm_loss_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\xcov_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layer_factory.cpp" />
     <ClCompile Include="..\src\caffe\net.cpp" />
     <ClCompile Include="..\src\caffe\parallel.cpp" />
@@ -299,6 +303,7 @@ exit 0</Command>
     <CudaCompile Include="..\src\caffe\layers\threshold_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\tile_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\triplet_loss_layer.cu" />
+    <CudaCompile Include="..\src\caffe\layers\xcov_loss_layer.cu" />
     <CudaCompile Include="..\src\caffe\solvers\adadelta_solver.cu" />
     <CudaCompile Include="..\src\caffe\solvers\adagrad_solver.cu" />
     <CudaCompile Include="..\src\caffe\solvers\adam_solver.cu" />
@@ -397,6 +402,8 @@ exit 0</Command>
     <ClInclude Include="..\include\caffe\layers\triplet_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\tsv_data_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\window_data_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\wsgm_loss_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\xcov_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layer_factory.hpp" />
     <ClInclude Include="..\include\caffe\linker_hooks.hpp" />
     <ClInclude Include="..\include\caffe\net.hpp" />

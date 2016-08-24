@@ -190,6 +190,9 @@
     <CudaCompile Include="..\src\caffe\layers\recurrent_layer.cu">
       <Filter>Source Files\layers</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\xcov_loss_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\caffe\blob.cpp">
@@ -526,6 +529,18 @@
       <Filter>Source Files\layers</Filter>
     </ClCompile>
     <ClCompile Include="..\src\caffe\layers\rnn_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\dense_loss_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\sgm_loss_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\wsgm_loss_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\xcov_loss_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
   </ItemGroup>
@@ -879,6 +894,10 @@
       <Filter>Head Files\layers</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\roi_pooling_layer.hpp">
+    <ClInclude Include="..\include\caffe\layers\wsgm_loss_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\xcov_loss_layer.hpp">
       <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>
