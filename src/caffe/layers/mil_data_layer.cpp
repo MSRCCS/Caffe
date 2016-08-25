@@ -6,6 +6,8 @@
 #include <utility>
 #include <vector>
 
+#ifndef	__APPLE__
+
 #include "opencv2/core/core.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
@@ -227,3 +229,5 @@ namespace caffe {
   INSTANTIATE_CLASS(MILDataLayer);
   REGISTER_LAYER_CLASS(MILData);
 }  // namespace caffe
+
+#endif
