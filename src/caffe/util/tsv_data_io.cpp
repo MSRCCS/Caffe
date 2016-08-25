@@ -1,5 +1,7 @@
 #include "caffe/util/tsv_data_io.hpp"
 
+#ifndef __APPLE__
+
 namespace caffe {
 
 void TextFile::load_buffer()
@@ -254,3 +256,5 @@ int TsvRawDataFile::TotalLines()
 }
 
 }
+
+#endif

@@ -16,6 +16,8 @@
 //#include <ppl.h>
 //using namespace concurrency;
 
+#ifndef	__APPLE__
+
 namespace caffe {
 
 cv::Mat ReadImageStreamToCVMat(vector<unsigned char>& imbuf, const int height, const int width, const bool is_color) 
@@ -411,3 +413,4 @@ REGISTER_LAYER_CLASS(TsvData);
 
 }  // namespace caffe
 
+#endif
