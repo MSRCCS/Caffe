@@ -69,7 +69,11 @@ namespace CaffeExtract
                 modelFile = getPath(modelDict["model"]);
                 meanFile = getPath(modelDict["mean"]);
                 labelmapFile = getPath(modelDict["labelmap"]);
-            }
+                if (string.IsNullOrEmpty(modelDict["labelmap"]))
+                   labelmapFile = null;
+               else
+                   labelmapFile = getPath(modelDict["labelmap"]);
+           }
 
             if (cmd.proto != null)
                 protoFile = cmd.proto;

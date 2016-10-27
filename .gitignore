@@ -101,6 +101,7 @@ Debug/
 *.deps
 *.suo
 *.suo
+*.pdb
 
 # Python dll dependencies
 python/caffe/*.dll
