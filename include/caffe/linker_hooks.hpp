@@ -82,6 +82,7 @@ namespace caffe {
   FUNC(Pooling); \
   FUNC(Power); \
   FUNC(PReLU); \
+  FUNC(Python); \
   FUNC(Reduction); \
   FUNC(ReLU); \
   FUNC(Reshape); \
