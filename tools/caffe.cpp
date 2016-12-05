@@ -47,6 +47,8 @@ DEFINE_string(sigint_effect, "stop",
 DEFINE_string(sighup_effect, "snapshot",
              "Optional; action to take when a SIGHUP signal is received: "
              "snapshot, stop or none.");
+DEFINE_string(log, "./",
+    "Optional; specify the log filename.");
 
 // A simple registry for caffe commands.
 typedef int (*BrewFunction)();
@@ -402,7 +404,7 @@ int main(int argc, char** argv) {
   // Run tool or show usage.
   caffe::GlobalInit(&argc, &argv);
 #ifdef _MSC_VER
-  google::SetLogDestination(google::GLOG_INFO, "./");
+  google::SetLogDestination(google::GLOG_INFO, FLAGS_log.c_str());
 #endif
   if (argc == 2) {
 #ifdef WITH_PYTHON_LAYER
