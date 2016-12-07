@@ -207,9 +207,6 @@
     <ClCompile Include="..\src\gtest\gtest-all.cpp">
       <Filter>Source Files\main</Filter>
     </ClCompile>
-    <ClCompile Include="..\3rdparty\include\mkstemp.cpp">
-      <Filter>Source Files\main</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\caffe\test\test_caffe_main.cpp">
       <Filter>Source Files\main</Filter>
     </ClCompile>

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
@@ -20,13 +20,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -60,32 +60,31 @@
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <CodeGeneration>$(CudaArchitecture)</CodeGeneration>
       <GenerateLineInfo>true</GenerateLineInfo>
-      <AdditionalOptions>-Xcudafe "--diag_suppress=exception_spec_override_incompat --diag_suppress=useless_using_declaration" -D_SCL_SECURE_NO_WARNINGS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-Xcudafe "--diag_suppress=exception_spec_override_incompat --diag_suppress=useless_using_declaration" -D_SCL_SECURE_NO_WARNINGS -Wno-deprecated-gpu-targets %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
     <ClCompile>
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level1</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WITH_PYTHON_LAYER;USE_CUDNN;USE_OPENCV;USE_LEVELDB;USE_LMDB;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;USE_CUDNN;USE_OPENCV;USE_LEVELDB;USE_LMDB;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\include;..\src;..\3rdparty\include;..\3rdparty\include\openblas;..\3rdparty\include\hdf5;..\3rdparty\include\lmdb;..\3rdparty\include\opencv;$(PYTHON_ROOT)\include;..\cudnn\cuda\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\opencv;$(PYTHON_ROOT)\include;..\cudnn\cuda\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS   /FS %(AdditionalOptions)</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <PreBuildEvent>
-      <Command>../scripts/GeneratePB.bat</Command>
+      <Command>scripts/ProtoCompile.cmd "$(SolutionDir)" "$(SolutionDir)libraries\bin\"</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>robocopy ..\3rdparty\bin $(SolutionDir)bin\$(Configuration) /xo /xn
-robocopy ..\cudnn\cuda\bin $(SolutionDir)bin\$(Configuration) /xo /xn
-IF %ERRORLEVEL% GEQ 8 exit 1
-exit 0</Command>
+      <Command>scripts/CaffeLibPostBuild.cmd "$(SolutionDir)" "$(Configuration)" "$(SolutionDir)bin\$(CONFIGURATION)"</Command>
     </PostBuildEvent>
     <Lib>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
+      <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
     </Lib>
     <CudaCompile>
       <CodeGeneration>compute_61,sm_61</CodeGeneration>
@@ -95,7 +94,7 @@ exit 0</Command>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <CodeGeneration>$(CudaArchitecture)</CodeGeneration>
-      <AdditionalOptions>-Xcudafe "--diag_suppress=exception_spec_override_incompat --diag_suppress=useless_using_declaration" -D_SCL_SECURE_NO_WARNINGS %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>-Xcudafe "--diag_suppress=exception_spec_override_incompat --diag_suppress=useless_using_declaration" -D_SCL_SECURE_NO_WARNINGS -Wno-deprecated-gpu-targets %(AdditionalOptions)</AdditionalOptions>
     </CudaCompile>
     <ClCompile>
       <WarningLevel>Level1</WarningLevel>
@@ -104,15 +103,15 @@ exit 0</Command>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WITH_PYTHON_LAYER;USE_CUDNN;USE_OPENCV;USE_LEVELDB;USE_LMDB;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;USE_CUDNN;USE_OPENCV;USE_LEVELDB;USE_LMDB;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\include;..\src;..\3rdparty\include;..\3rdparty\include\openblas;..\3rdparty\include\hdf5;..\3rdparty\include\lmdb;..\3rdparty\include\opencv;$(PYTHON_ROOT)\include;..\cudnn\cuda\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\opencv;$(PYTHON_ROOT)\include;..\cudnn\cuda\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/Zo  /FS</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <PreBuildEvent>
-      <Command>../scripts/GeneratePB.bat</Command>
+      <Command>scripts/ProtoCompile.cmd "$(SolutionDir)" "$(SolutionDir)libraries\bin\"</Command>
     </PreBuildEvent>
     <CudaCompile>
       <CodeGeneration>compute_61,sm_61</CodeGeneration>
@@ -123,10 +122,7 @@ exit 0</Command>
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>robocopy ..\3rdparty\bin $(SolutionDir)bin\$(Configuration) /xo /xn
-robocopy ..\cudnn\cuda\bin $(SolutionDir)bin\$(Configuration) /xo /xn
-IF %ERRORLEVEL% GEQ 8 exit 1
-exit 0</Command>
+      <Command>scripts/CaffeLibPostBuild.cmd "$(SolutionDir)" "$(Configuration)" "$(SolutionDir)bin\$(CONFIGURATION)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -316,7 +312,6 @@ exit 0</Command>
   <ItemGroup>
     <ClInclude Include="..\include\caffe\blob.hpp" />
     <ClInclude Include="..\include\caffe\caffe.hpp" />
-    <ClInclude Include="..\include\caffe\caffe.pb.h" />
     <ClInclude Include="..\include\caffe\common.hpp" />
     <ClInclude Include="..\include\caffe\data_reader.hpp" />
     <ClInclude Include="..\include\caffe\data_transformer.hpp" />

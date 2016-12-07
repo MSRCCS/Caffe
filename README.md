@@ -17,34 +17,32 @@ and step-by-step examples.
 
 **Note**: This repo is ported from `git@github.com:MSRDL/caffe.git` for research development. The **master** branch follows BVLC/Caffe master, and the **WinCaffe** branch will merge the latest changes from **master** and keep it compilable in Windows.
 
+## Prerequisite
+1. Visual Studio 2015
+2. Python 2.7 - Anaconda is recommended: https://www.continuum.io/downloads
+3. Cuda 8.0
+ 
 ## Windows Setup
-**Requirements**: Visual Studio 2013 (Visual Studio 2015 is not supported at this moment) and CUDA 7.5
+1. Clone the repository:
 
-Please recursively clone the repository via:
+   ```
+   git clone https://github.com/MSRCCS/Caffe.git
+   ```
+2. Download 3rd party dependencies - under the caffe root folder, run:
 
-```
-git clone git@github.com:MSRCCS/caffe.git --recursive
-```
+   ```
+   python .\scripts\download_prebuilt_dependencies.py
+   ```
+3. Download `cuDNN v5.0` [from nVidia website](https://developer.nvidia.com/cudnn). Please specifically select v5 of CuDnn, which is the version that verifies to build with this WinCaffe package. 
+   Then under the caffe root folder, run `.\scripts\installCuDNN.ps1 $downloadedZipFile` in PowerShell where `$downloadedZipFile` is the path to your downloaded cuDNN file. Example: `.\scripts\installCuDNN.ps1 ~\Downloads\cudnn-7.5-win-x64-v5.0-prod.zip`
 
-Download `cuDNN` [from nVidia website](https://developer.nvidia.com/cudnn). Please specifically select v3 of CuDnn, which is the version that verifies to build with this WinCaffe package. 
-Then run `.\scripts\installCuDNN.ps1 $downloadedZipFile` in PowerShell where `$downloadedZipFile` is the path to your downloaded cuDNN file. Example: `.\scripts\installCuDNN.ps1 ~\Downloads\cudnn-7.0-win-x64-v3.0-prod.zip`
-
-Now, you should be able to build `caffe.sln`, except for the caffe.python project. Please build using Microsoft Visual Studio 2013. 
+Now, you should be able to build `caffe.sln` in Visual Studio 2015.
 
 ## Python Setup
 To build caffe.python and use the python wrapper on Windows, please follow [Python Setup](python/SetupPython.md) to setup the python environment. 
 
-## Development
-
 ### Common issues when pulling new commits from BVLC's branch
-- If compilation fails: regenerate `caffe.pb.h` and `caffe.pb.cc` files. This can be done by removing `src\caffe\proto\caffe.pb.h` file. The build process will regenerate if this file is missing.
 - If linking fails: it's likely that there are new `cpp` files that need to be added to the `caffelib` project.
-
-## Development
-
-### Common issues when syncing from main branch
-- If compilation fails: regenerate `caffe.pb.h` and `caffe.pb.cc` files. This can be done by removing `src\caffe\proto\caffe.pb.h` file. The build process will regenerate if this file is missing.
-- If linking fails: it's likely that there are new `cpp` files that need to be added to the `caffelib` project so that they are compiled.
 
 ## License and Citation
 
