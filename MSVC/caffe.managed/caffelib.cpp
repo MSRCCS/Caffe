@@ -1,12 +1,14 @@
 #include "stdafx.h"
 
-using namespace std;
 using namespace System;
 using namespace System::Runtime::InteropServices;
 using namespace System::Collections::Generic;
 using namespace System::IO;
 using namespace System::Drawing;
 using namespace System::Drawing::Imaging;
+
+using std::vector;
+using std::string;
 
 #define TO_NATIVE_STRING(str) msclr::interop::marshal_as<std::string>(str)
 #define MARSHAL_ARRAY(n_array, m_array) \

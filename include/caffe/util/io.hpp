@@ -1,7 +1,7 @@
 #ifndef CAFFE_UTIL_IO_H_
 #define CAFFE_UTIL_IO_H_
 
-#include <unistd.h>
+//#include <unistd.h>
 #include <boost/filesystem.hpp>
 #include <iomanip>
 #include <iostream>  // NOLINT(readability/streams)

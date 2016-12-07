@@ -97,12 +97,14 @@ MANIFEST-*
 Release/
 Debug/
 3rdparty/
+libraries/
 *.*sdf
 *.deps
 *.suo
 *.suo
 *.pdb
 *.VC.db
+*.opendb
 
 # Python dll dependencies
 python/caffe/*.dll

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <CudaCompile Include="..\src\caffe\layers\absval_layer.cu">
@@ -770,9 +770,6 @@
     <ClInclude Include="..\include\caffe\layers\mil_layer.hpp">
       <Filter>Head Files\layers</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\caffe\caffe.pb.h">
-      <Filter>Head Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\caffe\data_reader.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
@@ -894,6 +891,8 @@
       <Filter>Head Files\layers</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\roi_pooling_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
     <ClInclude Include="..\include\caffe\layers\wsgm_loss_layer.hpp">
       <Filter>Head Files\layers</Filter>
     </ClInclude>
