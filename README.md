@@ -33,13 +33,16 @@ and step-by-step examples.
    ```
    python .\scripts\download_prebuilt_dependencies.py
    ```
-3. Download `cuDNN v5.0` [from nVidia website](https://developer.nvidia.com/cudnn). Please specifically select v5 of CuDnn, which is the version that verifies to build with this WinCaffe package. 
-   Then under the caffe root folder, run `.\scripts\installCuDNN.ps1 $downloadedZipFile` in PowerShell where `$downloadedZipFile` is the path to your downloaded cuDNN file. Example: `.\scripts\installCuDNN.ps1 ~\Downloads\cudnn-7.5-win-x64-v5.0-prod.zip`
+3. Download `cuDNN v5.0` [from nVidia website](https://developer.nvidia.com/cudnn). Please select v5 of CuDnn, which is the version that verifies to build with this WinCaffe package. 
+   Then under the caffe root folder, run:
+   
+   ```
+   python .\scripts\install_cudnn.py $downloadedZipFile
+   ```
+   where `$downloadedZipFile` is the path to your downloaded cuDNN file.
+4. Set system environment variable `PYTHON_ROOT = path\to\your\python\root`, which is needed by Visual Studio to find python libraries.
 
 Now, you should be able to build `caffe.sln` in Visual Studio 2015.
-
-## Python Setup
-To build caffe.python and use the python wrapper on Windows, please follow [Python Setup](python/SetupPython.md) to setup the python environment. 
 
 ### Common issues when pulling new commits from BVLC's branch
 - If linking fails: it's likely that there are new `cpp` files that need to be added to the `caffelib` project.
