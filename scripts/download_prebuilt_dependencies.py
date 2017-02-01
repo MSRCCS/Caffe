@@ -25,12 +25,12 @@ def model_checks_out(filename, sha1):
     with open(filename, 'rb') as f:
         return hashlib.sha1(f.read()).hexdigest() == sha1
 
-
-if __name__ == '__main__':
+def main(args_list):
     parser = argparse.ArgumentParser(
         description='Download prebuilt dependencies for windows.')
     parser.add_argument('--msvc_version', default='v140', choices=['v120', 'v140'])
-    args = parser.parse_args()
+
+    args = parser.parse_args(args_list)
 
     assert args.msvc_version == 'v140', 'Only Visual Studio 2015 is supported!'
 
@@ -61,3 +61,6 @@ if __name__ == '__main__':
     print("Done.")
     tar.close()
     os.remove(dep_filename)
+
+if __name__ == '__main__':
+    main(sys.argv[1:])
