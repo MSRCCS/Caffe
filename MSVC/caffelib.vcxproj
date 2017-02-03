@@ -87,7 +87,7 @@
       <IgnoreAllDefaultLibraries>true</IgnoreAllDefaultLibraries>
     </Lib>
     <CudaCompile>
-      <CodeGeneration>compute_61,sm_61</CodeGeneration>
+      <CodeGeneration>compute_35,sm_35;compute_52,sm_52;compute_61,sm_61</CodeGeneration>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -114,7 +114,7 @@
       <Command>scripts/ProtoCompile.cmd "$(SolutionDir)" "$(SolutionDir)libraries\bin\"</Command>
     </PreBuildEvent>
     <CudaCompile>
-      <CodeGeneration>compute_61,sm_61</CodeGeneration>
+      <CodeGeneration>compute_35,sm_35;compute_52,sm_52;compute_61,sm_61</CodeGeneration>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Defines>USE_CUDNN</Defines>
     </CudaCompile>
