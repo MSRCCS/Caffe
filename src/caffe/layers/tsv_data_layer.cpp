@@ -378,25 +378,18 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	//	}
 	//}
 	//);
-	boost::thread_group threads;
-	for (size_t i = 0.; i < base64coded_data.size(); i++)
-	{
-		threads.create_thread(boost::bind(&TsvDataLayer<Dtype>::transform_datum, this, boost::ref(c), i));
-	}
-	threads.join_all();
-
-    // boost random number generator (boost::mt19937) is used in DataTransformer, but not thread-safe.
-    // also it is not thread-safe to use set_cpu_data for the same transformed_data_ in multiple threads.
-    for (size_t i = 0; i < base64coded_data.size(); i++)
+    #pragma omp parallel for
+    for (long long i = 0.; i < base64coded_data.size(); i++)
     {
+        transform_datum(c, i);
         if (c.data_format == TsvDataParameter_Base64DataFormat_Image)
         {
             int offset = c.batch->data_.offset(i);
             Datum &datum = vec_datum[i];
-            this->transformed_data_.set_cpu_data(c.top_data + offset);
-            this->data_transformer_->Transform(datum, &(this->transformed_data_));
+            this->data_transformer_->TransformData(datum, c.top_data + offset);
         }
     }
+
 	trans_time += timer.MicroSeconds();
 
 	timer.Stop();

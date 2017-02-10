@@ -75,6 +75,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <PreBuildEvent>
       <Command>scripts/ProtoCompile.cmd "$(SolutionDir)" "$(SolutionDir)libraries\bin\"</Command>
@@ -109,6 +110,7 @@
       <AdditionalOptions>/Zo  /FS</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <PreBuildEvent>
       <Command>scripts/ProtoCompile.cmd "$(SolutionDir)" "$(SolutionDir)libraries\bin\"</Command>
