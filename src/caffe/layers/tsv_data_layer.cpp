@@ -153,19 +153,24 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
   // open TSV file
   string tsv_data = tsv_param.source();
-  string tsv_shuffle = tsv_param.source_shuffle();  // shuffle file is required
+  bool has_shuffle_file = tsv_param.has_source_shuffle();
+  string tsv_shuffle;
+  if (has_shuffle_file)
+      tsv_shuffle = tsv_param.source_shuffle();
   int col_data = tsv_param.col_data();
   int col_label = tsv_param.col_label();
   //int col_crop = tsv_param.col_crop();
   bool has_separate_label_file = tsv_param.has_source_label();
 
   tsv_.Open(tsv_data.c_str(), col_data, has_separate_label_file ? -1 : col_label);
-  tsv_.ShuffleData(tsv_shuffle);
+  if (has_shuffle_file)
+    tsv_.ShuffleData(tsv_shuffle);
   if (has_separate_label_file)
   {
 	  string tsv_label = tsv_param.source_label();
 	  tsv_label_.Open(tsv_label.c_str(), -1, col_label);
-	  tsv_label_.ShuffleData(tsv_shuffle);
+	  if (has_shuffle_file)
+        tsv_label_.ShuffleData(tsv_shuffle);
 	  CHECK_EQ(tsv_.TotalLines(), tsv_label_.TotalLines())
 		  << "Data and label files must have the same line number: " 
 		  << tsv_.TotalLines() << " vs. " << tsv_label_.TotalLines();
@@ -242,8 +247,7 @@ void TsvDataLayer<Dtype>::transform_datum(thread_closure<Dtype>& c, size_t dst_i
         cv::Mat cvImg = ReadImageStreamToCVMat(data, c.new_height, c.new_width, c.channels > 1);
         Datum &datum = c.vec_datum[i];
         CVMatToDatum(cvImg, &datum);
-        //this->transformed_data_.set_cpu_data(c.top_data + offset);
-        //this->data_transformer_->Transform(datum, &(this->transformed_data_));
+        this->data_transformer_->TransformData(datum, c.top_data + offset);
     }
     else if (c.data_format == TsvDataParameter_Base64DataFormat_RawData)
     {
@@ -328,6 +332,9 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	top_shape[2] = crop_size > 0 ? crop_size : c.new_height;
 	top_shape[3] = crop_size > 0 ? crop_size : c.new_width;
 	this->transformed_data_.Reshape(top_shape);
+    //for (int i = 0; i < c.batch_size; i++)
+    //    this->vec_transformed_data_[i]->Reshape(top_shape);
+
 	top_shape[0] = c.batch_size;
 	batch->data_.Reshape(top_shape);
 
@@ -382,17 +389,10 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     for (long long i = 0.; i < base64coded_data.size(); i++)
     {
         transform_datum(c, i);
-        if (c.data_format == TsvDataParameter_Base64DataFormat_Image)
-        {
-            int offset = c.batch->data_.offset(i);
-            Datum &datum = vec_datum[i];
-            this->data_transformer_->TransformData(datum, c.top_data + offset);
-        }
     }
-
-	trans_time += timer.MicroSeconds();
-
-	timer.Stop();
+    trans_time += timer.MicroSeconds();
+    
+    timer.Stop();
 	batch_timer.Stop();
 	DLOG(INFO) << "Prefetch batch: " << batch_timer.MilliSeconds() << " ms.";
 	DLOG(INFO) << "     Read time: " << read_time / 1000 << " ms.";

@@ -145,7 +145,10 @@ int TsvRawDataFile::Open(const char *fileName, int colData, int colLabel)
 
 	_currentLine = 0;
 
-	return 0;
+    LOG(INFO) << "Loading idx file...";
+    LoadLineIndex(ChangeFileExtension(_tsvFileName, "lineidx").c_str(), _lineIndex);
+
+    return 0;
 }
 
 void TsvRawDataFile::Close()
@@ -155,29 +158,17 @@ void TsvRawDataFile::Close()
 
 void TsvRawDataFile::ShuffleData(string filename)
 {
-	LOG(INFO) << "Loading idx file...";
-	LoadLineIndex(ChangeFileExtension(_tsvFileName, "lineidx").c_str(), _lineIndex);
-
-    string shuffleFile = filename;
-    if (shuffleFile.size() == 0)
-        shuffleFile = ChangeFileExtension(_tsvFileName, "shuffle");
-
+    // shuffle file consists of random line numbers (not line index which corresponds to file position of each line)
+    // this kind of shuffle is useful for constructing pairwise or triplet data
+    // note that the shuffle file may contains more lines than index file, which means that data could be repeatedly used
+    // for triplet training.
     LOG(INFO) << "Loading shuffle file...";
-	// shuffle file consists of random line numbers (not line index which corresponds to file position of each line)
-	// this kind of shuffle is useful for constructing pairwise or triplet data
-	// note that the shuffle file may contains more lines than index file, which means that data could be repeatedly used
-	// for triplet training.
-	vector<int64_t> shuffle;
-	LoadLineIndex(shuffleFile.c_str(), shuffle);
-	vector<int64_t> newLineIndex(shuffle.size());
-	for (int i = 0; i < shuffle.size(); i++)
-		newLineIndex[i] = _lineIndex[shuffle[i]];
-	_lineIndex = newLineIndex;
+	LoadLineIndex(ChangeFileExtension(_tsvFileName, "shuffle").c_str(), _shuffleLines);
 }
 
 bool TsvRawDataFile::IsEOF()
 {
-	return ((_lineIndex.size() == 0 && _dataFile.IsEOF()) || (_lineIndex.size() > 0 && _currentLine >= _lineIndex.size()));
+	return ((_shuffleLines.size() == 0 && _dataFile.IsEOF()) || (_shuffleLines.size() > 0 && _currentLine >= _shuffleLines.size()));
 }
 
 int TsvRawDataFile::ReadNextLine(vector<string> &base64codedImg, vector<string> &label)
@@ -185,8 +176,8 @@ int TsvRawDataFile::ReadNextLine(vector<string> &base64codedImg, vector<string> 
 	if (IsEOF())
 		return -1;
 
-	if (_lineIndex.size() > 0)
-		_dataFile.Seek(_lineIndex[_currentLine]);
+	if (_shuffleLines.size() > 0)
+		_dataFile.Seek(_lineIndex[_shuffleLines[_currentLine]]);
 
 	std::string line;
 	_dataFile.ReadLine(line);
@@ -233,8 +224,8 @@ int TsvRawDataFile::ReadNextLine(vector<string> &base64codedImg, vector<string> 
 void TsvRawDataFile::MoveToFirst()
 {
 	_currentLine = 0;
-	if (_lineIndex.size() > 0)
-		_dataFile.Seek(_lineIndex[_currentLine]);
+	if (_shuffleLines.size() > 0)
+		_dataFile.Seek(_lineIndex[_shuffleLines[_currentLine]]);
 	else
 		_dataFile.Seek(0);
 }
@@ -242,15 +233,17 @@ void TsvRawDataFile::MoveToFirst()
 void TsvRawDataFile::MoveToLine(int lineNo)
 {
 	CHECK_GT(_lineIndex.size(), 0) << "Tsv file without .lineidx cannot be randomly accessed.";
-	CHECK_GT(_lineIndex.size(), lineNo) << "LineNo (" << lineNo << ") cannot exceed the total line size (" << _lineIndex.size() << ").";
+	CHECK_GT(_shuffleLines.size(), lineNo) << "LineNo (" << lineNo << ") cannot exceed the total line size (" << _shuffleLines.size() << ").";
 	_currentLine = lineNo;
-	_dataFile.Seek(_lineIndex[_currentLine]);
+	_dataFile.Seek(_lineIndex[_shuffleLines[_currentLine]]);
 }
 
 int TsvRawDataFile::TotalLines()
 {
-	CHECK_GT(_lineIndex.size(), 0) << "Tsv file without .lineidx cannot use TotalLines.";
-	return _lineIndex.size();
+	CHECK(_shuffleLines.size() > 0 || _lineIndex.size() > 0) << "Tsv file without .shuffle or .lineidx cannot use TotalLines.";
+    if (_shuffleLines.size() > 0)   // use .shuffle to get total lines
+	    return _shuffleLines.size();
+    return _lineIndex.size();   // use .lineidx to get total lines
 }
 
 }
