@@ -537,7 +537,10 @@ int DataTransformer<Dtype>::Rand(int n) {
   CHECK_GT(n, 0);
   caffe::rng_t* rng =
       static_cast<caffe::rng_t*>(rng_->generator());
-  return ((*rng)() % n);
+  
+  boost::mutex::scoped_lock lock(rng_mutex);
+  int rnd_num = ((*rng)() % n);
+  return rnd_num;
 }
 
 INSTANTIATE_CLASS(DataTransformer);

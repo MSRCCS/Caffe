@@ -6,6 +6,7 @@
 #include "caffe/blob.hpp"
 #include "caffe/common.hpp"
 #include "caffe/proto/caffe.pb.h"
+#include "boost/thread/mutex.hpp"
 
 namespace caffe {
 
@@ -149,6 +150,7 @@ class DataTransformer {
 
 
   shared_ptr<Caffe::RNG> rng_;
+  boost::mutex rng_mutex;
   Phase phase_;
   Blob<Dtype> data_mean_;
   vector<Dtype> mean_values_;
