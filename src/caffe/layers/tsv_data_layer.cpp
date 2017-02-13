@@ -213,66 +213,44 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 }
 
 template <typename Dtype>
-class thread_closure
+void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, const TsvDataParameter &tsv_param, Dtype *output_image_data)
 {
-public:
-	thread_closure(vector<string>& b64data, vector<string>& rlabel, vector<Datum>& vdatum):
-        base64coded_data(b64data), label(rlabel), vec_datum(vdatum)
-	{ 
-	}
-	Batch<Dtype>* batch;
-	int batch_size;
-	int new_width, new_height;
-	int channels;
-    int label_dim;
-    bool unroll_label;
-    TsvDataParameter::Base64DataFormat data_format;
-	vector<string>& base64coded_data;
-	vector<string>& label;
-    vector<Datum>& vec_datum;
-	Dtype *top_data;
-	Dtype *top_label;
-};
-INSTANTIATE_CLASS(thread_closure);
+    vector<BYTE> data = base64_decode(input_b64coded_data);
+    if (tsv_param.data_format() == TsvDataParameter_Base64DataFormat_Image)
+    {
+        cv::Mat cvImg = ReadImageStreamToCVMat(data, tsv_param.new_height(), tsv_param.new_width(), tsv_param.channels() > 1);
+        Datum datum;
+        CVMatToDatum(cvImg, &datum);
+        this->data_transformer_->TransformData(datum, output_image_data);
+    }
+    else if (tsv_param.data_format() == TsvDataParameter_Base64DataFormat_RawData)
+    {
+        caffe_copy(tsv_param.new_height() * tsv_param.new_width() * tsv_param.channels(), (Dtype*)&data[0], output_image_data);
+    }
+}
 
 template <typename Dtype>
-void TsvDataLayer<Dtype>::transform_datum(thread_closure<Dtype>& c, size_t dst_index)
+void TsvDataLayer<Dtype>::process_one_label(const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_label_data)
 {
-	int i = dst_index;
-
-    int offset = c.batch->data_.offset(i);
-    vector<BYTE> data = base64_decode(c.base64coded_data[i]);
-    if (c.data_format == TsvDataParameter_Base64DataFormat_Image)
-    {
-        cv::Mat cvImg = ReadImageStreamToCVMat(data, c.new_height, c.new_width, c.channels > 1);
-        Datum &datum = c.vec_datum[i];
-        CVMatToDatum(cvImg, &datum);
-        this->data_transformer_->TransformData(datum, c.top_data + offset);
-    }
-    else if (c.data_format == TsvDataParameter_Base64DataFormat_RawData)
-    {
-        caffe_copy(c.new_height * c.new_width * c.channels, (Dtype*)&data[0], c.top_data + offset);
-    }
-	// Copy label.
-	if (this->output_labels_) {
-        if (c.label_dim == 1)   // single label case
+    if (this->output_labels_) {
+        int label_dim = tsv_param.label_dim();
+        if (label_dim == 1)   // single label case
         {
-          c.top_label[i] = atoi(c.label[i].c_str());
+            output_label_data[0] = atoi(input_label_data.c_str());
         }
         else
         {
-            int label_offset = c.batch->label_.offset(i);
-            std::stringstream lineStream(c.label[i]);
+            std::stringstream lineStream(input_label_data);
             string cell;
             vector<Dtype> labels;
-            if (c.unroll_label)  // for multi-hot labels
+            if (tsv_param.unroll_label())  // for multi-hot labels
             {
-                labels.resize(c.label_dim);
-                memset(&labels[0], 0, c.label_dim * sizeof(int));
+                labels.resize(label_dim);
+                memset(&labels[0], 0, label_dim * sizeof(int));
                 while (std::getline(lineStream, cell, ';'))
                 {
                     int lbl = atoi(cell.c_str());
-                    CHECK_LT(lbl, c.label_dim) << "Label value is too large! Dim = " << c.label_dim << ", but label is: " << lbl;
+                    CHECK_LT(lbl, label_dim) << "Label value is too large! Dim = " << label_dim << ", but label is: " << lbl;
                     if (lbl >= 0)       // ignore negative padding values
                         labels[lbl] = 1;
                 }
@@ -282,18 +260,19 @@ void TsvDataLayer<Dtype>::transform_datum(thread_closure<Dtype>& c, size_t dst_i
                 while (std::getline(lineStream, cell, ';'))
                 {
                     labels.push_back(atoi(cell.c_str()));
-                    if (labels.size() == c.label_dim)
+                    if (labels.size() == label_dim)
                     {
-                        LOG(FATAL) << "Too many labels! label_dim = " << c.label_dim << ", but labels are: " << c.label[i];
+                        LOG(FATAL) << "Too many labels! label_dim = " << label_dim << ", but labels are: " << input_label_data;
                         break;
                     }
                 }
-                for (int i = labels.size(); i < c.label_dim; i++)
+                for (int i = labels.size(); i < label_dim; i++)
                     labels.push_back(-1);
             }
-            caffe_copy(c.label_dim, &labels[0], c.top_label + label_offset);
+            caffe_copy(label_dim, &labels[0], output_label_data);
         }
-	}
+    }
+
 }
 
 // This function is called on prefetch thread
@@ -305,50 +284,29 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	double trans_time = 0;
 	CPUTimer timer;
 	CHECK(batch->data_.count());
-	CHECK(this->transformed_data_.count());
 
     const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
     
-    vector<string> base64coded_data;
-	vector<string> label;
-    vector<Datum> vec_datum;
-	thread_closure<Dtype> c(base64coded_data, label, vec_datum);
-	c.batch = batch;
-	c.batch_size = tsv_param.batch_size();
-	c.new_height = tsv_param.new_height();
-	c.new_width = tsv_param.new_width();
-	c.channels = tsv_param.channels();
-    c.label_dim = tsv_param.label_dim();
-    c.unroll_label = tsv_param.unroll_label();
-    c.data_format = tsv_param.data_format();
-	int crop_size = this->layer_param().transform_param().crop_size();
-
-    vec_datum.resize(c.batch_size);
+    int batch_size = tsv_param.batch_size();
+    int crop_size = this->layer_param().transform_param().crop_size();
 
 	// initialize the prefetch and top blobs.
 	vector<int> top_shape(4);
-	top_shape[0] = 1;
-	top_shape[1] = c.channels;
-	top_shape[2] = crop_size > 0 ? crop_size : c.new_height;
-	top_shape[3] = crop_size > 0 ? crop_size : c.new_width;
-	this->transformed_data_.Reshape(top_shape);
-    //for (int i = 0; i < c.batch_size; i++)
-    //    this->vec_transformed_data_[i]->Reshape(top_shape);
-
-	top_shape[0] = c.batch_size;
+    top_shape[0] = batch_size;
+    top_shape[1] = tsv_param.channels();
+	top_shape[2] = crop_size > 0 ? crop_size : tsv_param.new_height();
+	top_shape[3] = crop_size > 0 ? crop_size : tsv_param.new_width();
 	batch->data_.Reshape(top_shape);
 
-	c.top_data = batch->data_.mutable_cpu_data();
-	c.top_label = NULL;  // suppress warnings about uninitialized variables
-
 	if (this->output_labels_) {
-		c.top_label = batch->label_.mutable_cpu_data();
-        memset(c.top_label, 0, batch->label_.count() * sizeof(Dtype));
+        memset(batch->label_.mutable_cpu_data(), 0, batch->label_.count() * sizeof(Dtype));
 	}
 
+    vector<string> base64coded_data;
+    vector<string> label;
     bool has_separate_label_file = tsv_param.has_source_label();
     timer.Start();
-	for (int item_id = 0; item_id < c.batch_size; ++item_id)
+	for (int item_id = 0; item_id < batch_size; ++item_id)
 	{
 		if (tsv_.ReadNextLine(base64coded_data, label) != 0)
 		{
@@ -369,26 +327,11 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	read_time += timer.MicroSeconds();
 
 	timer.Start();
-	// The following commented block is replaced by using boost::thread for portability to both Windows and Linux.
-	//parallel_for((size_t)0, base64coded_data.size(), [&](size_t i){
-	//	//int i = 0;
-	//	vector<BYTE> img = base64_decode(base64coded_data[i]);
-	//	cv::Mat cvImg = ReadImageStreamToCVMat(img, c.new_height, c.new_width, c.is_color);
-	//	Datum datum;
-	//	CVMatToDatum(cvImg, &datum);
-	//	int offset = batch->data_.offset(i);
-	//	this->transformed_data_.set_cpu_data(c.top_data + offset);
-	//	this->data_transformer_->Transform(datum, &(this->transformed_data_));
-	//	// Copy label.
-	//	if (this->output_labels_) {
-	//		c.top_label[i] = label[i];
-	//	}
-	//}
-	//);
     #pragma omp parallel for
     for (long long i = 0.; i < base64coded_data.size(); i++)
     {
-        transform_datum(c, i);
+        process_one_image(base64coded_data[i], tsv_param, batch->data_.mutable_cpu_data() + batch->data_.offset(i));
+        process_one_label(label[i], tsv_param, batch->label_.mutable_cpu_data() + batch->label_.offset(i));
     }
     trans_time += timer.MicroSeconds();
     

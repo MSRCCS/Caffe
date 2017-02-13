@@ -20,8 +20,6 @@ cv::Mat ReadImageStreamToCVMat(vector<unsigned char>& imbuf, const int height, c
  * TODO(dox): thorough documentation for Forward and proto params.
  */
 template <typename Dtype>
-class thread_closure;
-template <typename Dtype>
 class TsvDataLayer : public BasePrefetchingDataLayer<Dtype> {
 public:
 	explicit TsvDataLayer(const LayerParameter& param)
@@ -36,7 +34,8 @@ public:
 	virtual inline int MaxTopBlobs() const { return 2; }
 
 protected:
-	void transform_datum(thread_closure<Dtype> &c, size_t dst_index);
+    void process_one_image(const string &input_b64coded_data, const TsvDataParameter &tsv_param, Dtype *output_image_data);
+    void process_one_label(const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_label_data);
 	virtual void load_batch(Batch<Dtype>* batch);
 	TsvRawDataFile tsv_;
 	TsvRawDataFile tsv_label_;
