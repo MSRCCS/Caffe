@@ -21,6 +21,11 @@
 
 namespace caffe {
 
+#ifdef PERF_TEST
+	std::vector<float> perf_layer;
+	float perf_overall;
+#endif
+
 #if defined(_MSC_VER)
 	// Reference all layers and solvers to make sure they get linked into
 	// the executable.
@@ -282,6 +287,10 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
   ShareWeights();
   debug_info_ = param.debug_info();
   LOG_IF(INFO, Caffe::root_solver()) << "Network initialization done.";
+
+#ifdef PERF_TEST
+  perf_layer.resize(2*layers_.size());
+#endif
 }
 
 template <typename Dtype>
@@ -548,7 +557,9 @@ Dtype Net<Dtype>::ForwardFromTo(int start, int end) {
   Dtype loss = 0;
   for (int i = start; i <= end; ++i) {
     // LOG(ERROR) << "Forwarding " << layer_names_[i];
+	PERF_INIT
     Dtype layer_loss = layers_[i]->Forward(bottom_vecs_[i], top_vecs_[i]);
+	PERF_UPDATE_FORWARD(i)
     loss += layer_loss;
     if (debug_info_) { ForwardDebugInfo(i); }
   }
@@ -593,8 +604,10 @@ void Net<Dtype>::BackwardFromTo(int start, int end) {
   CHECK_LT(start, layers_.size());
   for (int i = start; i >= end; --i) {
     if (layer_need_backward_[i]) {
+	  PERF_INIT
       layers_[i]->Backward(
           top_vecs_[i], bottom_need_backward_[i], bottom_vecs_[i]);
+	  PERF_UPDATE_BACKWARD(i)
       if (debug_info_) { BackwardDebugInfo(i); }
     }
   }
