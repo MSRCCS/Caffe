@@ -313,7 +313,9 @@ else
   # The following line must not be indented with a tab, since we are not inside a target
   $(error Cannot static link with the $(CXX) compiler)
 endif
-
+ifeq ($(USE_PERF_TEST), 1)
+	COMMON_FLAGS += -DPERF_TEST
+endif
 # Debugging
 ifeq ($(DEBUG), 1)
 	COMMON_FLAGS += -DDEBUG -g -O0
