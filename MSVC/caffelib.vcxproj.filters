@@ -543,6 +543,9 @@
     <ClCompile Include="..\src\caffe\layers\xcov_loss_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\caffe\util\random_helper.cpp">
+      <Filter>Source Files\util</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\caffe\blob.hpp">
@@ -898,6 +901,9 @@
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\xcov_loss_layer.hpp">
       <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\util\random_helper.h">
+      <Filter>Head Files\util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

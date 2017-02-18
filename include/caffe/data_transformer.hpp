@@ -133,7 +133,6 @@ class DataTransformer {
       Transform(datum, transformed_data);
   }
 
- protected:
    /**
    * @brief Generates a random integer from Uniform({0, 1, ..., n-1}).
    *
@@ -144,10 +143,10 @@ class DataTransformer {
    */
   virtual int Rand(int n);
 
+ protected:
   void Transform(const Datum& datum, Dtype* transformed_data);
   // Tranformation parameters
   TransformationParameter param_;
-
 
   shared_ptr<Caffe::RNG> rng_;
   boost::mutex rng_mutex;

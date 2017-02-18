@@ -10,6 +10,7 @@
 #include "caffe/util/benchmark.hpp"
 #include "caffe/util/io.hpp"
 #include "caffe/util/rng.hpp"
+#include "caffe/util/random_helper.h"
 
 #include <boost/thread.hpp>
 
@@ -210,6 +211,144 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 	  this->prefetch_[i].label_.Reshape(label_shape);
 	}
   }
+
+  if (this->layer_param().transform_param().mean_value_size() > 0) {
+      CHECK(this->layer_param().transform_param().has_mean_file() == false) <<
+          "Cannot specify mean_file and mean_value at the same time";
+      for (int c = 0; c < this->layer_param().transform_param().mean_value_size(); ++c) {
+          mean_values_.push_back(this->layer_param().transform_param().mean_value(c));
+      }
+  }
+
+  if (tsv_param.has_color_kl_file()) {
+      load_kl(tsv_param.color_kl_file());
+  }
+}
+
+template <typename Dtype>
+void TsvDataLayer<Dtype>::load_kl(const string &kl_filename)
+{
+    std::ifstream kl_file;
+    kl_file.open(kl_filename);
+    CHECK(!kl_file.fail()) << "kl data cannot be loaded: " << kl_filename;
+
+    eig_val_.clear();
+    eig_vec_.clear();
+
+    std::string line;
+    // read eigen values
+    std::getline(kl_file, line);
+    std::stringstream lineStream(line);
+    string cell;
+    while (std::getline(lineStream, cell, ','))
+        eig_val_.push_back(sqrt(atof(cell.c_str())));
+
+    // read eigen vectors, values in BGR order
+    std::getline(kl_file, line);
+    lineStream.clear();
+    lineStream.str(line);
+    while (std::getline(lineStream, cell, ','))
+        eig_vec_.push_back(atof(cell.c_str()));
+
+    CHECK_EQ(eig_val_.size(), 3) << "The number of eigen values should be 3, but it is " << eig_val_.size();
+    CHECK_EQ(eig_vec_.size(), 9) << "The number of values for eigen vectors should be 9, but it is " << eig_vec_.size();
+}
+
+template <typename Dtype>
+void TsvDataLayer<Dtype>::get_random_kl_shift(std::vector<float> &shift, float kl_coef)
+{
+    memset(&shift[0], 0, shift.size() * sizeof(float));
+
+    float a[3];
+    a[0] = (float)(random_helper::normal_real() * kl_coef);
+    a[1] = (float)(random_helper::normal_real() * kl_coef);
+    a[2] = (float)(random_helper::normal_real() * kl_coef);
+
+    for (int k = 0; k < 3; k++) 
+        for (int j = 0; j < 3; j++) 
+            shift[k] += eig_vec_[j * 3 + k] * eig_val_[j] * a[j];
+}
+
+template <typename Dtype>
+cv::Rect TsvDataLayer<Dtype>::get_crop_rect(const cv::Mat &img, const TsvDataParameter &tsv_param)
+{
+    int width = img.cols;
+    int height = img.rows;
+    int x_off, y_off, crop_w, crop_h;
+
+    if (this->phase_ == TEST)
+    {
+        float scale_target = 0.875; // 0.875 = 224 / 256
+        int crop_size = (int)(std::min(height, width) * scale_target);
+        x_off = (width - crop_size) / 2;
+        y_off = (height - crop_size) / 2;
+        crop_w = crop_h = crop_size;
+    }
+    else
+    {
+        if (tsv_param.crop_type() == TsvDataParameter_CropType_ResnetStyle)
+        {
+            float scale_lower = 0.467; // 256 * 0.467 = 119.552
+            float scale_upper = 0.875; // 256 * 0.875 = 224
+            float scale_target = scale_lower + (scale_upper - scale_lower) * random_helper::uniform_real();
+
+            int crop_size = (int)(std::min(height, width) * scale_target);
+            y_off = random_helper::uniform_int(0, height - crop_size + 1 - 1);
+            x_off = random_helper::uniform_int(0, width - crop_size + 1 - 1);
+            crop_w = crop_h = crop_size;
+        }
+        else if (tsv_param.crop_type() == TsvDataParameter_CropType_InceptionStyle)
+        {
+            int area = width * height;
+            // try up to 10 times
+            int attempt = 0;
+            for (attempt = 0; attempt < 10; attempt++)
+            {
+                float target_area_ratio = (float)random_helper::uniform_real(0.08, 1.0);
+                float target_area = target_area_ratio * area;
+                float target_aspect_ratio = (float)random_helper::uniform_real(3.0/4.0, 4.0/3.0);
+                crop_w = sqrt(target_area * target_aspect_ratio) + 0.5;
+                crop_h = sqrt(target_area / target_aspect_ratio) + 0.5;
+                if (random_helper::uniform_int(0, 1))
+                    std::swap(crop_w, crop_h);
+
+                if (crop_h <= height && crop_w <= width)
+                {
+                    x_off = random_helper::uniform_int(0, width - crop_w + 1 - 1);
+                    y_off = random_helper::uniform_int(0, height - crop_h + 1 - 1);
+                    break;
+                }
+            }
+
+            if (attempt >= 10)
+            {
+                x_off = y_off = 0;
+                crop_w = width;
+                crop_h = height;
+            }
+        }
+    }
+
+    return cv::Rect(x_off, y_off, crop_w, crop_h);
+}
+
+template <typename Dtype>
+void TsvDataLayer<Dtype>::CVMatToBlobBuffer(const cv::Mat &cv_img_float, Dtype *buffer)
+{
+    int channels = cv_img_float.channels();
+    int height = cv_img_float.rows;
+    int width = cv_img_float.cols;
+    int data_size = channels * height * width;
+    for (int h = 0; h < height; ++h) {
+        const float* ptr = cv_img_float.ptr<float>(h);
+        int img_index = 0;
+        for (int w = 0; w < width; ++w) {
+            for (int c = 0; c < channels; ++c) {
+                int index = (c * height + h) * width + w;
+                buffer[index] = static_cast<Dtype>(ptr[img_index++]);
+            }
+        }
+    }
 }
 
 template <typename Dtype>
@@ -218,10 +357,58 @@ void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, c
     vector<BYTE> data = base64_decode(input_b64coded_data);
     if (tsv_param.data_format() == TsvDataParameter_Base64DataFormat_Image)
     {
-        cv::Mat cvImg = ReadImageStreamToCVMat(data, tsv_param.new_height(), tsv_param.new_width(), tsv_param.channels() > 1);
-        Datum datum;
-        CVMatToDatum(cvImg, &datum);
-        this->data_transformer_->TransformData(datum, output_image_data);
+        if (tsv_param.crop_type() == TsvDataParameter_CropType_AlexStyle)
+        {
+            cv::Mat cvImg = ReadImageStreamToCVMat(data, tsv_param.new_height(), tsv_param.new_width(), tsv_param.channels() > 1);
+            Datum datum;
+            CVMatToDatum(cvImg, &datum);
+            this->data_transformer_->TransformData(datum, output_image_data);
+        }
+        else
+        {
+            cv::Mat img_origin = ReadImageStreamToCVMat(data, -1, -1, tsv_param.channels() > 1);
+
+            // crop
+            cv::Rect crop_rect = get_crop_rect(img_origin, tsv_param);
+            cv::Mat img_crop = img_origin(crop_rect).clone();
+
+            // flip
+            if (random_helper::uniform_int(0, 1))
+                cv::flip(img_crop, img_crop, 1);
+
+            // convert to float 
+            cv::Mat img_float;
+            img_crop.convertTo(img_float, CV_32F);
+
+            std::vector<float> shift(3);
+            // color jittering
+            if (this->phase_ == TRAIN && tsv_param.has_color_kl_file())
+                get_random_kl_shift(shift, 0.1);
+
+            // mean subtraction
+            shift[0] += mean_values_[0];
+            shift[1] += mean_values_[1];
+            shift[2] += mean_values_[2];
+
+            int pixels = img_float.rows * img_float.cols;
+            int nChannel = img_float.channels();
+            for (int y = 0; y < img_float.rows; y++) {
+                float *pImg = (float*)img_float.ptr(y);
+                for (int x = 0; x < img_float.cols; x++) {
+                    pImg[nChannel*x] += shift[0];
+                    pImg[nChannel*x + 1] += shift[1];
+                    pImg[nChannel*x + 2] += shift[2];
+                }
+            }
+
+            // resize
+            cv::Mat cvImg;
+            int crop_size = this->layer_param().transform_param().crop_size();
+            cv::resize(img_float, cvImg, cv::Size(crop_size, crop_size));
+
+            // copy to output buffer
+            CVMatToBlobBuffer(cvImg, output_image_data);
+        }
     }
     else if (tsv_param.data_format() == TsvDataParameter_Base64DataFormat_RawData)
     {

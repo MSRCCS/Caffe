@@ -34,11 +34,21 @@ public:
 	virtual inline int MaxTopBlobs() const { return 2; }
 
 protected:
+    void load_kl(const string &kl_filename);
+    void get_random_kl_shift(std::vector<float> &shift, float kl_coef);
+    cv::Rect get_crop_rect(const cv::Mat &img, const TsvDataParameter &tsv_param);
+    void CVMatToBlobBuffer(const cv::Mat &cv_img_float, Dtype *buffer);
     void process_one_image(const string &input_b64coded_data, const TsvDataParameter &tsv_param, Dtype *output_image_data);
     void process_one_label(const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_label_data);
 	virtual void load_batch(Batch<Dtype>* batch);
 	TsvRawDataFile tsv_;
 	TsvRawDataFile tsv_label_;
+
+    // mean values for pixel value subtraction
+    std::vector<Dtype> mean_values_;
+    // kl eigen values and vectors for color jittering
+    std::vector<Dtype> eig_val_;    // vector of the 3 eigen values
+    std::vector<Dtype> eig_vec_;    // vector of 9 values for a 3x3 matrix, the first 3 values are for the first eigen vector, and so on.
 };
 
 }  // namespace caffe

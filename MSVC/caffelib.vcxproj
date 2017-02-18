@@ -75,7 +75,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <OpenMPSupport>true</OpenMPSupport>
+      <OpenMPSupport>false</OpenMPSupport>
     </ClCompile>
     <PreBuildEvent>
       <Command>scripts/ProtoCompile.cmd "$(SolutionDir)" "$(SolutionDir)libraries\bin\"</Command>
@@ -241,6 +241,7 @@
     <ClCompile Include="..\src\caffe\util\insert_splits.cpp" />
     <ClCompile Include="..\src\caffe\util\io.cpp" />
     <ClCompile Include="..\src\caffe\util\math_functions.cpp" />
+    <ClCompile Include="..\src\caffe\util\random_helper.cpp" />
     <ClCompile Include="..\src\caffe\util\signal_handler.cpp" />
     <ClCompile Include="..\src\caffe\util\tsv_data_io.cpp" />
     <ClCompile Include="..\src\caffe\util\upgrade_proto.cpp" />
@@ -426,6 +427,7 @@
     <ClInclude Include="..\include\caffe\util\math_functions.hpp" />
     <ClInclude Include="..\include\caffe\util\mkl_alternate.hpp" />
     <ClInclude Include="..\include\caffe\util\msvc.hpp" />
+    <ClInclude Include="..\include\caffe\util\random_helper.h" />
     <ClInclude Include="..\include\caffe\util\rng.hpp" />
     <ClInclude Include="..\include\caffe\util\signal_handler.h" />
     <ClInclude Include="..\include\caffe\util\tsv_data_io.hpp" />
