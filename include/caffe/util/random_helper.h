@@ -1,7 +1,10 @@
 
 #pragma once
 
+#if _HAS_CPP0X
 #include <random>
+#endif
+#include <climits>
 
 namespace caffe {
 	class random_helper {

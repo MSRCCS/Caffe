@@ -1,6 +1,9 @@
-
 #include "caffe/util/random_helper.h"
 #include <iostream>
+#include <stdexcept>
+#include <cstdlib>
+#include <time.h>
+#include <math.h>
 
 namespace caffe {
 	random_helper::random_init_helper random_helper::m_randInit;
@@ -13,7 +16,7 @@ namespace caffe {
 #endif
 
 	random_helper::random_init_helper::random_init_helper() {
-		srand(std::random_device()());
+		srand(time(NULL));
 #if _HAS_CPP0X
 		m_generator = std::mt19937_64(std::random_device()());
 		m_uniformInt = std::uniform_int_distribution<unsigned int>(0, UINT_MAX);

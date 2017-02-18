@@ -229,7 +229,7 @@ template <typename Dtype>
 void TsvDataLayer<Dtype>::load_kl(const string &kl_filename)
 {
     std::ifstream kl_file;
-    kl_file.open(kl_filename);
+    kl_file.open(kl_filename.c_str());
     CHECK(!kl_file.fail()) << "kl data cannot be loaded: " << kl_filename;
 
     eig_val_.clear();
@@ -338,7 +338,6 @@ void TsvDataLayer<Dtype>::CVMatToBlobBuffer(const cv::Mat &cv_img_float, Dtype *
     int channels = cv_img_float.channels();
     int height = cv_img_float.rows;
     int width = cv_img_float.cols;
-    int data_size = channels * height * width;
     for (int h = 0; h < height; ++h) {
         const float* ptr = cv_img_float.ptr<float>(h);
         int img_index = 0;
@@ -390,7 +389,6 @@ void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, c
             shift[1] += mean_values_[1];
             shift[2] += mean_values_[2];
 
-            int pixels = img_float.rows * img_float.cols;
             int nChannel = img_float.channels();
             for (int y = 0; y < img_float.rows; y++) {
                 float *pImg = (float*)img_float.ptr(y);
