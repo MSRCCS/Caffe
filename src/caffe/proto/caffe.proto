@@ -1286,6 +1286,13 @@ message TsvDataParameter{
                           // by batch_size, new_height, new_width, and channels
     }
 
+	// Crop type
+    enum CropType {
+        AlexStyle = 0;    // default crop style used in AlexNet: first strech image to (new_width, new_height), and then randomly crop (crop_size, crop_size)
+		ResnetStyle = 1;  // Resize image with shorter side randomly sampled from [256, 480], and then randomly crop (crop_size, crop_size)
+		InceptionStyle = 2; // Random crop with size 8%-100% and aspect ratio 3/4 - 4/3
+    }
+
 	// Specify the data source.
 	optional string source = 1;
 	// Specify if a separate label file is used. In this case, col_label and col_crop are referred to this label file.
@@ -1317,6 +1324,10 @@ message TsvDataParameter{
 	// Specify the crop column in TSV, which stores cropping parameter for each image
 	// if specified with a non-negative number, image will be cropped first and then resized to new_width and new_height
 	optional int32 col_crop = 14[default = -1]; // -1 for no crop
+	// Specify the crop type
+	optional CropType crop_type = 15[default = AlexStyle]; // default to AlexStyle crop
+	// Specify the kl file for color jittering
+	optional string color_kl_file = 16;
 }
 
 message SPPParameter {

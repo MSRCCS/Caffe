@@ -134,6 +134,46 @@ namespace TsvTool
             File.WriteAllLines(Path.ChangeExtension(cmd.inTsv, "shuffle"), randomLineNumbers);
         }
 
+        class ArgsShuf
+        {
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace ext with .shuffled.tsv")]
+            public string outTsv = null;
+        }
+
+        static void Shuf(ArgsShuf cmd)
+        {
+            if (cmd.outTsv == null)
+                cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".shuffled.tsv");
+
+            string lineidxFile = Path.ChangeExtension(cmd.inTsv, ".lineidx");
+            string shuffleFile = Path.ChangeExtension(cmd.inTsv, ".shuffle");
+            Trace.Assert(File.Exists(lineidxFile), "lineidx file not found!");
+            Trace.Assert(File.Exists(shuffleFile), "shuffle file not found!");
+
+            using (var sr = new StreamReader(cmd.inTsv))
+            {
+                Console.WriteLine("Loading {0}", lineidxFile);
+                var lineidx = File.ReadLines(lineidxFile)
+                    .Select(line => Convert.ToInt64(line))
+                    .ToArray();
+                var lines = File.ReadLines(shuffleFile)
+                    .ReportProgress("Lines processed")
+                    .Select(line => Convert.ToInt64(line))
+                    .Select(line_no =>
+                    {
+                        sr.DiscardBufferedData();
+                        sr.BaseStream.Seek(lineidx[line_no], SeekOrigin.Begin);
+                        return sr.ReadLine();
+                    });
+
+                File.WriteAllLines(cmd.outTsv, lines);
+            }
+
+            Console.WriteLine("\nDone.");
+        }
+
         class ArgsList2Tsv
         {
             [Argument(ArgumentType.Required, HelpText = "Input list file")]
@@ -472,6 +512,8 @@ namespace TsvTool
             public int image = -1;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Max image size (default: 256)")]
             public int size = 256;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Resize for shorter side (default: false, for longer side)")]
+            public bool limitshorterside = false;
         }
 
         static void ResizeImage(ArgsResizeImage cmd)
@@ -488,7 +530,7 @@ namespace TsvTool
                     using (var ms = new MemoryStream(Convert.FromBase64String(cols[cmd.image])))
                     using (var bmp = new Bitmap(ms))
                     {
-                        Bitmap img = ImageUtility.DownsizeImage(bmp, cmd.size);
+                        Bitmap img = ImageUtility.DownsizeImage(bmp, cmd.size, cmd.limitshorterside);
                         byte[] img_buf = ImageUtility.SaveImageToJpegInBuffer(img, 90L);
                         cols[cmd.image] = Convert.ToBase64String(img_buf);
                         return cols;
@@ -1244,7 +1286,8 @@ namespace TsvTool
             ParserX.AddTask<ArgsLabel>(Label, "Generate label file with class id and generate (or use) .labelmap file");
             ParserX.AddTask<ArgsIndex>(Index, "Build line index for random access");
             ParserX.AddTask<ArgsShuffle>(Shuffle, "Shuffle data by generating shuffle line number list");
-            
+            ParserX.AddTask<ArgsShuf>(Shuf, "On disk tsv shuffle to a new tsv");
+
             ParserX.AddTask<ArgsCutCol>(CutCol, "Cut columns from TSV file");
             ParserX.AddTask<ArgsCutRow>(CutRow, "Cut rows based on line number files (normally a shuffle file)");
             ParserX.AddTask<ArgsPasteCol>(PasteCol, "Paste two TSV files by concatenating corresponding lines seperated by TAB");

@@ -6,6 +6,7 @@
 #include "caffe/blob.hpp"
 #include "caffe/common.hpp"
 #include "caffe/proto/caffe.pb.h"
+#include "boost/thread/mutex.hpp"
 
 namespace caffe {
 
@@ -127,7 +128,11 @@ class DataTransformer {
   vector<int> InferBlobShape(const cv::Mat& cv_img);
 #endif  // USE_OPENCV
 
- protected:
+  void TransformData(const Datum& datum, Dtype* transformed_data)
+  {
+      Transform(datum, transformed_data);
+  }
+
    /**
    * @brief Generates a random integer from Uniform({0, 1, ..., n-1}).
    *
@@ -138,12 +143,13 @@ class DataTransformer {
    */
   virtual int Rand(int n);
 
+ protected:
   void Transform(const Datum& datum, Dtype* transformed_data);
   // Tranformation parameters
   TransformationParameter param_;
 
-
   shared_ptr<Caffe::RNG> rng_;
+  boost::mutex rng_mutex;
   Phase phase_;
   Blob<Dtype> data_mean_;
   vector<Dtype> mean_values_;

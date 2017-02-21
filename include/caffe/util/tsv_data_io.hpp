@@ -54,6 +54,7 @@ class TsvRawDataFile
 
 	std::string _tsvFileName;
 	std::vector<int64_t> _lineIndex;
+    std::vector<int64_t> _shuffleLines;
 
 	int _currentLine;
 
