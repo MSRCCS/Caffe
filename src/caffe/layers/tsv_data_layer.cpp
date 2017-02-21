@@ -314,8 +314,8 @@ cv::Rect TsvDataLayer<Dtype>::get_crop_rect(const cv::Mat &img, const TsvDataPar
 
                 if (crop_h <= height && crop_w <= width)
                 {
-                    x_off = random_helper::uniform_int(0, width - crop_w + 1 - 1);
-                    y_off = random_helper::uniform_int(0, height - crop_h + 1 - 1);
+                    x_off = crop_w < width ? random_helper::uniform_int(0, width - crop_w + 1 - 1) : 0;
+                    y_off = crop_h < height ? random_helper::uniform_int(0, height - crop_h + 1 - 1) : 0;
                     break;
                 }
             }
