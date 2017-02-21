@@ -512,6 +512,8 @@ namespace TsvTool
             public int image = -1;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Max image size (default: 256)")]
             public int size = 256;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Resize for shorter side (default: false, for longer side)")]
+            public bool limitshorterside = false;
         }
 
         static void ResizeImage(ArgsResizeImage cmd)
@@ -528,7 +530,7 @@ namespace TsvTool
                     using (var ms = new MemoryStream(Convert.FromBase64String(cols[cmd.image])))
                     using (var bmp = new Bitmap(ms))
                     {
-                        Bitmap img = ImageUtility.DownsizeImage(bmp, cmd.size);
+                        Bitmap img = ImageUtility.DownsizeImage(bmp, cmd.size, cmd.limitshorterside);
                         byte[] img_buf = ImageUtility.SaveImageToJpegInBuffer(img, 90L);
                         cols[cmd.image] = Convert.ToBase64String(img_buf);
                         return cols;

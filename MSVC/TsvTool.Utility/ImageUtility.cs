@@ -39,22 +39,18 @@ namespace TsvTool.Utility
             }
         }
 
-        // only down size image if image is larger than max_size
-        public static Bitmap DownsizeImage(Bitmap img, int max_size)
+        // only down size image if image (longer side or short side) is larger than max_size
+        // if limit_shorter_side == true, it will resize image to max_size based on its shorter side,
+        // otherwise, resize based on its longer side
+        public static Bitmap DownsizeImage(Bitmap img, int max_size, bool limit_shorter_side)
         {
             int w = img.Width, h = img.Height;
-            if (w > max_size || h > max_size)
+            int ori_size = limit_shorter_side ? Math.Min(w, h) : Math.Max(w, h);
+            if (ori_size > max_size)
             {
-                if (w > h)
-                {
-                    w = max_size;
-                    h = img.Height * max_size / img.Width;
-                }
-                else
-                {
-                    w = img.Width * max_size / img.Height;
-                    h = max_size;
-                }
+                w = (int)((float)img.Width * max_size / ori_size + 0.5f);
+                h = (int)((float)img.Height * max_size / ori_size + 0.5f);
+
                 var destRect = new Rectangle(0, 0, w, h);
                 var destImage = new Bitmap(w, h, PixelFormat.Format24bppRgb);
 
