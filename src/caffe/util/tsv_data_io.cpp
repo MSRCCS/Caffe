@@ -163,7 +163,7 @@ void TsvRawDataFile::ShuffleData(string filename)
     // note that the shuffle file may contains more lines than index file, which means that data could be repeatedly used
     // for triplet training.
     LOG(INFO) << "Loading shuffle file...";
-	LoadLineIndex(ChangeFileExtension(_tsvFileName, "shuffle").c_str(), _shuffleLines);
+	LoadLineIndex(filename.c_str(), _shuffleLines);
 }
 
 bool TsvRawDataFile::IsEOF()

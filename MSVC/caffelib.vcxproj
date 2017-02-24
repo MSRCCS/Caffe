@@ -198,6 +198,7 @@
     <ClCompile Include="..\src\caffe\layers\reshape_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\rnn_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\roi_pooling_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\rpn_proposal_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\scale_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\sgm_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\sigmoid_cross_entropy_loss_layer.cpp" />
@@ -384,6 +385,7 @@
     <ClInclude Include="..\include\caffe\layers\reshape_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\rnn_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\roi_pooling_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\rpn_proposal_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\scale_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\sigmoid_cross_entropy_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\sigmoid_layer.hpp" />

@@ -88,6 +88,7 @@ namespace caffe {
   FUNC(Reshape); \
   FUNC(RNN); \
   FUNC(ROIPooling); \
+  FUNC(RPNProposal); \
   FUNC(Scale); \
   FUNC(SgmLoss); \
   FUNC(Sigmoid); \

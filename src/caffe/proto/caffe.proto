@@ -412,6 +412,7 @@ message LayerParameter {
   optional TripletLossParameter triplet_loss_param = 0x00545249; // "TRI"
   optional WSgmParameter wsgm_param = 0x00575347; //"WSG"
   optional XCovParameter xcov_param = 0x00584356; //"XCV"
+  optional RPNProposalParameter rpn_proposal_param = 0x00525052; // "RPR"
 }
 
 // Message that stores parameters used to apply transformation
@@ -1120,7 +1121,10 @@ message ScaleParameter {
   optional FillerParameter bias_filler = 5;
 }
 
-
+// Message that stores parameters used by RPNProposalLayer
+message RPNProposalParameter{
+  optional uint32 feat_stride = 1 [default = 16]; // the feature stride for all the previous layers
+}
 
 message SigmoidParameter {
   enum Engine {

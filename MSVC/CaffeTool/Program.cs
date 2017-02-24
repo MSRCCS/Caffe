@@ -1,16 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Drawing;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
 using CmdParser;
 using CaffeLibMC;
 using TsvTool.Utility;
+using DetectionLib;
 
-namespace CaffeExtract
+namespace CaffeTool
 {
     class Program
     {
@@ -116,7 +117,7 @@ namespace CaffeExtract
                             return new Bitmap(ms);
                     }).ToArray();
                     // batch feature extraction. may extract fc6 and fc7 together
-                    float[][] batch_features = predictor.ExtractOutputs(batch_imgs, cmd.blob);
+                    float[][] batch_features = predictor.ExtractOutputs(batch_imgs, cmd.blob, true);
                     // release images
                     foreach (var img in batch_imgs)
                         img.Dispose();
@@ -182,9 +183,98 @@ namespace CaffeExtract
             Console.WriteLine("outTSV follows the format of inTsv, with image column removed and blob features appended");
         }
 
+        class ArgsDetect
+        {
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Model config file. If provided, other args (proto, model, and labelmap) are optional, but can be used to overwrite the params specified in config file.")]
+            public string modelcfg = null;
+
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Caffe prototxt file")]
+            public string proto = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Caffe model file")]
+            public string model = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Caffe model label map file")]
+            public string labelmap = null;
+
+            [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
+            public string inTsv = null;
+            [Argument(ArgumentType.Required, HelpText = "Column index for image stream")]
+            public int imageCol = -1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file (default: replace inTsv .ext with .det.tsv")]
+            public string outTsv = null;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Confidence threshold (default: 0.001 to output all)")]
+            public float conf = 0.001f;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Gpu Id (default: 0, -1 for cpu)")]
+            public int gpu = 0;
+        }
+
+        // for json format output
+        [DataContract]
+        public class JsonDetectionResult
+        {
+            [DataMember]
+            public double conf { get; set; }
+            [DataMember]
+            public string @class { get; set; }
+            [DataMember]
+            public List<double> rect { get; set; }
+        }
+
+        static void Detect(ArgsDetect cmd)
+        {
+            if (cmd.outTsv == null)
+                cmd.outTsv = Path.ChangeExtension(cmd.inTsv, ".det.tsv");
+
+            ObjectDetector detector = new ObjectDetector(cmd.modelcfg, cmd.gpu);
+
+            Stopwatch timer = Stopwatch.StartNew();
+            int count = 0;
+            var lines = File.ReadLines(cmd.inTsv)
+                .ReportProgress("Images progressed")
+                .Select(line => line.Split('\t').ToList())
+                .Select(cols =>
+                {
+                    using (var ms = new MemoryStream(Convert.FromBase64String(cols[cmd.imageCol])))
+                    {
+                        var results = detector.Detect(new Bitmap(ms), cmd.conf);
+
+                        // convert to json format
+                        var jsonResults = results.Select(x => new JsonDetectionResult()
+                            {
+                                @class = x.ClassName,
+                                conf = x.Confidence,
+                                rect = new List<double> { x.Rect.Left, x.Rect.Top, x.Rect.Right, x.Rect.Bottom }
+                            }).ToArray();
+                        string jsonString;
+                        using (var stream = new MemoryStream())
+                        {
+                            DataContractJsonSerializer ser = new DataContractJsonSerializer(typeof(JsonDetectionResult[]));
+                            ser.WriteObject(stream, jsonResults);
+                            stream.Position = 0;
+                            using (var sr = new StreamReader(stream))
+                                jsonString = sr.ReadToEnd();
+                        }
+
+                        cols.RemoveAt(cmd.imageCol);
+                        cols.Add(jsonString);
+
+                        return cols;
+                    }
+                })
+                .Select(cols => string.Join("\t", cols));
+
+            File.WriteAllLines(cmd.outTsv, lines);
+            Console.WriteLine();
+
+            timer.Stop();
+            Console.WriteLine("Latency: {0} seconds per image", timer.Elapsed.TotalSeconds / count);
+
+            Console.WriteLine("outTSV follows the format of inTsv, with image column removed and detection result appended");
+        }
+
         static void Main(string[] args)
         {
             ParserX.AddTask<ArgsExtract>(Extract, "Extract caffe feature from TSV file");
+            ParserX.AddTask<ArgsDetect>(Detect, "Detect objects TSV file");
             if (ParserX.ParseArgumentsWithUsage(args))
             {
                 Stopwatch timer = Stopwatch.StartNew();

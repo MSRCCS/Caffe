@@ -15,6 +15,10 @@ using std::string;
   auto m_array = gcnew array<float>(n_array.Size); \
   pin_ptr<float> pma = &m_array[0]; \
   memcpy(pma, n_array.Data, n_array.Size * sizeof(float));
+#define MARSHAL_VECTOR(vec, m_array) \
+  auto m_array = gcnew array<int>(vec.size()); \
+  pin_ptr<int> pma = &m_array[0]; \
+  memcpy(pma, &vec[0], vec.size() * sizeof(int));
 
 namespace CaffeLibMC {
 
@@ -24,19 +28,28 @@ namespace CaffeLibMC {
         _CaffeModel *m_net;
         String ^_netFile;
 
-        string ConvertToDatum(Bitmap ^imgData)
+        string ConvertToDatum(Bitmap ^imgData, int width, int height)
         {
             string datum_string;
 
-            int width = m_net->GetInputImageWidth();
-            int height = m_net->GetInputImageHeight();
+            if (width < 0)
+                width = m_net->GetInputImageWidth();
+            if (height < 0)
+                height = m_net->GetInputImageHeight();
 
             Drawing::Rectangle rc = Drawing::Rectangle(0, 0, width, height);
 
             // resize image
-            Bitmap ^temp_bmp = gcnew Bitmap((Image ^)imgData, width, height);
-            Bitmap ^resizedBmp = temp_bmp->Clone(rc, PixelFormat::Format24bppRgb);
-            delete temp_bmp;
+            Bitmap ^resizedBmp;
+            if (width == imgData->Width && height == imgData->Height)
+            {
+                resizedBmp = imgData->Clone(rc, PixelFormat::Format24bppRgb);
+            }
+            else
+            {
+                resizedBmp = gcnew Bitmap((Image ^)imgData, width, height);
+                resizedBmp = resizedBmp->Clone(rc, PixelFormat::Format24bppRgb);
+            }
 
             // get image data block
             BitmapData ^bmpData = resizedBmp->LockBits(rc, ImageLockMode::ReadOnly, resizedBmp->PixelFormat);
@@ -125,6 +138,23 @@ namespace CaffeLibMC {
             m_net->SetMeanValue(mean_value);
         }
 
+        int GetInputImageWidth()
+        {
+            return m_net->GetInputImageWidth();
+        }
+
+        int GetInputImageHeight()
+        {
+            return m_net->GetInputImageHeight();
+        }
+
+        array<int>^ GetBlobShape(String ^blobName)
+        {
+            vector<int> shape = m_net->GetBlobShape(TO_NATIVE_STRING(blobName));
+            MARSHAL_VECTOR(shape, outputs);
+            return outputs;
+        }
+
         array<String^>^ GetLayerNames()
         {
             vector<string> names = m_net->GetLayerNames();
@@ -168,27 +198,32 @@ namespace CaffeLibMC {
             m_net->SaveModel(TO_NATIVE_STRING(modelFile));
         }
 
-        array<float>^ ExtractOutputs(array<Bitmap^> ^imgData, String^ blobName)
+        array<float>^ ExtractOutputs(array<Bitmap^> ^imgData, String^ blobName, bool resizeImage)
         {
+            int width = resizeImage ? m_net->GetInputImageWidth() : imgData[0]->Width;
+            int height = resizeImage ? m_net->GetInputImageHeight() : imgData[0]->Height;
+
             vector<string> datums(imgData->Length);
             for (int i = 0; i < imgData->Length; i++)
-                datums[i] = ConvertToDatum(imgData[i]);
+                datums[i] = ConvertToDatum(imgData[i], width, height);
 
-            FloatArray intermediate = m_net->ExtractBitmapOutputs(datums, 0, TO_NATIVE_STRING(blobName));
+            FloatArray intermediate = m_net->ExtractBitmapOutputs(datums, width, height, TO_NATIVE_STRING(blobName));
             MARSHAL_ARRAY(intermediate, outputs)
                 return outputs;
         }
 
-        array<array<float>^>^ ExtractOutputs(array<Bitmap^> ^imgData, array<String^>^ blobNames)
+        array<array<float>^>^ ExtractOutputs(array<Bitmap^> ^imgData, array<String^>^ blobNames, bool resizeImage)
         {
+            int width = resizeImage ? m_net->GetInputImageWidth() : imgData[0]->Width;
+            int height = resizeImage ? m_net->GetInputImageHeight() : imgData[0]->Height;
             vector<string> datums(imgData->Length);
             for (int i = 0; i < imgData->Length; i++)
-                datums[i] = ConvertToDatum(imgData[i]);
+                datums[i] = ConvertToDatum(imgData[i], width, height);
 
             vector<string> names;
             for each(String^ name in blobNames)
                 names.push_back(TO_NATIVE_STRING(name));
-            vector<FloatArray> intermediates = m_net->ExtractBitmapOutputs(datums, 0, names);
+            vector<FloatArray> intermediates = m_net->ExtractBitmapOutputs(datums, width, height, names);
             auto outputs = gcnew array<array<float>^>(names.size());
             for (int i = 0; i < names.size(); ++i)
             {
@@ -198,6 +233,46 @@ namespace CaffeLibMC {
             }
             return outputs;
         }
-    };
 
+        void SetInputs(String^ blobName, array<Bitmap^>^ imgData, bool resizeImage)
+        {
+            int width = resizeImage ? m_net->GetInputImageWidth() : imgData[0]->Width;
+            int height = resizeImage ? m_net->GetInputImageHeight() : imgData[0]->Height;
+            vector<string> datums(imgData->Length);
+            for (int i = 0; i < imgData->Length; i++)
+                datums[i] = ConvertToDatum(imgData[i], width, height);
+            m_net->SetInputs(TO_NATIVE_STRING(blobName), datums, width, height);
+        }
+
+        void SetInputs(String^ blobName, array<float>^ data)
+        {
+            vector<float> vec(data->Length);
+            pin_ptr<float> pma = &data[0];
+            memcpy(&vec[0], pma, vec.size() * sizeof(float));
+            m_net->SetInputs(TO_NATIVE_STRING(blobName), vec);
+        }
+
+        array<float>^ Forward(String^ outputBlobName)
+        {
+            FloatArray intermediate = m_net->Forward(TO_NATIVE_STRING(outputBlobName));
+            MARSHAL_ARRAY(intermediate, outputs);
+            return outputs;
+        }
+
+        array<array<float>^>^ Forward(array<String^>^ outputBlobNames)
+        {
+            vector<string> names;
+            for each(String^ name in outputBlobNames)
+                names.push_back(TO_NATIVE_STRING(name));
+            vector<FloatArray> intermediates = m_net->Forward(names);
+            auto outputs = gcnew array<array<float>^>(names.size());
+            for (int i = 0; i < names.size(); ++i)
+            {
+                auto intermediate = intermediates[i];
+                MARSHAL_ARRAY(intermediate, values);
+                outputs[i] = values;
+            }
+            return outputs;
+        }
+    };
 }

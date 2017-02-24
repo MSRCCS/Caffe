@@ -39,7 +39,7 @@ class _CaffeModel
     int _data_mean_width;   // _data_mean_width and _data_mean_height are only valid when _mean_file is set
     int _data_mean_height;
 
-    void EvaluateBitmap(const std::vector<std::string> &imageData, int interpolation);
+    void EvaluateBitmap(const std::vector<std::string> &imageData, int width, int height);
 
 public:
     static void SetDevice(int device_id); //Use a negative number for CPU only
@@ -56,18 +56,25 @@ public:
     int GetInputImageWidth();
     int GetInputImageHeight();
     int GetInputImageChannels();
+    std::vector<int> GetBlobShape(const std::string blobName);
 
     std::vector<std::string> GetLayerNames();
     std::vector<FloatArray> GetParams(const std::string layerName);
     void SetParams(const std::string layerName, std::vector<FloatArray>& params);
     void SaveModel(const std::string modelFile);
 
-    //REVIEW ktran: these APIs only make sense for images
-    FloatArray ExtractOutputs(const std::string &imageFile, int interpolation, const std::string &layerName);
-    std::vector<FloatArray> ExtractOutputs(const std::string &imageFile, int interpolation, const std::vector<std::string> &layerNames);
+    // This function assumes the images are of the same size for both width and height.
+    // Typical calling cases:
+    //   For object detection: passing a single image with the specified width and height;
+    //   For image classification: passing multiple images with the same width and height;
+    void SetInputs(const std::string &blobName, const std::vector<std::string> &imageData, int width, int height);
+    void SetInputs(const std::string &blobName, const std::vector<float> &data);
 
-    // imageData needs to be of size channel*height*width as required by the "data" blob. 
-    // The C++/CLI caller can use GetInputImageWidth()/Height/Channels to get the desired dimension.
-    FloatArray ExtractBitmapOutputs(const std::vector<std::string> &imageData, int interpolation, const std::string &layerName);
-    std::vector<FloatArray> ExtractBitmapOutputs(const std::vector<std::string> &imageData, int interpolation, const std::vector<std::string> &layerNames);
+    FloatArray Forward(const std::string &outputBlobName);
+    std::vector<FloatArray> Forward(const std::vector<std::string> &outputBlobNames);
+
+    // This function assumes the images are of the same size for both width and height.
+    FloatArray ExtractBitmapOutputs(const std::vector<std::string> &imageData, int width, int height, const std::string &layerName);
+    // This function assumes the images are of the same size for both width and height.
+    std::vector<FloatArray> ExtractBitmapOutputs(const std::vector<std::string> &imageData, int width, int height, const std::vector<std::string> &layerNames);
 };
