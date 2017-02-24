@@ -143,6 +143,12 @@ int _CaffeModel::GetInputImageChannels()
     return input_blob->channels();
 }
 
+std::vector<int> _CaffeModel::GetBlobShape(const std::string blobName)
+{
+    auto blob = _net->blob_by_name(blobName);
+    return blob->shape();
+}
+
 std::vector<string> _CaffeModel::GetLayerNames()
 {
     return _net->layer_names();
@@ -187,20 +193,30 @@ void _CaffeModel::SaveModel(const std::string modelFile)
     WriteProtoToBinaryFile(net_param, modelFile);
 }
 
-void _CaffeModel::EvaluateBitmap(const std::vector<std::string> &imageData, int interpolation)
+// This function assumes the images are of the same size for both width and height.
+// Typical calling cases:
+//   For object detection: passing a single image with the specified width and height;
+//   For image classification: passing multiple images with the same width and height;
+void _CaffeModel::SetInputs(const string &blobName, const std::vector<std::string> &imageData, int width, int height)
 {
-    Blob<float>* input_blob = _net->input_blobs()[0];
+    Blob<float>* input_blob = _net->blob_by_name(blobName).get();
+    if (width != GetInputImageWidth() || height != GetInputImageHeight())
+    {
+        // Reshape input_blob to fit the input images.
+        vector<int> shape = input_blob->shape();
+        shape[2] = height;
+        shape[3] = width;
+        input_blob->Reshape(shape);
+    }
 
-    CHECK_LE(imageData.size(), input_blob->num()) << "Input images (" << imageData.size() 
-            << ") should be no more than batch size (" << input_blob->num() << ")";
-
+    float* input_data = input_blob->mutable_cpu_data();
     if (_data_transformer)
     {
         vector<Datum> datum_vector;
         Datum datum;
         datum.set_channels(3);
-        datum.set_height(this->GetInputImageHeight());
-        datum.set_width(this->GetInputImageWidth());
+        datum.set_height(height);
+        datum.set_width(width);
         datum.clear_data();
         datum.clear_float_data();
 
@@ -227,22 +243,58 @@ void _CaffeModel::EvaluateBitmap(const std::vector<std::string> &imageData, int 
                 *input_data_ptr++ = (float)src_data[i];
         }
     }
-
-    float loss = 0.0;
-    _net->ForwardPrefilled(&loss);
-
 }
 
-FloatArray _CaffeModel::ExtractBitmapOutputs(const std::vector<std::string> &imageData, int interpolation, const string &blobName)
+void _CaffeModel::SetInputs(const std::string &blobName, const std::vector<float> &data)
 {
-    EvaluateBitmap(imageData, interpolation);
+    Blob<float>* input_blob = _net->blob_by_name(blobName).get();
+    CHECK_EQ(data.size(), input_blob->count()) << "Data dimension does not match with model input: "
+        << data.size() << " vs. " << input_blob->count();
+
+    memcpy(input_blob->mutable_cpu_data(), &data[0], sizeof(float) * data.size());
+}
+
+FloatArray _CaffeModel::Forward(const std::string &outputBlobName)
+{
+    float loss = 0.0;
+    _net->Forward(&loss);
+
+    auto blob = _net->blob_by_name(outputBlobName);
+    return FloatArray(blob->cpu_data(), blob->count());
+}
+
+std::vector<FloatArray> _CaffeModel::Forward(const std::vector<std::string>  &outputBlobNames)
+{
+    float loss = 0.0;
+    _net->Forward(&loss);
+
+    vector<FloatArray> results;
+    for (auto& name : outputBlobNames)
+    {
+        auto blob = _net->blob_by_name(name);
+        results.push_back(FloatArray(blob->cpu_data(), blob->count()));
+    }
+    return results;
+}
+
+void _CaffeModel::EvaluateBitmap(const std::vector<std::string> &imageData, int width, int height)
+{
+    SetInputs("data", imageData, width, height);
+
+    float loss = 0.0;
+    _net->Forward(&loss);
+}
+
+FloatArray _CaffeModel::ExtractBitmapOutputs(const std::vector<std::string> &imageData, int width, int height, const string &blobName)
+{
+    EvaluateBitmap(imageData, width, height);
     auto blob = _net->blob_by_name(blobName);
     return FloatArray(blob->cpu_data(), blob->count());
 }
 
-vector<FloatArray> _CaffeModel::ExtractBitmapOutputs(const std::vector<std::string> &imageData, int interpolation, const vector<string> &layerNames)
+vector<FloatArray> _CaffeModel::ExtractBitmapOutputs(const std::vector<std::string> &imageData, int width, int height, const vector<string> &layerNames)
 {
-    EvaluateBitmap(imageData, interpolation);
+    EvaluateBitmap(imageData, width, height);
     vector<FloatArray> results;
     for (auto& name : layerNames)
     {

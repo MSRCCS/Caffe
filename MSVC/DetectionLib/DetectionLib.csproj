@@ -4,13 +4,15 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{E29D42F7-D1D1-4E35-804F-F42AE1F439FA}</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <ProjectGuid>{5AB2775F-51DE-4D57-921E-FD9A6DAC54AB}</ProjectGuid>
+    <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>CaffeTool</RootNamespace>
-    <AssemblyName>CaffeTool</AssemblyName>
+    <RootNamespace>DetectionLib</RootNamespace>
+    <AssemblyName>DetectionLib</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <NuGetPackageImportStamp>
+    </NuGetPackageImportStamp>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
@@ -20,7 +22,6 @@
     <PlatformTarget>x64</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>..\..\bin\Release\</OutputPath>
@@ -30,13 +31,11 @@
     <PlatformTarget>x64</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
-    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -44,28 +43,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Program.cs" />
+    <Compile Include="ObjectDetector.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\caffe.managed\caffe.managed.vcxproj">
       <Project>{350020ca-75b9-425e-85ca-dd8cf8cfba9b}</Project>
       <Name>caffe.managed</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\CmdParser\CmdParser.csproj">
-      <Project>{5f0e7b5b-5924-4f2a-8cfe-d016003997d0}</Project>
-      <Name>CmdParser</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\DetectionLib\DetectionLib.csproj">
-      <Project>{5ab2775f-51de-4d57-921e-fd9a6dac54ab}</Project>
-      <Name>DetectionLib</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\TsvTool.Utility\TsvTool.Utility.csproj">
-      <Project>{19ad9555-4cd9-45ad-9c07-a55f415dc2ed}</Project>
-      <Name>TsvTool.Utility</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
