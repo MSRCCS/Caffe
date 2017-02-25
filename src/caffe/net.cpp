@@ -18,11 +18,14 @@
 #include "caffe/util/upgrade_proto.hpp"
 
 #include "caffe/test/test_caffe_main.hpp"
-
+#ifdef PERF_TEST
+    #include <numeric>
+#endif
 namespace caffe {
 
 #ifdef PERF_TEST
 	std::vector<float> perf_layer;
+	std::vector<std::string> perf_layername;
 	float perf_overall;
 #endif
 
@@ -290,6 +293,33 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
 
 #ifdef PERF_TEST
   perf_layer.resize(2*layers_.size());
+  perf_layername = layer_names();
+  perf_overall = 0.0;
+#endif
+}
+
+void PrintPerf(int iter_)
+{
+#ifdef PERF_TEST
+	std::stringstream ss;
+	//Get top k indexes
+	std::vector<int> idxs(perf_layer.size());
+	std::iota(idxs.begin(), idxs.end(), 0);
+	int K = std::min((int)10, (int)idxs.size());
+	std::partial_sort(idxs.begin(), idxs.begin() + K, idxs.end(), [&](int a, int b) { return perf_layer[a] > perf_layer[b]; });
+	for (int i = 0; i<K; i++)
+	{
+		int idx = idxs[i];
+		std::string direction = idx % 2 == 0 ? ".F:" : ".B:";
+		ss << i << ":" << perf_layername[idx / 2] << direction << perf_layer[idx] / iter_ / float(CLOCKS_PER_SEC) << " ";
+	}
+	LOG(INFO) << ss.str();
+	float sum = perf_overall;
+	if (sum == 0)
+	{
+		sum = std::accumulate(perf_layer.begin(), perf_layer.end(), 0.0);
+	}
+	LOG(INFO) << "Avg " << sum / iter_ / float(CLOCKS_PER_SEC) << "s per iteration";
 #endif
 }
 
