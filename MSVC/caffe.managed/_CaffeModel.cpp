@@ -28,6 +28,7 @@ _CaffeModel::_CaffeModel(const string &netFile, const string &modelFile)
     _data_transformer = NULL;
     _data_mean_width = 0;
     _data_mean_height = 0;
+    _do_crop = true;
 }
 
 _CaffeModel::_CaffeModel(const std::string &netFile, _CaffeModel *other)
@@ -44,7 +45,7 @@ _CaffeModel::_CaffeModel(const std::string &netFile, _CaffeModel *other)
     if (other->_mean_file.size() > 0)
         this->SetMeanFile(other->_mean_file);
     if (other->_mean_value.size() > 0)
-        this->SetMeanValue(other->_mean_value);
+        this->SetMeanValue(other->_mean_value, _do_crop);
 }
 
 _CaffeModel::~_CaffeModel()
@@ -100,12 +101,19 @@ void _CaffeModel::SetMeanFile(const std::string &meanFile)
     _data_transformer->InitRand();
 }
 
-void _CaffeModel::SetMeanValue(const vector<float> &meanValue)
+void _CaffeModel::SetMeanValue(const vector<float> &meanValue, bool do_crop)
 {
     if (_data_transformer)
         delete _data_transformer;
 
+    _do_crop = do_crop;
+
     TransformationParameter transform_param;
+    if (do_crop)
+    {
+        Blob<float>* input_blob = _net->input_blobs()[0];
+        transform_param.set_crop_size(input_blob->width());
+    }
 
     _mean_value = meanValue;
     for (int i = 0; i < meanValue.size(); i++)
@@ -115,38 +123,56 @@ void _CaffeModel::SetMeanValue(const vector<float> &meanValue)
     _data_transformer->InitRand();
 }
 
+bool _CaffeModel::HasMeanFile()
+{
+    return _mean_file.size() > 0;
+}
+
+bool _CaffeModel::HasMeanValue()
+{
+    return _mean_value.size() > 0;
+}
+
+void _CaffeModel::GetMeanFileResolution(int &width, int &height)
+{
+    CHECK(_mean_file.size() > 0) << "Mean file hasn't been set!";
+    width = _data_mean_width;
+    height = _data_mean_height;
+}
+
 int _CaffeModel::GetInputImageNum()
 {
     Blob<float>* input_blob = _net->input_blobs()[0];
     return input_blob->num();
 }
 
-int _CaffeModel::GetInputImageWidth()
-{
-    if (_mean_file.size() > 0)
-        return _data_mean_width;
-    Blob<float>* input_blob = _net->input_blobs()[0];
-    return input_blob->width();
-}
-
-int _CaffeModel::GetInputImageHeight()
-{
-    if (_mean_file.size() > 0)
-        return _data_mean_height;
-    Blob<float>* input_blob = _net->input_blobs()[0];
-    return input_blob->height();
-}
-
-int _CaffeModel::GetInputImageChannels()
-{
-    Blob<float>* input_blob = _net->input_blobs()[0];
-    return input_blob->channels();
-}
-
 std::vector<int> _CaffeModel::GetBlobShape(const std::string blobName)
 {
     auto blob = _net->blob_by_name(blobName);
     return blob->shape();
+}
+
+void _CaffeModel::ReshapeBlob(const std::string blobName, const std::vector<int> shape)
+{
+    auto blob = _net->blob_by_name(blobName);
+    blob->Reshape(shape);
+}
+
+void _CaffeModel::SetInputResolution(int width, int height)
+{
+    auto blob = _net->blob_by_name("data");
+    vector<int> shape = blob->shape();
+    shape[2] = height;
+    shape[3] = width;
+    blob->Reshape(shape);
+}
+
+void _CaffeModel::SetInputBatchSize(int batch_size)
+{
+    auto blob = _net->blob_by_name("data");
+    vector<int> shape = blob->shape();
+    shape[0] = batch_size;
+    blob->Reshape(shape);
 }
 
 std::vector<string> _CaffeModel::GetLayerNames()
@@ -197,31 +223,23 @@ void _CaffeModel::SaveModel(const std::string modelFile)
 // Typical calling cases:
 //   For object detection: passing a single image with the specified width and height;
 //   For image classification: passing multiple images with the same width and height;
-void _CaffeModel::SetInputs(const string &blobName, const std::vector<std::string> &imageData, int width, int height)
+void _CaffeModel::SetInputs(const string &blobName, const std::vector<std::string> &imageData, const std::vector<int> &imgSize)
 {
     Blob<float>* input_blob = _net->blob_by_name(blobName).get();
-    if (width != GetInputImageWidth() || height != GetInputImageHeight())
-    {
-        // Reshape input_blob to fit the input images.
-        vector<int> shape = input_blob->shape();
-        shape[2] = height;
-        shape[3] = width;
-        input_blob->Reshape(shape);
-    }
 
     float* input_data = input_blob->mutable_cpu_data();
     if (_data_transformer)
     {
         vector<Datum> datum_vector;
-        Datum datum;
-        datum.set_channels(3);
-        datum.set_height(height);
-        datum.set_width(width);
-        datum.clear_data();
-        datum.clear_float_data();
 
         for (int n = 0; n < imageData.size(); n++)
         {
+            Datum datum;
+            datum.set_channels(3);
+            datum.set_height(imgSize[n * 2 + 1]);
+            datum.set_width(imgSize[n * 2 + 0]);
+            datum.clear_data();
+            datum.clear_float_data();
             datum.set_data(imageData[n]);
             datum_vector.push_back(datum);
         }
@@ -277,24 +295,24 @@ std::vector<FloatArray> _CaffeModel::Forward(const std::vector<std::string>  &ou
     return results;
 }
 
-void _CaffeModel::EvaluateBitmap(const std::vector<std::string> &imageData, int width, int height)
+void _CaffeModel::EvaluateBitmap(const std::vector<std::string> &imageData, const std::vector<int> &imgSize)
 {
-    SetInputs("data", imageData, width, height);
+    SetInputs("data", imageData, imgSize);
 
     float loss = 0.0;
     _net->Forward(&loss);
 }
 
-FloatArray _CaffeModel::ExtractBitmapOutputs(const std::vector<std::string> &imageData, int width, int height, const string &blobName)
+FloatArray _CaffeModel::ExtractBitmapOutputs(const std::vector<std::string> &imageData, const std::vector<int> &imgSize, const string &blobName)
 {
-    EvaluateBitmap(imageData, width, height);
+    EvaluateBitmap(imageData, imgSize);
     auto blob = _net->blob_by_name(blobName);
     return FloatArray(blob->cpu_data(), blob->count());
 }
 
-vector<FloatArray> _CaffeModel::ExtractBitmapOutputs(const std::vector<std::string> &imageData, int width, int height, const vector<string> &layerNames)
+vector<FloatArray> _CaffeModel::ExtractBitmapOutputs(const std::vector<std::string> &imageData, const std::vector<int> &imgSize, const vector<string> &layerNames)
 {
-    EvaluateBitmap(imageData, width, height);
+    EvaluateBitmap(imageData, imgSize);
     vector<FloatArray> results;
     for (auto& name : layerNames)
     {

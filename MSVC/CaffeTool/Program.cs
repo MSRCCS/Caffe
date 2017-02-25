@@ -24,11 +24,16 @@ namespace CaffeTool
             public string proto = null;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Caffe model file")]
             public string model = null;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Image mean binary proto file")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Image mean binary proto file or mean values in the format of b,g,r")]
             public string mean = null;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Caffe model label map file (for getting human-readable topk predictions)")]
             public string labelmap = null;
-            
+
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Resize target (default: 256)")]
+            public int resize_target = 256;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Keep aspect ratio? (default: false)")]
+            public bool keep_aspect_ratio = false;
+
             [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
             public string inTsv = null;
             [Argument(ArgumentType.Required, HelpText = "Column index for image stream")]
@@ -41,6 +46,8 @@ namespace CaffeTool
             public int topK = 5;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Confidence threshold (default: 0.001 to output all)")]
             public float conf = 0.001f;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Batch size (default: use batch size specified in prototxt)")]
+            public int batch = -1;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Gpu Id (default: 0, -1 for cpu)")]
             public int gpu = 0;
         }
@@ -53,7 +60,8 @@ namespace CaffeTool
             // prepare model file names
             string protoFile = null;
             string modelFile = null;
-            string meanFile = null;
+            string meanFile = null; // only one of meanFile and meanValue will be valid
+            string meanValue = null;
             string labelmapFile = null;
 
             if (cmd.modelcfg != null)
@@ -68,7 +76,10 @@ namespace CaffeTool
 
                 protoFile = getPath(modelDict["proto"]);
                 modelFile = getPath(modelDict["model"]);
-                meanFile = getPath(modelDict["mean"]);
+                if (File.Exists(getPath(modelDict["mean"])))
+                    meanFile = getPath(modelDict["mean"]);
+                else
+                    meanValue = modelDict["mean"];
                 labelmapFile = getPath(modelDict["labelmap"]);
                 if (string.IsNullOrEmpty(modelDict["labelmap"]))
                    labelmapFile = null;
@@ -81,7 +92,14 @@ namespace CaffeTool
             if (cmd.model != null)
                 modelFile = cmd.model;
             if (cmd.mean != null)
-                meanFile = cmd.mean;
+            {
+                // clear previous settings first
+                meanFile = meanValue = null;
+                if (File.Exists(cmd.mean))
+                    meanFile = cmd.mean;
+                else
+                    meanValue = cmd.mean;
+            }
             if (cmd.labelmap != null)
                 labelmapFile = cmd.labelmap;
 
@@ -95,6 +113,14 @@ namespace CaffeTool
             CaffeModel predictor = new CaffeModel(protoFile, modelFile);
             if (!string.IsNullOrEmpty(meanFile))
                 predictor.SetMeanFile(meanFile);
+            if (!string.IsNullOrEmpty(meanValue))
+            {
+                var mean_values = meanValue.Split(',').Select(x => Convert.ToSingle(x)).ToArray();
+                predictor.SetMeanValue(mean_values, true);
+                predictor.SetResizeTarget(cmd.resize_target, cmd.keep_aspect_ratio);
+            }
+            if (cmd.batch > 0)
+                predictor.SetInputBatchSize(cmd.batch);
 
             var labelmap = string.IsNullOrEmpty(labelmapFile) ? null :
                 File.ReadLines(labelmapFile)

@@ -55,10 +55,14 @@ namespace DetectionLib
             string protoFile = getPath(modelDict["proto"]);
             string modelFile = getPath(modelDict["model"]);
             string labelmapFile = getPath(modelDict["labelmap"]);
+            var meanValue = modelDict["mean"].Split(',').Select(x => Convert.ToSingle(x)).ToArray();
 
             // Init image recognition
             _caffeModel = new CaffeModel(protoFile, modelFile);
             Console.WriteLine("Object detector model loaded ...");
+
+            // Set mean value
+            _caffeModel.SetMeanValue(meanValue, false);
 
             // Get label map
             _labelMap = File.ReadLines(labelmapFile).Select(line => line.Split('\t')[0]).ToArray();
