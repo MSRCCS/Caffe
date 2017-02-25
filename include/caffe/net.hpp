@@ -13,18 +13,23 @@
 #include "caffe/proto/caffe.pb.h"
 
 namespace caffe {
+void PrintPerf(int iter);
 #ifdef PERF_TEST
 	extern std::vector<float> perf_layer;
+	extern std::vector<std::string> perf_layername;
 	extern float perf_overall;
+	
 #define PERF_INIT clock_t start_time = clock();
 #define PERF_UPDATE_FORWARD(i)  perf_layer[2*i]+=clock()-start_time;
 #define PERF_UPDATE_BACKWARD(i)  perf_layer[2*i+1]+=clock()-start_time;
 #define PERF_UPDATE_OVERALL  perf_overall += clock()-start_time;
+#define PRINT_PERF(iter) PrintPerf(iter);
 #else
 #define PERF_INIT 
 #define PERF_UPDATE_FORWARD(i)
 #define PERF_UPDATE_BACKWARD(i)
 #define PERF_UPDATE_OVERALL
+#define PRINT_PERF(iter)
 #endif
 /**
  * @brief Connects Layer%s together into a directed acyclic graph (DAG)

@@ -81,6 +81,11 @@ void init_glog(const string& logfname)
 	::google::SetLogDestination(google::GLOG_INFO, logfname.c_str());
 	::google::SetStderrLogging(0);
 }
+
+void print_perf(int iter)
+{
+	PrintPerf(iter);
+}
 // For convenience, check that input files can be opened, and raise an
 // exception that boost will send to Python if not (caffe could still crash
 // later if the input files are disturbed before they are actually used, but
@@ -293,6 +298,7 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::def("set_device", &Caffe::SetDevice);
   bp::def("set_random_seed", &Caffe::set_random_seed);
   bp::def("init_glog", &init_glog);
+  bp::def("print_perf", &print_perf);
   bp::def("layer_type_list", &LayerRegistry<Dtype>::LayerTypeList);
 
   bp::enum_<Phase>("Phase")

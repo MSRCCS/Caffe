@@ -8,10 +8,6 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/upgrade_proto.hpp"
 
-#ifdef PERF_TEST
-#include <queue>
-#endif
-
 namespace caffe {
 
 template<typename Dtype>
@@ -230,30 +226,7 @@ void Solver<Dtype>::Step(int iters) {
     UpdateSmoothedLoss(loss, start_iter, average_loss);
 	PERF_UPDATE_OVERALL
     if (display) {
-#ifdef PERF_TEST
-		std::stringstream ss;
-		//Get top k indexes
-		std::priority_queue<std::pair<float, int> > q;
-		const int K = 10;
-		for (int i = 0; i < perf_layer.size(); ++i) {
-			if (q.size()<K)
-				q.push(std::pair<float, int>(-perf_layer[i], i));
-			else if (q.top().first<perf_layer[i]) {
-				q.pop();
-				q.push(std::pair<float, int>(-perf_layer[i], i));
-			}
-		}
-		for (int i = 0, k = q.size(); i < k; ++i) 
-		{
-			int idx = q.top().second;
-			std::string direction = idx % 2 == 0 ? "/F:" : "/B:";
-			std::string layername = net_->layer_names()[idx / 2];
-			ss << layername << direction << -q.top().first/ iter_/ float(CLOCKS_PER_SEC) << " ";
-			q.pop();
-		}
-		LOG(INFO) <<  ss.str();
-		LOG(INFO) << "Avg " << perf_overall/iter_/ float(CLOCKS_PER_SEC) << "s per iteration";
-#endif
+	  PRINT_PERF(iter_)
       LOG_IF(INFO, Caffe::root_solver()) << "Iteration " << iter_
           << ", loss = " << smoothed_loss_;
       const vector<Blob<Dtype>*>& result = net_->output_blobs();
