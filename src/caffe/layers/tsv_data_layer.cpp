@@ -372,7 +372,7 @@ void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, c
             cv::Mat img_crop = img_origin(crop_rect).clone();
 
             // flip
-            if (random_helper::uniform_int(0, 1))
+            if (this->phase_ == TRAIN && random_helper::uniform_int(0, 1))
                 cv::flip(img_crop, img_crop, 1);
 
             // convert to float 
@@ -385,9 +385,9 @@ void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, c
                 get_random_kl_shift(shift, 0.1);
 
             // mean subtraction
-            shift[0] += mean_values_[0];
-            shift[1] += mean_values_[1];
-            shift[2] += mean_values_[2];
+            shift[0] -= mean_values_[0];
+            shift[1] -= mean_values_[1];
+            shift[2] -= mean_values_[2];
 
             int nChannel = img_float.channels();
             for (int y = 0; y < img_float.rows; y++) {

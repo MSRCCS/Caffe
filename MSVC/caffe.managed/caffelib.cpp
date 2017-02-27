@@ -27,15 +27,31 @@ namespace CaffeLibMC {
     private:
         _CaffeModel *m_net;
         String ^_netFile;
+        int _resize_target;
+        bool _keep_aspect_ratio;
 
-        string ConvertToDatum(Bitmap ^imgData, int width, int height)
+        Bitmap^ ResizeImage(Bitmap ^imgData)
         {
-            string datum_string;
+            int width, height;
 
-            if (width < 0)
-                width = m_net->GetInputImageWidth();
-            if (height < 0)
-                height = m_net->GetInputImageHeight();
+            if (m_net->HasMeanFile())
+            {
+                m_net->GetMeanFileResolution(width, height);
+            }
+            else // check _resize_target
+            {
+                if (!_keep_aspect_ratio)
+                {
+                    width = _resize_target;
+                    height = _resize_target;
+                }
+                else
+                {
+                    int ori_size = Math::Min(imgData->Width, imgData->Height);
+                    width = (int)((float)imgData->Width * _resize_target / ori_size + 0.5f);
+                    height = (int)((float)imgData->Height * _resize_target / ori_size + 0.5f);
+                }
+            }
 
             Drawing::Rectangle rc = Drawing::Rectangle(0, 0, width, height);
 
@@ -43,7 +59,7 @@ namespace CaffeLibMC {
             Bitmap ^resizedBmp;
             if (width == imgData->Width && height == imgData->Height)
             {
-                resizedBmp = imgData->Clone(rc, PixelFormat::Format24bppRgb);
+                resizedBmp = imgData;
             }
             else
             {
@@ -51,26 +67,52 @@ namespace CaffeLibMC {
                 resizedBmp = resizedBmp->Clone(rc, PixelFormat::Format24bppRgb);
             }
 
+            return resizedBmp;
+        }
+
+        string ConvertToDatum(Bitmap ^imgData, bool resizeImage, int &new_width, int &new_height)
+        {
+            Bitmap ^img;
+            if (resizeImage)
+                img = ResizeImage(imgData);
+            else
+                img = imgData;
+
+            new_width = img->Width;
+            new_height = img->Height;
+
+            Drawing::Rectangle rc = Drawing::Rectangle(0, 0, new_width, new_height);
+
+            if (img->PixelFormat != PixelFormat::Format24bppRgb)
+            {
+                // here img is actually pointing to imgData, and imgData is not of Format24bppRgb.
+                img = gcnew Bitmap((Image ^)imgData, img->Width, img->Height);
+                img = img->Clone(rc, PixelFormat::Format24bppRgb);
+            }
+
             // get image data block
-            BitmapData ^bmpData = resizedBmp->LockBits(rc, ImageLockMode::ReadOnly, resizedBmp->PixelFormat);
+            BitmapData ^bmpData = img->LockBits(rc, ImageLockMode::ReadOnly, img->PixelFormat);
             pin_ptr<char> bmpBuffer = (char *)bmpData->Scan0.ToPointer();
 
             // prepare string buffer to call Caffe model
-            datum_string.resize(3 * width * height);
+            string datum_string;
+            datum_string.resize(3 * new_width * new_height);
             char *buff = &datum_string[0];
             for (int c = 0; c < 3; ++c)
             {
-                for (int h = 0; h < height; ++h)
+                for (int h = 0; h < new_height; ++h)
                 {
                     int line_offset = h * bmpData->Stride + c;
-                    for (int w = 0; w < width; ++w)
+                    for (int w = 0; w < new_width; ++w)
                     {
                         *buff++ = bmpBuffer[line_offset + w * 3];
                     }
                 }
             }
-            resizedBmp->UnlockBits(bmpData);
-            delete resizedBmp;
+            img->UnlockBits(bmpData);
+
+            if (img != imgData)
+                delete img;
 
             return datum_string;
         }
@@ -94,6 +136,8 @@ namespace CaffeLibMC {
         {
             _netFile = Path::GetFullPath(netFile);
             m_net = new _CaffeModel(TO_NATIVE_STRING(netFile), TO_NATIVE_STRING(modelFile));
+            _resize_target = 0;
+            _keep_aspect_ratio = false;
         }
 
         CaffeModel(CaffeModel ^other)
@@ -125,27 +169,27 @@ namespace CaffeLibMC {
             return m_net->GetInputImageNum();
         }
 
+        // By default, the mean file specifies the input image size, which should be the same as mean file resolution.
         void SetMeanFile(String ^meanFile)
         {
             m_net->SetMeanFile(TO_NATIVE_STRING(Path::GetFullPath(meanFile)));
         }
 
-        void SetMeanValue(array<float> ^meanValue)
+        // To use mean value, the input image size and crop type must be specified by calling SetResizeTarget(...).
+        void SetMeanValue(array<float> ^meanValue, bool do_crop)
         {
             vector<float> mean_value(meanValue->Length);
             pin_ptr<float> pma = &meanValue[0];
             memcpy(&mean_value[0], pma, meanValue->Length * sizeof(float));
-            m_net->SetMeanValue(mean_value);
+            m_net->SetMeanValue(mean_value, do_crop);
         }
 
-        int GetInputImageWidth()
+        // if keep_aspect_ratio == true, image shorter size will be resized to resize_target.
+        // otherwise, image will be resized to (resize_target, resize_target).
+        void SetResizeTarget(int resize_target, bool keep_aspect_ratio)
         {
-            return m_net->GetInputImageWidth();
-        }
-
-        int GetInputImageHeight()
-        {
-            return m_net->GetInputImageHeight();
+            _resize_target = resize_target;
+            _keep_aspect_ratio = keep_aspect_ratio;
         }
 
         array<int>^ GetBlobShape(String ^blobName)
@@ -153,6 +197,11 @@ namespace CaffeLibMC {
             vector<int> shape = m_net->GetBlobShape(TO_NATIVE_STRING(blobName));
             MARSHAL_VECTOR(shape, outputs);
             return outputs;
+        }
+
+        void SetInputBatchSize(int batch_size)
+        {
+            m_net->SetInputBatchSize(batch_size);
         }
 
         array<String^>^ GetLayerNames()
@@ -175,7 +224,6 @@ namespace CaffeLibMC {
                 outputs[i] = values;
             }
             return outputs;
-
         }
 
         void SetParams(String^ layerName, array<array<float>^>^ param_blobs)
@@ -200,30 +248,41 @@ namespace CaffeLibMC {
 
         array<float>^ ExtractOutputs(array<Bitmap^> ^imgData, String^ blobName, bool resizeImage)
         {
-            int width = resizeImage ? m_net->GetInputImageWidth() : imgData[0]->Width;
-            int height = resizeImage ? m_net->GetInputImageHeight() : imgData[0]->Height;
-
             vector<string> datums(imgData->Length);
+            vector<int> imgSize(imgData->Length * 2); // to store (width, height) for each image
             for (int i = 0; i < imgData->Length; i++)
-                datums[i] = ConvertToDatum(imgData[i], width, height);
+                datums[i] = ConvertToDatum(imgData[i], resizeImage, imgSize[i * 2 + 0], imgSize[i * 2 + 1]);
 
-            FloatArray intermediate = m_net->ExtractBitmapOutputs(datums, width, height, TO_NATIVE_STRING(blobName));
+            if (!resizeImage)
+            {
+                // Reshape input blob to fit input image
+                // and assume all the images have the same size
+                m_net->SetInputResolution(imgData[0]->Width, imgData[0]->Height);
+            }
+
+            FloatArray intermediate = m_net->ExtractBitmapOutputs(datums, imgSize, TO_NATIVE_STRING(blobName));
             MARSHAL_ARRAY(intermediate, outputs)
                 return outputs;
         }
 
         array<array<float>^>^ ExtractOutputs(array<Bitmap^> ^imgData, array<String^>^ blobNames, bool resizeImage)
         {
-            int width = resizeImage ? m_net->GetInputImageWidth() : imgData[0]->Width;
-            int height = resizeImage ? m_net->GetInputImageHeight() : imgData[0]->Height;
             vector<string> datums(imgData->Length);
+            vector<int> imgSize(imgData->Length * 2); // to store (width, height) for each image
             for (int i = 0; i < imgData->Length; i++)
-                datums[i] = ConvertToDatum(imgData[i], width, height);
+                datums[i] = ConvertToDatum(imgData[i], resizeImage, imgSize[i * 2 + 0], imgSize[i * 2 + 1]);
+
+            if (!resizeImage)
+            {
+                // Reshape input blob to fit input image
+                // and assume all the images have the same size
+                m_net->SetInputResolution(imgData[0]->Width, imgData[0]->Height);
+            }
 
             vector<string> names;
             for each(String^ name in blobNames)
                 names.push_back(TO_NATIVE_STRING(name));
-            vector<FloatArray> intermediates = m_net->ExtractBitmapOutputs(datums, width, height, names);
+            vector<FloatArray> intermediates = m_net->ExtractBitmapOutputs(datums, imgSize, names);
             auto outputs = gcnew array<array<float>^>(names.size());
             for (int i = 0; i < names.size(); ++i)
             {
@@ -236,12 +295,19 @@ namespace CaffeLibMC {
 
         void SetInputs(String^ blobName, array<Bitmap^>^ imgData, bool resizeImage)
         {
-            int width = resizeImage ? m_net->GetInputImageWidth() : imgData[0]->Width;
-            int height = resizeImage ? m_net->GetInputImageHeight() : imgData[0]->Height;
             vector<string> datums(imgData->Length);
+            vector<int> imgSize(imgData->Length * 2); // to store (width, height) for each image
             for (int i = 0; i < imgData->Length; i++)
-                datums[i] = ConvertToDatum(imgData[i], width, height);
-            m_net->SetInputs(TO_NATIVE_STRING(blobName), datums, width, height);
+                datums[i] = ConvertToDatum(imgData[i], resizeImage, imgSize[i * 2 + 0], imgSize[i * 2 + 1]);
+
+            if (!resizeImage)
+            {
+                // Reshape input blob to fit input image
+                // and assume all the images have the same size
+                m_net->SetInputResolution(imgData[0]->Width, imgData[0]->Height);
+            }
+
+            m_net->SetInputs(TO_NATIVE_STRING(blobName), datums, imgSize);
         }
 
         void SetInputs(String^ blobName, array<float>^ data)
