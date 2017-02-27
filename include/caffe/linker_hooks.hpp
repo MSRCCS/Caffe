@@ -28,7 +28,7 @@ namespace caffe {
   // DummyFunction is used to ensure that the external symbol gets used in executable,
   // to ensure that object file where symbol is defined will get linked.
   template<class T>
-  void DummyFunction(T){}
+  void DummyFunction(T) {}
 
   // Macro used to ensure that all external symbols get used in executable, ensuring that
   // their object files will get linked into resulting binary.
@@ -43,6 +43,7 @@ namespace caffe {
   FUNC(BatchReindex); \
   FUNC(Bias); \
   FUNC(BNLL); \
+  FUNC(CenterLoss); \
   FUNC(Concat); \
   FUNC(ContrastiveLoss); \
   FUNC(Convolution); \
