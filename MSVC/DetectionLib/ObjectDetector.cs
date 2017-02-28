@@ -183,7 +183,8 @@ namespace DetectionLib
             CaffeModelState state;
             if (!_caffeModelStates.TryPop(out state))
                 state = new CaffeModelState(_caffeModel, true);
-            state.Model.SetInputs("data", new Bitmap[] { image }, false);
+            state.Model.SetInputResolution(image.Width, image.Height);
+            state.Model.SetInputs("data", new Bitmap[] { image });
             state.Model.SetInputs("im_info", new float[] { image.Height, image.Width, scale });
             float[][] outputs = state.Model.Forward(new string[] { "cls_prob", "bbox_pred", "rois" });
             int[] shape = state.Model.GetBlobShape("cls_prob");

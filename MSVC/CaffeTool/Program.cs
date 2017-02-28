@@ -137,13 +137,15 @@ namespace CaffeTool
                 .Select(batch =>
                 {
                     // prepare batch images
-                    var batch_imgs = batch.Select(cols =>
+                    var batch_imgs = batch.AsParallel().AsOrdered()
+                    .Select(cols =>
                     {
                         using (var ms = new MemoryStream(Convert.FromBase64String(cols[cmd.imageCol])))
-                            return new Bitmap(ms);
+                        using (var img = new Bitmap(ms))
+                            return predictor.ResizeImage(img);
                     }).ToArray();
                     // batch feature extraction. may extract fc6 and fc7 together
-                    float[][] batch_features = predictor.ExtractOutputs(batch_imgs, cmd.blob, true);
+                    float[][] batch_features = predictor.ExtractOutputs(batch_imgs, cmd.blob);
                     // release images
                     foreach (var img in batch_imgs)
                         img.Dispose();
@@ -259,6 +261,7 @@ namespace CaffeTool
                 .Select(line => line.Split('\t').ToList())
                 .Select(cols =>
                 {
+                    count++;
                     using (var ms = new MemoryStream(Convert.FromBase64String(cols[cmd.imageCol])))
                     {
                         var results = detector.Detect(new Bitmap(ms), cmd.conf);
