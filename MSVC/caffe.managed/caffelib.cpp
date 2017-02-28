@@ -27,9 +27,10 @@ namespace CaffeLibMC {
     private:
         _CaffeModel *m_net;
         String ^_netFile;
-        int _resize_target;
+        int _resize_target;     // 0 for no resize
         bool _keep_aspect_ratio;
 
+    public:
         Bitmap^ ResizeImage(Bitmap ^imgData)
         {
             int width, height;
@@ -57,31 +58,20 @@ namespace CaffeLibMC {
 
             // resize image
             Bitmap ^resizedBmp;
-            if (width == imgData->Width && height == imgData->Height)
-            {
-                resizedBmp = imgData;
-            }
-            else
-            {
-                resizedBmp = gcnew Bitmap((Image ^)imgData, width, height);
-                resizedBmp = resizedBmp->Clone(rc, PixelFormat::Format24bppRgb);
-            }
+            resizedBmp = gcnew Bitmap((Image ^)imgData, width, height);
+            resizedBmp = resizedBmp->Clone(rc, PixelFormat::Format24bppRgb);
 
             return resizedBmp;
         }
 
-        string ConvertToDatum(Bitmap ^imgData, bool resizeImage, int &new_width, int &new_height)
+        string ConvertToDatum(Bitmap ^imgData)
         {
-            Bitmap ^img;
-            if (resizeImage)
-                img = ResizeImage(imgData);
-            else
-                img = imgData;
+            Bitmap ^img = imgData;
 
-            new_width = img->Width;
-            new_height = img->Height;
+            int width = img->Width;
+            int height = img->Height;
 
-            Drawing::Rectangle rc = Drawing::Rectangle(0, 0, new_width, new_height);
+            Drawing::Rectangle rc = Drawing::Rectangle(0, 0, width, height);
 
             if (img->PixelFormat != PixelFormat::Format24bppRgb)
             {
@@ -96,14 +86,14 @@ namespace CaffeLibMC {
 
             // prepare string buffer to call Caffe model
             string datum_string;
-            datum_string.resize(3 * new_width * new_height);
+            datum_string.resize(3 * width * height);
             char *buff = &datum_string[0];
             for (int c = 0; c < 3; ++c)
             {
-                for (int h = 0; h < new_height; ++h)
+                for (int h = 0; h < height; ++h)
                 {
                     int line_offset = h * bmpData->Stride + c;
-                    for (int w = 0; w < new_width; ++w)
+                    for (int w = 0; w < width; ++w)
                     {
                         *buff++ = bmpBuffer[line_offset + w * 3];
                     }
@@ -117,7 +107,6 @@ namespace CaffeLibMC {
             return datum_string;
         }
 
-    public:
         static int DeviceCount;
 
         static CaffeModel()
@@ -204,6 +193,11 @@ namespace CaffeLibMC {
             m_net->SetInputBatchSize(batch_size);
         }
 
+        void SetInputResolution(int width, int height)
+        {
+            m_net->SetInputResolution(width, height);
+        }
+
         array<String^>^ GetLayerNames()
         {
             vector<string> names = m_net->GetLayerNames();
@@ -246,65 +240,29 @@ namespace CaffeLibMC {
             m_net->SaveModel(TO_NATIVE_STRING(modelFile));
         }
 
-        array<float>^ ExtractOutputs(array<Bitmap^> ^imgData, String^ blobName, bool resizeImage)
+        array<float>^ ExtractOutputs(array<Bitmap^> ^imgData, String^ blobName)
         {
-            vector<string> datums(imgData->Length);
-            vector<int> imgSize(imgData->Length * 2); // to store (width, height) for each image
-            for (int i = 0; i < imgData->Length; i++)
-                datums[i] = ConvertToDatum(imgData[i], resizeImage, imgSize[i * 2 + 0], imgSize[i * 2 + 1]);
-
-            if (!resizeImage)
-            {
-                // Reshape input blob to fit input image
-                // and assume all the images have the same size
-                m_net->SetInputResolution(imgData[0]->Width, imgData[0]->Height);
-            }
-
-            FloatArray intermediate = m_net->ExtractBitmapOutputs(datums, imgSize, TO_NATIVE_STRING(blobName));
-            MARSHAL_ARRAY(intermediate, outputs)
-                return outputs;
+            SetInputs("data", imgData);
+            return Forward(blobName);
         }
 
-        array<array<float>^>^ ExtractOutputs(array<Bitmap^> ^imgData, array<String^>^ blobNames, bool resizeImage)
+        array<array<float>^>^ ExtractOutputs(array<Bitmap^> ^imgData, array<String^>^ blobNames)
         {
-            vector<string> datums(imgData->Length);
-            vector<int> imgSize(imgData->Length * 2); // to store (width, height) for each image
-            for (int i = 0; i < imgData->Length; i++)
-                datums[i] = ConvertToDatum(imgData[i], resizeImage, imgSize[i * 2 + 0], imgSize[i * 2 + 1]);
-
-            if (!resizeImage)
-            {
-                // Reshape input blob to fit input image
-                // and assume all the images have the same size
-                m_net->SetInputResolution(imgData[0]->Width, imgData[0]->Height);
-            }
-
-            vector<string> names;
-            for each(String^ name in blobNames)
-                names.push_back(TO_NATIVE_STRING(name));
-            vector<FloatArray> intermediates = m_net->ExtractBitmapOutputs(datums, imgSize, names);
-            auto outputs = gcnew array<array<float>^>(names.size());
-            for (int i = 0; i < names.size(); ++i)
-            {
-                auto intermediate = intermediates[i];
-                MARSHAL_ARRAY(intermediate, values)
-                    outputs[i] = values;
-            }
-            return outputs;
+            SetInputs("data", imgData);
+            return Forward(blobNames);
         }
 
-        void SetInputs(String^ blobName, array<Bitmap^>^ imgData, bool resizeImage)
+        void SetInputs(String^ blobName, array<Bitmap^>^ imgData)
         {
             vector<string> datums(imgData->Length);
             vector<int> imgSize(imgData->Length * 2); // to store (width, height) for each image
+            #pragma omp parallel for
             for (int i = 0; i < imgData->Length; i++)
-                datums[i] = ConvertToDatum(imgData[i], resizeImage, imgSize[i * 2 + 0], imgSize[i * 2 + 1]);
-
-            if (!resizeImage)
             {
-                // Reshape input blob to fit input image
-                // and assume all the images have the same size
-                m_net->SetInputResolution(imgData[0]->Width, imgData[0]->Height);
+                Bitmap ^img = imgData[i];
+                datums[i] = ConvertToDatum(img);
+                imgSize[i * 2 + 0] = img->Width;
+                imgSize[i * 2 + 1] = img->Height;
             }
 
             m_net->SetInputs(TO_NATIVE_STRING(blobName), datums, imgSize);

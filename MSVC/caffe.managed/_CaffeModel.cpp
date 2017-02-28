@@ -162,9 +162,12 @@ void _CaffeModel::SetInputResolution(int width, int height)
 {
     auto blob = _net->blob_by_name("data");
     vector<int> shape = blob->shape();
-    shape[2] = height;
-    shape[3] = width;
-    blob->Reshape(shape);
+    if (width != shape[3] || height != shape[2])
+    {
+        shape[2] = height;
+        shape[3] = width;
+        blob->Reshape(shape);
+    }
 }
 
 void _CaffeModel::SetInputBatchSize(int batch_size)
@@ -230,8 +233,6 @@ void _CaffeModel::SetInputs(const string &blobName, const std::vector<std::strin
     float* input_data = input_blob->mutable_cpu_data();
     if (_data_transformer)
     {
-        vector<Datum> datum_vector;
-
         for (int n = 0; n < imageData.size(); n++)
         {
             Datum datum;
@@ -241,9 +242,8 @@ void _CaffeModel::SetInputs(const string &blobName, const std::vector<std::strin
             datum.clear_data();
             datum.clear_float_data();
             datum.set_data(imageData[n]);
-            datum_vector.push_back(datum);
+            _data_transformer->TransformData(datum, input_data + input_blob->offset(n));
         }
-        _data_transformer->Transform(datum_vector, input_blob);
     }
     else
     {
