@@ -156,6 +156,17 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
     } else {
       layers_[layer_id]->SetUp(bottom_vecs_[layer_id], top_vecs_[layer_id]);
     }
+	
+	//if this is not a loss layer then a blob is deletable
+	bool is_deletable = layers_[layer_id]->layer_param().loss_weight_size() == 0;
+	for (int ti = 0; ti < top_vecs_[layer_id].size(); ++ti)
+	{
+		const int blob_id = top_id_vecs_[layer_id][ti];
+		blobs_deletable_[blob_id] = is_deletable;
+		if (!is_deletable)
+			LOG(INFO) << "layer " << layer_names_[layer_id] << " top_id " << ti << " :" << "undeletabble";
+	}
+
     LOG_IF(INFO, Caffe::root_solver())
         << "Setting up " << layer_names_[layer_id];
     for (int top_id = 0; top_id < top_vecs_[layer_id].size(); ++top_id) {
@@ -450,6 +461,7 @@ void Net<Dtype>::AppendTop(const NetParameter& param, const int layer_id,
     shared_ptr<Blob<Dtype> > blob_pointer(new Blob<Dtype>());
     const int blob_id = blobs_.size();
     blobs_.push_back(blob_pointer);
+	blobs_deletable_.push_back(true);
     blob_names_.push_back(blob_name);
     blob_need_backward_.push_back(false);
     if (blob_name_to_idx) { (*blob_name_to_idx)[blob_name] = blob_id; }
