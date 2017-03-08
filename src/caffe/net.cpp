@@ -306,14 +306,14 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
   opt_test_memory_ = param.opt_test_memory();
   shared_blobs_.clear();
   shared_record_.clear();
-  if (phase_ == Phase::TEST && opt_test_memory_ || phase_ == Phase::TRAIN && opt_train_memory_)
+  if ((phase_ == TEST && opt_test_memory_) || (phase_ == TRAIN && opt_train_memory_))
   {
 	  shared_blobs_index_.resize(blobs_.size());
 	  for (int shared_id = 0; shared_id < shared_blobs_index_.size(); ++shared_id)
 		  shared_blobs_index_[shared_id] = -1;
 	  for (int i = 0; i < layers_.size(); ++i) 
 	  {
-		  if ((phase_ == Phase::TEST && opt_test_memory_) || (phase_ == Phase::TRAIN && opt_train_memory_&& (!layer_need_backward_[i])))
+		  if ((phase_ == TEST && opt_test_memory_) || (phase_ == TRAIN && opt_train_memory_&& (!layer_need_backward_[i])))
 		  {
 			  // two case is not for shared memory: 1. shared data within the layer. 2. inplace layer.
 			  // shared data with int the layer:
@@ -414,7 +414,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
 	  for (int i = 0; i < shared_blobs_.size(); i++)
 		  LOG_IF(INFO, Caffe::root_solver()) << "cache id " << i << " size:" << shared_blobs_[i]->count();
   }
-  if (phase_ == Phase::TRAIN && opt_train_memory_) 
+  if (phase_ == TRAIN && opt_train_memory_) 
   {
 	  blob_diff_used_counter_.resize(blobs_.size(),0);
 
@@ -444,7 +444,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
 		  shared_blobs_diff_index_[shared_id] = -1;
 	  for (int layer_id = layers_.size() - 1; layer_id >= 0; layer_id--)
 	  {
-		  if (phase_ == Phase::TRAIN && opt_train_memory_)//&& layer_need_backward_[i])
+		  if (phase_ == TRAIN && opt_train_memory_)//&& layer_need_backward_[i])
 		  {
 			  if (layer_types_[layer_id] == "Reshape" || layer_types_[layer_id] == "Flatten")
 			  {
@@ -845,7 +845,7 @@ Dtype Net<Dtype>::ForwardFromTo(int start, int end) {
   CHECK_LT(end, layers_.size());
   Dtype loss = 0;
   for (int i = start; i <= end; ++i) {
-	  if (((phase_ == Phase::TEST && opt_test_memory_) || (phase_ == Phase::TRAIN && opt_train_memory_&& (!layer_need_backward_[i])))
+	  if (((phase_ == TEST && opt_test_memory_) || (phase_ == TRAIN && opt_train_memory_&& (!layer_need_backward_[i])))
 		  && layer_types_[i] != "Split")
 	  {
 		  //share cache meory.
@@ -916,7 +916,7 @@ void Net<Dtype>::BackwardFromTo(int start, int end) {
   CHECK_LT(start, layers_.size());
   for (int i = start; i >= end; --i) {
     if (layer_need_backward_[i]) {
-      if ((phase_ == Phase::TRAIN && opt_train_memory_)
+      if ((phase_ == TRAIN && opt_train_memory_)
         && layer_types_[i] != "Reshape" && layer_types_[i] != "Flatten")
       {
         //share cache meory.

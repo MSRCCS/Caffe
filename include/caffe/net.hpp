@@ -299,7 +299,7 @@ class Net {
   //new add blob information for diff and data sharing
   vector<bool> blobs_deletable_;
   vector<int> blob_used_counter_;
-  vector<shared_ptr<Blob<Dtype>> > shared_blobs_;
+  vector<shared_ptr<Blob<Dtype> > > shared_blobs_;
   vector<int> shared_record_;
   vector<int> shared_blobs_index_;
 
