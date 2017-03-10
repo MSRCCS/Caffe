@@ -186,7 +186,7 @@ class Blob {
    *        shape if necessary
    */
   void CopyFrom(const Blob<Dtype>& source, bool copy_diff = false,
-      bool reshape = false);
+	  bool reshape = false, bool force_copy = false);
 
   inline Dtype data_at(const int n, const int c, const int h,
       const int w) const {
@@ -253,6 +253,7 @@ class Blob {
    * shared_ptr calls its destructor when reset with the "=" operator.
    */
   void ShareData(const Blob& other);
+  void ShareData_LE(const Blob& other);
   /**
    * @brief Set the diff_ shared_ptr to point to the SyncedMemory holding the
    *        diff_ of Blob other -- useful in Layer%s which simply perform a copy
@@ -262,6 +263,7 @@ class Blob {
    * shared_ptr calls its destructor when reset with the "=" operator.
    */
   void ShareDiff(const Blob& other);
+  void ShareDiff_LE(const Blob& other);
 
   bool ShapeEquals(const BlobProto& other);
 

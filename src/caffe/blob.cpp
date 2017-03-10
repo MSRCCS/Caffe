@@ -141,9 +141,21 @@ void Blob<Dtype>::ShareData(const Blob& other) {
 }
 
 template <typename Dtype>
+void Blob<Dtype>::ShareData_LE(const Blob& other) {
+	CHECK_LE(count_, other.count());
+	data_ = other.data();
+}
+
+template <typename Dtype>
 void Blob<Dtype>::ShareDiff(const Blob& other) {
   CHECK_EQ(count_, other.count());
   diff_ = other.diff();
+}
+
+template <typename Dtype>
+void Blob<Dtype>::ShareDiff_LE(const Blob& other) {
+	CHECK_LE(count_, other.count());
+	diff_ = other.diff();
 }
 
 // The "update" method is used for parameter blobs in a Net, which are stored
@@ -412,13 +424,20 @@ bool Blob<Dtype>::ShapeEquals(const BlobProto& other) {
 }
 
 template <typename Dtype>
-void Blob<Dtype>::CopyFrom(const Blob& source, bool copy_diff, bool reshape) {
-  if (source.count() != count_ || source.shape() != shape_) {
+void Blob<Dtype>::CopyFrom(const Blob& source, bool copy_diff, bool reshape, bool force_copy) {
+	if ((source.count() != count_ || source.shape() != shape_) && !force_copy) {
     if (reshape) {
       ReshapeLike(source);
     } else {
       LOG(FATAL) << "Trying to copy blobs of different sizes.";
     }
+  }
+  int copy_count = count_;
+  if (force_copy)
+  {
+	  copy_count = std::min(count_, source.count());
+	  LOG(INFO) << "force copy from source to target (" 
+		  << source.count() << " vs " << count_ << ")";
   }
   switch (Caffe::mode()) {
   case Caffe::GPU:
