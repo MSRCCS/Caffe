@@ -47,7 +47,6 @@ void BatchNormLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   sz.push_back(channels_);
   mean_.Reshape(sz);
   variance_.Reshape(sz);
-  temp_.ReshapeLike(*bottom[0]);
   x_norm_.ReshapeLike(*bottom[0]);
   sz[0]=bottom[0]->shape(0);
   batch_sum_multiplier_.Reshape(sz);
@@ -113,9 +112,9 @@ void BatchNormLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   if (!use_global_stats_) {
     // compute variance using var(X) = E((X-EX)^2)
     caffe_powx(top[0]->count(), top_data, Dtype(2),
-        temp_.mutable_cpu_data());  // (X-EX)^2
+        x_norm_.mutable_cpu_data());  // (X-EX)^2
     caffe_cpu_gemv<Dtype>(CblasNoTrans, channels_ * num, spatial_dim,
-        1. / (num * spatial_dim), temp_.cpu_data(),
+        1. / (num * spatial_dim), x_norm_.cpu_data(),
         spatial_sum_multiplier_.cpu_data(), 0.,
         num_by_chans_.mutable_cpu_data());
     caffe_cpu_gemv<Dtype>(CblasTrans, num, channels_, 1.,
@@ -140,13 +139,13 @@ void BatchNormLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
              variance_.mutable_cpu_data());
 
   // replicate variance to input size
-  caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, num, channels_, 1, 1,
-      batch_sum_multiplier_.cpu_data(), variance_.cpu_data(), 0.,
-      num_by_chans_.mutable_cpu_data());
-  caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasNoTrans, channels_ * num,
-      spatial_dim, 1, 1., num_by_chans_.cpu_data(),
-      spatial_sum_multiplier_.cpu_data(), 0., temp_.mutable_cpu_data());
-  caffe_div(temp_.count(), top_data, temp_.cpu_data(), top_data);
+  for (int n = 0; n < top[0]->count(); ++n)
+  {
+	  int res = n / spatial_dim;
+	  int ch_idx = res % channels_;
+	  top[0]->mutable_cpu_data()[n] /= variance_.cpu_data()[ch_idx];
+  }
+
   // TODO(cdoersch): The caching is only needed because later in-place layers
   //                 might clobber the data.  Can we skip this if they won't?
   caffe_copy(x_norm_.count(), top_data,
@@ -165,13 +164,18 @@ void BatchNormLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     top_diff = x_norm_.cpu_diff();
   }
   Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
+  int num = bottom[0]->shape()[0];
+  int spatial_dim = bottom[0]->count() / (bottom[0]->shape(0)*channels_);
   if (use_global_stats_) {
-    caffe_div(temp_.count(), top_diff, temp_.cpu_data(), bottom_diff);
+	  for (int n = 0; n < top[0]->count(); ++n)
+	  {
+		  int res = n / spatial_dim;
+		  int ch_idx = res % channels_;
+		  bottom_diff[n] = top_diff[n] / variance_.cpu_data()[ch_idx];
+	  }
     return;
   }
   const Dtype* top_data = x_norm_.cpu_data();
-  int num = bottom[0]->shape()[0];
-  int spatial_dim = bottom[0]->count()/(bottom[0]->shape(0)*channels_);
   // if Y = (X-mean(X))/(sqrt(var(X)+eps)), then
   //
   // dE(Y)/dX =
@@ -185,7 +189,7 @@ void BatchNormLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   // dimensions except the channels dimension where required.
 
   // sum(dE/dY \cdot Y)
-  caffe_mul(temp_.count(), top_data, top_diff, bottom_diff);
+  caffe_mul(top[0]->count(), top_data, top_diff, bottom_diff);
   caffe_cpu_gemv<Dtype>(CblasNoTrans, channels_ * num, spatial_dim, 1.,
       bottom_diff, spatial_sum_multiplier_.cpu_data(), 0.,
       num_by_chans_.mutable_cpu_data());
@@ -202,7 +206,7 @@ void BatchNormLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       spatial_sum_multiplier_.cpu_data(), 0., bottom_diff);
 
   // sum(dE/dY \cdot Y) \cdot Y
-  caffe_mul(temp_.count(), top_data, bottom_diff, bottom_diff);
+  caffe_mul(top[0]->count(), top_data, bottom_diff, bottom_diff);
 
   // sum(dE/dY)-sum(dE/dY \cdot Y) \cdot Y
   caffe_cpu_gemv<Dtype>(CblasNoTrans, channels_ * num, spatial_dim, 1.,
@@ -221,12 +225,18 @@ void BatchNormLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       spatial_sum_multiplier_.cpu_data(), 1., bottom_diff);
 
   // dE/dY - mean(dE/dY)-mean(dE/dY \cdot Y) \cdot Y
-  caffe_cpu_axpby(temp_.count(), Dtype(1), top_diff,
+  caffe_cpu_axpby(top[0]->count(), Dtype(1), top_diff,
       Dtype(-1. / (num * spatial_dim)), bottom_diff);
 
   // note: temp_ still contains sqrt(var(X)+eps), computed during the forward
   // pass.
-  caffe_div(temp_.count(), bottom_diff, temp_.cpu_data(), bottom_diff);
+  for (int n = 0; n < bottom[0]->count(); ++n)
+  {
+	  int res = n / spatial_dim;
+	  int ch_idx = res % channels_;
+	  bottom_diff[n] /= variance_.cpu_data()[ch_idx]; 
+  }
+  
 }
 
 

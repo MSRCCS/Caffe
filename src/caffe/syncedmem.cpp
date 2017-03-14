@@ -153,5 +153,32 @@ void SyncedMemory::async_gpu_push(const cudaStream_t& stream) {
 }
 #endif
 
+void SyncedMemory::release_mem()
+{
+	if (cpu_ptr_ && own_cpu_data_) {
+		CaffeFreeHost(cpu_ptr_, cpu_malloc_use_cuda_);
+	}
+
+#ifndef CPU_ONLY
+	if (gpu_ptr_ && own_gpu_data_) {
+		int initial_device;
+		cudaGetDevice(&initial_device);
+		if (gpu_device_ != -1) {
+			CUDA_CHECK(cudaSetDevice(gpu_device_));
+		}
+		CUDA_CHECK(cudaFree(gpu_ptr_));
+		cudaSetDevice(initial_device);
+	}
+#endif  // CPU_ONLY
+
+	// initial
+	head_ = UNINITIALIZED;
+	cpu_ptr_ = NULL;
+	gpu_ptr_ = NULL;
+	own_cpu_data_ = false;
+	own_gpu_data_ = false;
+	cpu_malloc_use_cuda_ = false;
+	gpu_device_ = -1;
+}
 }  // namespace caffe
 

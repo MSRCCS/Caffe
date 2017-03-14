@@ -189,6 +189,29 @@ void Solver<Dtype>::InitTestNets() {
   }
 }
 
+#ifndef CPU_ONLY
+void ReportGpuMemoryUsage()
+{
+    // show memory usage of GPU
+    size_t free_byte;
+    size_t total_byte;
+    cudaError_t cuda_status = cudaMemGetInfo(&free_byte, &total_byte);
+
+    if (cudaSuccess != cuda_status) {
+        LOG(INFO) << "Error: cudaMemGetInfo fails, " << cudaGetErrorString(cuda_status);
+        exit(1);
+    }
+
+    double free_db = (double)free_byte;
+    double total_db = (double)total_byte;
+    double used_db = total_db - free_db;
+    LOG(INFO) << "    GPU memory usage: used = " << used_db / 1024.0 / 1024.0 << " MB, free = " << free_db / 1024.0 / 1024.0 << " MB, total = " << total_db / 1024.0 / 1024.0 << " MB";
+}
+#define REPORT_GPU_MEMORY_USAGE ReportGpuMemoryUsage();
+#else
+#define REPORT_GPU_MEMORY_USAGE ;
+#endif
+
 template <typename Dtype>
 void Solver<Dtype>::Step(int iters) {
   const int start_iter = iter_;
@@ -205,6 +228,7 @@ void Solver<Dtype>::Step(int iters) {
         && (iter_ > 0 || param_.test_initialization())
         && Caffe::root_solver()) {
       TestAll();
+      REPORT_GPU_MEMORY_USAGE
       if (requested_early_exit_) {
         // Break out of the while loop because stop was requested while testing.
         break;
@@ -248,6 +272,9 @@ void Solver<Dtype>::Step(int iters) {
               << result_vec[k] << loss_msg_stream.str();
         }
       }
+      // only report memory usage once after test
+      if (iter_ % param_.test_interval() == 0)
+        REPORT_GPU_MEMORY_USAGE
     }
     for (int i = 0; i < callbacks_.size(); ++i) {
       callbacks_[i]->on_gradients_ready();
@@ -326,10 +353,12 @@ void Solver<Dtype>::Solve(const char* resume_file) {
 
 template <typename Dtype>
 void Solver<Dtype>::TestAll() {
+	net_->Release_mem();
   for (int test_net_id = 0;
        test_net_id < test_nets_.size() && !requested_early_exit_;
        ++test_net_id) {
     Test(test_net_id);
+    test_nets_[test_net_id]->Release_mem();
   }
 }
 

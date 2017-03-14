@@ -318,6 +318,9 @@ class Layer {
 
   inline Phase phase() { return phase_; }
 
+  // release internal memory when switching between training and testing
+  virtual void ReleaseMem() {}
+
  protected:
   /** The protobuf that stores the layer parameters */
   LayerParameter layer_param_;

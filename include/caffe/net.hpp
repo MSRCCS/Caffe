@@ -140,6 +140,7 @@ class Net {
   inline const string& name() const { return name_; }
   /// @brief returns the layer names
   inline const vector<string>& layer_names() const { return layer_names_; }
+  inline const vector<string>& layer_types() const { return layer_types_; }
   /// @brief returns the blob names
   inline const vector<string>& blob_names() const { return blob_names_; }
   /// @brief returns the blobs
@@ -244,6 +245,21 @@ class Net {
   static bool StateMeetsRule(const NetState& state, const NetStateRule& rule,
       const string& layer_name);
 
+  void Release_mem()
+  {
+	  for (int i = 0; i < shared_blobs_.size(); ++i)
+		  shared_blobs_[i]->Release_mem();
+	  for (int i = 0; i < blobs_.size(); ++i)
+	  {
+		  if (blobs_deletable_[i])
+		  {
+			  blobs_[i]->Release_mem();
+		  }
+	  }
+    for (int i = 0; i < layers_.size(); i++)
+      layers_[i]->ReleaseMem();
+  }
+
  protected:
   // Helpers for Init.
   /// @brief Append a new top blob to the net.
@@ -279,6 +295,19 @@ class Net {
   vector<string> blob_names_;
   map<string, int> blob_names_index_;
   vector<bool> blob_need_backward_;
+
+  //new add blob information for diff and data sharing
+  vector<bool> blobs_deletable_;
+  vector<int> blob_used_counter_;
+  vector<shared_ptr<Blob<Dtype> > > shared_blobs_;
+  vector<int> shared_record_;
+  vector<int> shared_blobs_index_;
+
+  vector<int> blob_diff_used_counter_;
+  vector<shared_ptr<Blob<Dtype> > > shared_blobs_diff_;
+  vector<int> shared_record_diff_;
+  vector<int> shared_blobs_diff_index_;
+
   /// bottom_vecs stores the vectors containing the input for each layer.
   /// They don't actually host the blobs (blobs_ does), so we simply store
   /// pointers.
@@ -324,6 +353,10 @@ class Net {
   bool debug_info_;
   /// The root net that actually holds the shared layers in data parallelism
   const Net* const root_net_;
+
+  vector<string> layer_types_;
+  bool opt_train_memory_;
+  bool opt_test_memory_;
   DISABLE_COPY_AND_ASSIGN(Net);
 };
 

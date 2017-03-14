@@ -53,6 +53,8 @@ class BatchNormLayer : public Layer<Dtype> {
   virtual inline int ExactNumBottomBlobs() const { return 1; }
   virtual inline int ExactNumTopBlobs() const { return 1; }
 
+  virtual void ReleaseMem() { x_norm_.Release_mem(); }
+
  protected:
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
@@ -63,7 +65,7 @@ class BatchNormLayer : public Layer<Dtype> {
   virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
      const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
-  Blob<Dtype> mean_, variance_, temp_, x_norm_;
+  Blob<Dtype> mean_, variance_, x_norm_;
   bool use_global_stats_;
   Dtype moving_average_fraction_;
   int channels_;
