@@ -2,15 +2,46 @@
 
 namespace caffe {
 
+string ChangeFileExtension(string filename, string ext)
+{
+	std::string new_filename = filename;
+	size_t result = new_filename.find_last_of('.');
+
+	// Does new_filename.erase(std::string::npos) working here in place of this following test?
+	if (std::string::npos != result)
+		new_filename.erase(result + 1);
+
+	// append extension:
+	new_filename.append(ext);
+
+	return new_filename;
+}
+
+int64_t GetFileSize(std::string filename)
+{
+    int64_t pos;
+    FILE *fp = fopen(filename.c_str(), "rb");
+#ifdef _MSC_VER
+    _fseeki64(fp, 0, SEEK_END);
+    pos = _ftelli64(fp);
+#else
+    fseeko64(fp, 0, SEEK_END);
+    pos = ftello64(fp);
+#endif
+    return pos;
+}
+
 void TextFile::load_buffer()
 {
+  // if eof is met, _bytesInBuffer will be 0.
 	_bytesInBuffer = fread(&_buffer[0], 1, _buffer.size(), _fp);
 	_bufPos = 0;
 }
 
 TextFile::TextFile()
 {
-	_bufPos = 0;
+    _cacheAll = false;
+    _bufPos = 0;
 	_bytesInBuffer = 0;
 	_fp = NULL;
 }
@@ -22,38 +53,59 @@ TextFile::~TextFile()
 
 bool TextFile::IsEOF()
 {
-	return feof(_fp) != 0;
+  if (_cacheAll)
+    return _bufPos == _bytesInBuffer;
+
+	return _bytesInBuffer == 0;
 }
 
-int TextFile::Open(const char *fname, int buffer_size)
+int TextFile::Open(const char *fname, bool cache_all)
 {
-	_fp = fopen(fname, "r");
+	_fp = fopen(fname, "rb");
 	if (_fp == NULL)
 		return -1;
-	_buffer.resize(buffer_size);
+    _cacheAll = cache_all;
+    int64_t file_size = GetFileSize(fname);
+    //if (file_size < 1 * 1024 * 1024 * 1024) // for file size less than 1GB, default to cache all
+    //  _cacheAll = true;
+    int64_t buffer_size = _cacheAll ? file_size : 10 * 1024;
+    _buffer.resize(buffer_size);
+    if (_cacheAll)
+        LOG(INFO) << "Caching file: " << fname;
+    load_buffer();
 	return 0;
 }
 
 void TextFile::Close()
 {
-	if (_fp)
-		fclose(_fp);
+    if (_fp)
+    {
+        fclose(_fp);
+        _fp = NULL;
+    }
 }
 
 void TextFile::Seek(int64_t pos)
 {
+    if (_cacheAll)
+    {
+        _bufPos = pos;
+    }
+    else
+    {
 #ifdef _MSC_VER
-	_fseeki64(_fp, pos, SEEK_SET);
+        _fseeki64(_fp, pos, SEEK_SET);
 #else
-	fseeko64(_fp, pos, SEEK_SET);
+        fseeko64(_fp, pos, SEEK_SET);
 #endif
-	_bufPos = 0;
-	_bytesInBuffer = 0;
+        _bufPos = 0;
+        _bytesInBuffer = -1;
+    }
 }
 
 bool TextFile::ReadLine(string &line)
 {
-	if (feof(_fp))
+	if (IsEOF())
 		return false;
 
 	line.clear();
@@ -62,7 +114,7 @@ bool TextFile::ReadLine(string &line)
 		if (_bufPos >= _bytesInBuffer)
 		{
 			load_buffer();
-			if (_bytesInBuffer == 0)
+			if (IsEOF())
 				break;
 		}
 		char *buf_start = &_buffer[0] + _bufPos;
@@ -74,9 +126,10 @@ bool TextFile::ReadLine(string &line)
 		}
 		else
 		{
-			line.append(buf_start, p - buf_start);
-			_bufPos = p - &_buffer[0] + 1;	// skip 1 for '\n'
-			break;
+            int extra_char = *(p - 1) == '\r' ? 1 : 0;
+            line.append(buf_start, p - extra_char - buf_start);
+            _bufPos = p - &_buffer[0] + 1;	// skip 1 for '\n'
+            break;
 		}
 	}
 	return true;
@@ -115,28 +168,13 @@ int TsvRawDataFile::LoadLineIndex(const char *fileName, vector<int64_t> &lineInd
 	return 0;
 }
 
-string TsvRawDataFile::ChangeFileExtension(string filename, string ext)
-{
-	std::string new_filename = filename;
-	size_t result = new_filename.find_last_of('.');
-
-	// Does new_filename.erase(std::string::npos) working here in place of this following test?
-	if (std::string::npos != result)
-		new_filename.erase(result + 1);
-
-	// append extension:
-	new_filename.append(ext);
-
-	return new_filename;
-}
-
-int TsvRawDataFile::Open(const char *fileName, int colData, int colLabel)
+int TsvRawDataFile::Open(const char *fileName, bool cache_all, int colData, int colLabel)
 {
 	_tsvFileName = fileName;
 	_colData = colData;
 	_colLabel = colLabel;
 
-	int err = _dataFile.Open(fileName, 128 * 1024);
+  int err = _dataFile.Open(fileName, cache_all);
 	if (err)
 	{
 		LOG(FATAL) << "TSV file open failed: " << fileName;

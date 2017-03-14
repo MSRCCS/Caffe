@@ -163,13 +163,13 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   //int col_crop = tsv_param.col_crop();
   bool has_separate_label_file = tsv_param.has_source_label();
 
-  tsv_.Open(tsv_data.c_str(), col_data, has_separate_label_file ? -1 : col_label);
+  tsv_.Open(tsv_data.c_str(), tsv_param.cache_all(), col_data, has_separate_label_file ? -1 : col_label);
   if (has_shuffle_file)
     tsv_.ShuffleData(tsv_shuffle);
   if (has_separate_label_file)
   {
 	  string tsv_label = tsv_param.source_label();
-	  tsv_label_.Open(tsv_label.c_str(), -1, col_label);
+	  tsv_label_.Open(tsv_label.c_str(), true, -1, col_label);
 	  if (has_shuffle_file)
         tsv_label_.ShuffleData(tsv_shuffle);
 	  CHECK_EQ(tsv_.TotalLines(), tsv_label_.TotalLines())

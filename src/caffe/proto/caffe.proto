@@ -1335,6 +1335,8 @@ message TsvDataParameter{
 	optional CropType crop_type = 15[default = AlexStyle]; // default to AlexStyle crop
 	// Specify the kl file for color jittering
 	optional string color_kl_file = 16;
+	// specify if to cache the tsv file for fast reading
+	optional bool cache_all = 17[default = false]; // default to false (no cache)
 }
 
 message SPPParameter {

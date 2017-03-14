@@ -21,13 +21,16 @@ using std::string;
 
 namespace caffe {
 
+string ChangeFileExtension(string filename, string ext);
+  
 // for fast readline
 class TextFile
 {
 	vector<char> _buffer;
+  bool _cacheAll;
 
-	int _bufPos;
-	int _bytesInBuffer;
+	int64_t _bufPos;
+	int64_t _bytesInBuffer;
 
 	FILE *_fp;
 
@@ -39,7 +42,7 @@ public:
 
 	bool IsEOF();
 
-	int Open(const char *fname, int buffer_size = 64 * 1024);
+	int Open(const char *fname, bool cache_all);
 	void Close();
 
 	void Seek(int64_t pos);
@@ -61,12 +64,10 @@ class TsvRawDataFile
 	// load line index file to vector lineIndex 
 	int LoadLineIndex(const char *fileName, vector<int64_t> &lineIndex);
 
-	string ChangeFileExtension(string filename, string ext);
-
 public:
 	~TsvRawDataFile();
 
-	int Open(const char *fileName, int colData, int colLabel);
+	int Open(const char *fileName, bool cache_all, int colData, int colLabel);
 	void Close();
 	void ShuffleData(string filename);
 
