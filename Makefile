@@ -314,7 +314,7 @@ else
   $(error Cannot static link with the $(CXX) compiler)
 endif
 ifeq ($(USE_PERF_TEST), 1)
-	COMMON_FLAGS += -DPERF_TEST
+	COMMON_FLAGS += -DPERF_TEST -std=c++11
 endif
 # Debugging
 ifeq ($(DEBUG), 1)

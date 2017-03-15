@@ -41,13 +41,13 @@ __global__ void ROIPoolForward(const int nthreads, const Dtype* bottom_data,
     Dtype bin_size_w = static_cast<Dtype>(roi_width)
                        / static_cast<Dtype>(pooled_width);
 
-    int hstart = static_cast<int>(floor(static_cast<Dtype>(ph)
+    int hstart = static_cast<int>(round(static_cast<Dtype>(ph)
                                         * bin_size_h));
-    int wstart = static_cast<int>(floor(static_cast<Dtype>(pw)
+    int wstart = static_cast<int>(round(static_cast<Dtype>(pw)
                                         * bin_size_w));
-    int hend = static_cast<int>(ceil(static_cast<Dtype>(ph + 1)
+    int hend = static_cast<int>(round(static_cast<Dtype>(ph + 1)
                                      * bin_size_h));
-    int wend = static_cast<int>(ceil(static_cast<Dtype>(pw + 1)
+    int wend = static_cast<int>(round(static_cast<Dtype>(pw + 1)
                                      * bin_size_w));
 
     // Add roi offsets and clip to input boundaries
