@@ -186,6 +186,7 @@
     <ClCompile Include="..\src\caffe\layers\mil_data_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\mil_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\multinomial_logistic_loss_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\multi_accuracy_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\mvn_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\neuron_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\parameter_layer.cpp" />
@@ -372,6 +373,7 @@
     <ClInclude Include="..\include\caffe\layers\mil_data_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\mil_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\multinomial_logistic_loss_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\multi_accuracy_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\mvn_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\neuron_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\parameter_layer.hpp" />
