@@ -34,6 +34,7 @@ void MultiAccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   int num = prob->num();
   int dim = prob->count() / prob->num();
 
+  int num_no_label = 0;
   for (int i = 0; i < num; ++i) {
 	  // Multi-label Accuracy
 
@@ -51,16 +52,18 @@ void MultiAccuracyLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 		  if (cur_bottom_label[j] > 0) labels.insert(j);
 	  }
 
-	  CHECK_GT(labels.size(), 0);
 	  int acc = 0;
 	  for (int j = dim - 1; j >= dim - (int)labels.size(); j--) {
 		  if (labels.count(score[j].second)) acc++;
 	  }
 
-	  accuracy += (Dtype)acc / labels.size();
+	  if (labels.size() > 0)	// ignore the samples without label (i.e. negative samples)
+		  accuracy += ((Dtype)acc / labels.size());
+	  else
+		  num_no_label++;
   }
   // LOG(INFO) << "Multi Accuracy: " << accuracy;
-  top[0]->mutable_cpu_data()[0] = accuracy/num;
+  top[0]->mutable_cpu_data()[0] = accuracy/(num - num_no_label);
 
   // Multi Accuracy layer should not be used as a loss function.
 }
