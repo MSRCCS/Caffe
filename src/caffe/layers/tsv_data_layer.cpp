@@ -379,26 +379,40 @@ void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, c
             cv::Mat img_float;
             img_crop.convertTo(img_float, CV_32F);
 
-            std::vector<float> shift(3);
-            // color jittering
-            if (this->phase_ == TRAIN && tsv_param.has_color_kl_file())
-                get_random_kl_shift(shift, 0.1);
+            if (tsv_param.channels() > 1)
+            {
+                std::vector<float> shift(3);
+                // color jittering
+                if (this->phase_ == TRAIN && tsv_param.has_color_kl_file())
+                    get_random_kl_shift(shift, 0.1);
 
-            // mean subtraction
-            shift[0] -= mean_values_[0];
-            shift[1] -= mean_values_[1];
-            shift[2] -= mean_values_[2];
+                // mean subtraction
+                shift[0] -= mean_values_[0];
+                shift[1] -= mean_values_[1];
+                shift[2] -= mean_values_[2];
 
-            int nChannel = img_float.channels();
-            for (int y = 0; y < img_float.rows; y++) {
-                float *pImg = (float*)img_float.ptr(y);
-                for (int x = 0; x < img_float.cols; x++) {
-                    pImg[nChannel*x] += shift[0];
-                    pImg[nChannel*x + 1] += shift[1];
-                    pImg[nChannel*x + 2] += shift[2];
+                int nChannel = img_float.channels();
+                for (int y = 0; y < img_float.rows; y++) {
+                    float *pImg = (float*)img_float.ptr(y);
+                    for (int x = 0; x < img_float.cols; x++) {
+                        pImg[nChannel*x] += shift[0];
+                        pImg[nChannel*x + 1] += shift[1];
+                        pImg[nChannel*x + 2] += shift[2];
+                    }
                 }
             }
-
+            else
+            {
+                float shift = 0;
+                // mean subtraction
+                shift -= mean_values_[0];
+                for (int y = 0; y < img_float.rows; y++) {
+                    float *pImgStart = (float*)img_float.ptr(y);
+                    for (float* pImg = pImgStart; pImg<pImgStart+img_float.cols; pImg++) {
+                        *pImg += shift;
+                    }
+                }
+            }
             // resize
             cv::Mat cvImg;
             int crop_size = this->layer_param().transform_param().crop_size();

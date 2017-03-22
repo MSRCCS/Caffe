@@ -25,14 +25,14 @@ namespace DetectionLib
         public string ClassName;
         public int ClassId;
         public float Confidence;
-        public Rectangle Rect;
+        public RectangleF Rect;
     }
 
     public class ObjectDetector
     {
         const string ModelConfigFile = "modelcfg.txt";
 
-        const int MaxNumOutputs = 20;
+        const int MaxNumOutputs = 100;
 
         readonly int TargetSize = 0;
 
@@ -229,7 +229,7 @@ namespace DetectionLib
                     {
                         ClassName = name,
                         ClassId = tp.Item3,
-                        Rect = Rectangle.Round(tp.Item1),
+                        Rect = tp.Item1,
                         Confidence = tp.Item2
                     };
                 })
