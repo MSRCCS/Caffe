@@ -138,6 +138,29 @@ inline void createPoolingDesc(cudnnPoolingDescriptor_t* pool_desc,
 }
 
 template <typename Dtype>
+inline void setPoolingDesc(cudnnPoolingDescriptor_t pool_desc,
+    PoolingParameter_PoolMethod poolmethod, cudnnPoolingMode_t* mode,
+    int h, int w, int pad_h, int pad_w, int stride_h, int stride_w) {
+  switch (poolmethod) {
+  case PoolingParameter_PoolMethod_MAX:
+    *mode = CUDNN_POOLING_MAX;
+    break;
+  case PoolingParameter_PoolMethod_AVE:
+    *mode = CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING;
+    break;
+  default:
+    LOG(FATAL) << "Unknown pooling method.";
+  }
+#if CUDNN_VERSION_MIN(5, 0, 0)
+  CUDNN_CHECK(cudnnSetPooling2dDescriptor(pool_desc, *mode,
+        CUDNN_PROPAGATE_NAN, h, w, pad_h, pad_w, stride_h, stride_w));
+#else
+  CUDNN_CHECK(cudnnSetPooling2dDescriptor_v4(pool_desc, *mode,
+        CUDNN_PROPAGATE_NAN, h, w, pad_h, pad_w, stride_h, stride_w));
+#endif
+}
+
+template <typename Dtype>
 inline void createActivationDescriptor(cudnnActivationDescriptor_t* activ_desc,
     cudnnActivationMode_t mode) {
   CUDNN_CHECK(cudnnCreateActivationDescriptor(activ_desc));
