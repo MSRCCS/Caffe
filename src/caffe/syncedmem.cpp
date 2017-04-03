@@ -190,13 +190,7 @@ void SyncedMemory::release_mem()
 
 #ifndef CPU_ONLY
 	if (gpu_ptr_ && own_gpu_data_) {
-		int initial_device;
-		cudaGetDevice(&initial_device);
-		if (device_ != -1) {
-			CUDA_CHECK(cudaSetDevice(device_));
-		}
 		CUDA_CHECK(cudaFree(gpu_ptr_));
-		cudaSetDevice(initial_device);
 	}
 #endif  // CPU_ONLY
 
@@ -207,7 +201,6 @@ void SyncedMemory::release_mem()
 	own_cpu_data_ = false;
 	own_gpu_data_ = false;
 	cpu_malloc_use_cuda_ = false;
-	device_ = -1;
 }
 }  // namespace caffe
 
