@@ -23,7 +23,7 @@ template <typename Dtype>
 class TsvDataLayer : public BasePrefetchingDataLayer<Dtype> {
 public:
 	explicit TsvDataLayer(const LayerParameter& param)
-		: BasePrefetchingDataLayer<Dtype>(param) {}
+		: BasePrefetchingDataLayer<Dtype>(param), offset_() {}
 	virtual ~TsvDataLayer();
 	virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 		const vector<Blob<Dtype>*>& top);
@@ -40,9 +40,12 @@ protected:
     void CVMatToBlobBuffer(const cv::Mat &cv_img_float, Dtype *buffer);
     void process_one_image(const string &input_b64coded_data, const TsvDataParameter &tsv_param, Dtype *output_image_data);
     void process_one_label(const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_label_data);
-	virtual void load_batch(Batch<Dtype>* batch);
+    void Next();
+    bool Skip();
+    virtual void load_batch(Batch<Dtype>* batch);
 	TsvRawDataFile tsv_;
 	TsvRawDataFile tsv_label_;
+    uint64_t offset_;
 
     // mean values for pixel value subtraction
     std::vector<Dtype> mean_values_;
