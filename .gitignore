@@ -47,6 +47,9 @@
 # PyCharm files
 .idea
 
+# Visual Studio Code files
+.vscode
+
 # OSX dir files
 .DS_Store
 
@@ -80,6 +83,7 @@ cmake_build
 
 # Generated documentation
 docs/_site
+docs/_includes
 docs/gathered
 _site
 doxygen
@@ -114,3 +118,6 @@ ipch/
 
 # cudnn files
 cudnn/
+
+# nccl files
+nccl/

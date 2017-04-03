@@ -219,9 +219,6 @@
     <ClCompile Include="..\src\caffe\syncedmem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\caffe\data_reader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\caffe\layer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -549,6 +546,9 @@
     <ClCompile Include="..\src\caffe\layers\rpn_proposal_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\multi_accuracy_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\caffe\blob.hpp">
@@ -776,9 +776,6 @@
     <ClInclude Include="..\include\caffe\layers\mil_layer.hpp">
       <Filter>Head Files\layers</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\caffe\data_reader.hpp">
-      <Filter>Head Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\caffe\layer_factory.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
@@ -909,6 +906,9 @@
       <Filter>Head Files\util</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\rpn_proposal_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\multi_accuracy_layer.hpp">
       <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>
