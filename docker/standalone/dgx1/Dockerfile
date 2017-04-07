@@ -1,4 +1,4 @@
-M nvidia/cuda:8.0-cudnn5-devel-ubuntu14.04
+FROM nvidia/cuda:8.0-cudnn5-devel-ubuntu14.04
 MAINTAINER leizhang@microsoft.com
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -30,9 +30,12 @@ WORKDIR $CAFFE_ROOT
 ENV CLONE_TAG=WinCaffe
 
 RUN git clone -b ${CLONE_TAG} --depth 1 https://msrccsdev:test1234@github.com/msrccs/caffe.git . && \
-    for req in $(cat python/requirements.txt) pydot; do pip install $req; done && \
+    pip install --upgrade pip && \
+    pip install --upgrade setuptools && \
+    cd python && for req in $(cat requirements.txt) pydot; do pip install $req; done && cd .. && \
+    git clone https://github.com/NVIDIA/nccl.git && cd nccl && make -j install && cd .. && rm -rf nccl && \
     mkdir build && cd build && \
-    cmake -DUSE_CUDNN=1 -DCUDA_ARCH_NAME="Manual" -DCUDA_ARCH_BIN="52 60" -DCUDA_ARCH_PTX="60" -DCMAKE_CXX_FLAGS="${CMAKE_CXX_FLAGS} -fopenmp" .. && \
+    cmake -DUSE_CUDNN=1 -DUSE_NCCL=1 -DUSE_OPENMP=1 .. && \
     make -j"$(nproc)"
 
 ENV PYCAFFE_ROOT $CAFFE_ROOT/python

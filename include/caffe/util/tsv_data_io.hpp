@@ -74,6 +74,7 @@ public:
 	bool IsEOF();
 	void MoveToFirst();
 	void MoveToLine(int lineNo);
+    void MoveToNext();
 	int TotalLines();
 
 	// read lines to batch for parallel base64 decoding and image resizing.

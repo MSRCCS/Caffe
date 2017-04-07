@@ -67,9 +67,9 @@
       </PrecompiledHeader>
       <WarningLevel>Level1</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;USE_CUDNN;USE_OPENCV;USE_LEVELDB;USE_LMDB;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;USE_CUDNN;USE_NCCL;USE_OPENCV;USE_LEVELDB;USE_LMDB;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\opencv;$(PYTHON_ROOT)\include;..\cudnn\cuda\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\opencv;$(PYTHON_ROOT)\include;..\cudnn\cuda\include;..\nccl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS   /FS %(AdditionalOptions)</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -104,9 +104,9 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;USE_CUDNN;USE_OPENCV;USE_LEVELDB;USE_LMDB;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;USE_CUDNN;USE_NCCL;USE_OPENCV;USE_LEVELDB;USE_LMDB;NDEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\opencv;$(PYTHON_ROOT)\include;..\cudnn\cuda\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\opencv;$(PYTHON_ROOT)\include;..\cudnn\cuda\include;..\nccl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/Zo  /FS</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -130,7 +130,6 @@
   <ItemGroup>
     <ClCompile Include="..\src\caffe\blob.cpp" />
     <ClCompile Include="..\src\caffe\common.cpp" />
-    <ClCompile Include="..\src\caffe\data_reader.cpp" />
     <ClCompile Include="..\src\caffe\data_transformer.cpp" />
     <ClCompile Include="..\src\caffe\internal_thread.cpp" />
     <ClCompile Include="..\src\caffe\layer.cpp" />
@@ -318,7 +317,6 @@
     <ClInclude Include="..\include\caffe\blob.hpp" />
     <ClInclude Include="..\include\caffe\caffe.hpp" />
     <ClInclude Include="..\include\caffe\common.hpp" />
-    <ClInclude Include="..\include\caffe\data_reader.hpp" />
     <ClInclude Include="..\include\caffe\data_transformer.hpp" />
     <ClInclude Include="..\include\caffe\filler.hpp" />
     <ClInclude Include="..\include\caffe\internal_thread.hpp" />

@@ -87,11 +87,10 @@ namespace caffe {
 
     top[0]->Reshape(images_per_batch*num_scales, channels, img_size, img_size);
     top[1]->Reshape(images_per_batch, n_classes, 1, 1);
-	for (int i = 0; i < this->PREFETCH_COUNT; i++)
+	for (int i = 0; i < this->prefetch_.size(); i++)
 	{
-      Batch<Dtype>& prefetch = this->prefetch_[i];
-      prefetch.data_.Reshape(top[0]->shape());
-      prefetch.label_.Reshape(top[1]->shape());
+      this->prefetch_[i]->data_.Reshape(top[0]->shape());
+      this->prefetch_[i]->label_.Reshape(top[1]->shape());
     } 
     LOG(INFO) << "output data size: " << top[0]->num() << "," << top[0]->channels() << "," << top[0]->height() << "," << top[0]->width();
   

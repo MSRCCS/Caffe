@@ -28,6 +28,7 @@ int64_t GetFileSize(std::string filename)
     fseeko64(fp, 0, SEEK_END);
     pos = ftello64(fp);
 #endif
+    fclose(fp);
     return pos;
 }
 
@@ -206,7 +207,7 @@ void TsvRawDataFile::ShuffleData(string filename)
 
 bool TsvRawDataFile::IsEOF()
 {
-	return ((_shuffleLines.size() == 0 && _dataFile.IsEOF()) || (_shuffleLines.size() > 0 && _currentLine >= _shuffleLines.size()));
+	return _currentLine >= TotalLines();
 }
 
 int TsvRawDataFile::ReadNextLine(vector<string> &base64codedImg, vector<string> &label)
@@ -270,18 +271,26 @@ void TsvRawDataFile::MoveToFirst()
 
 void TsvRawDataFile::MoveToLine(int lineNo)
 {
-	CHECK_GT(_lineIndex.size(), 0) << "Tsv file without .lineidx cannot be randomly accessed.";
-	CHECK_GT(_shuffleLines.size(), lineNo) << "LineNo (" << lineNo << ") cannot exceed the total line size (" << _shuffleLines.size() << ").";
-	_currentLine = lineNo;
-	_dataFile.Seek(_lineIndex[_shuffleLines[_currentLine]]);
+    if (lineNo < TotalLines())
+    {
+        if (_shuffleLines.size() > 0)
+            _dataFile.Seek(_lineIndex[_shuffleLines[lineNo]]);
+        else
+            _dataFile.Seek(_lineIndex[lineNo]);
+    }
+    // if lineNo >= TotalLines(), we just set _currentLine. IsEOF() can detect this status without problem.
+    _currentLine = lineNo;
+}
+
+void TsvRawDataFile::MoveToNext()
+{
+    if (!IsEOF())
+        MoveToLine(_currentLine + 1);
 }
 
 int TsvRawDataFile::TotalLines()
 {
-	CHECK(_shuffleLines.size() > 0 || _lineIndex.size() > 0) << "Tsv file without .shuffle or .lineidx cannot use TotalLines.";
-    if (_shuffleLines.size() > 0)   // use .shuffle to get total lines
-	    return _shuffleLines.size();
-    return _lineIndex.size();   // use .lineidx to get total lines
+    return _shuffleLines.size() > 0 ? _shuffleLines.size() : _lineIndex.size();
 }
 
 }

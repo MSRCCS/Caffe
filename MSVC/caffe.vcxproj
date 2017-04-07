@@ -60,17 +60,17 @@
       </PrecompiledHeader>
       <WarningLevel>Level1</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;WIN32;USE_CUDNN;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;WIN32;USE_CUDNN;USE_NCCL;_DEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\lmdb;..\libraries\include\opencv;..\cudnn\cuda\include;$(PYTHON_ROOT)\include;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\lmdb;..\libraries\include\opencv;..\cudnn\cuda\include;..\nccl\include;$(PYTHON_ROOT)\include;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS  /FS %(AdditionalOptions)</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>lib\$(Configuration);..\libraries\lib;..\libraries\x64\vc14\lib;..\cudnn\cuda\lib\$(PlatformName);$(PYTHON_ROOT)/libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>cudnn.lib;opencv_highgui310d.lib;opencv_videoio310d.lib;opencv_imgcodecs310d.lib;opencv_imgproc310d.lib;opencv_core310d.lib;cudart.lib;cuda.lib;nppi.lib;cufft.lib;cublas.lib;curand.lib;gflagsd.lib;glogd.lib;libopenblas.dll.a;libprotobufd.lib;libprotoc.lib;leveldbd.lib;lmdbd.lib;ntdll.lib;libcaffehdf5.lib;libcaffehdf5_hl.lib;caffezlibd.lib;Shlwapi.lib;boost_system-vc140-mt-gd-1_61.lib;boost_thread-vc140-mt-gd-1_61.lib;boost_filesystem-vc140-mt-gd-1_61.lib;boost_chrono-vc140-mt-gd-1_61.lib;boost_date_time-vc140-mt-gd-1_61.lib;boost_atomic-vc140-mt-gd-1_61.lib;boost_python-vc140-mt-gd-1_61.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>lib\$(Configuration);..\libraries\lib;..\libraries\x64\vc14\lib;..\cudnn\cuda\lib\$(PlatformName);..\nccl\lib;$(PYTHON_ROOT)/libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>cudnn.lib;nccl.lib;opencv_highgui310d.lib;opencv_videoio310d.lib;opencv_imgcodecs310d.lib;opencv_imgproc310d.lib;opencv_core310d.lib;cudart.lib;cuda.lib;nppi.lib;cufft.lib;cublas.lib;curand.lib;gflagsd.lib;glogd.lib;libopenblas.dll.a;libprotobufd.lib;libprotoc.lib;leveldbd.lib;lmdbd.lib;ntdll.lib;libcaffehdf5.lib;libcaffehdf5_hl.lib;caffezlibd.lib;Shlwapi.lib;boost_system-vc140-mt-gd-1_61.lib;boost_thread-vc140-mt-gd-1_61.lib;boost_filesystem-vc140-mt-gd-1_61.lib;boost_chrono-vc140-mt-gd-1_61.lib;boost_date_time-vc140-mt-gd-1_61.lib;boost_atomic-vc140-mt-gd-1_61.lib;boost_python-vc140-mt-gd-1_61.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreBuildEvent />
@@ -84,9 +84,9 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;WIN32;USE_CUDNN;NDEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;WIN32;USE_CUDNN;USE_NCCL;NDEBUG;_CONSOLE;_LIB;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\lmdb;..\libraries\include\opencv;..\cudnn\cuda\include;$(PYTHON_ROOT)\include;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\lmdb;..\libraries\include\opencv;..\cudnn\cuda\include;..\nccl\include;$(PYTHON_ROOT)\include;$(CUDA_PATH)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS  /FS %(AdditionalOptions)</AdditionalOptions>
       <DisableSpecificWarnings>4661;4005;4812;4715;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
@@ -95,8 +95,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>lib\$(Configuration);..\libraries\lib;..\libraries\x64\vc14\lib;..\cudnn\cuda\lib\$(PlatformName);$(PYTHON_ROOT)/libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>caffe.lib;cudnn.lib;opencv_highgui310.lib;opencv_imgcodecs310.lib;opencv_imgproc310.lib;opencv_core310.lib;cudart.lib;cuda.lib;nppi.lib;cufft.lib;cublas.lib;curand.lib;gflags.lib;glog.lib;libopenblas.dll.a;libprotobuf.lib;libprotoc.lib;leveldb.lib;lmdb.lib;ntdll.lib;libcaffehdf5.lib;libcaffehdf5_hl.lib;caffezlib.lib;Shlwapi.lib;boost_system-vc140-mt-1_61.lib;boost_thread-vc140-mt-1_61.lib;boost_filesystem-vc140-mt-1_61.lib;boost_chrono-vc140-mt-1_61.lib;boost_date_time-vc140-mt-1_61.lib;boost_atomic-vc140-mt-1_61.lib;boost_python-vc140-mt-1_61.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>lib\$(Configuration);..\libraries\lib;..\libraries\x64\vc14\lib;..\cudnn\cuda\lib\$(PlatformName);..\nccl\lib;$(PYTHON_ROOT)/libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>caffe.lib;cudnn.lib;nccl.lib;opencv_highgui310.lib;opencv_imgcodecs310.lib;opencv_imgproc310.lib;opencv_core310.lib;cudart.lib;cuda.lib;nppi.lib;cufft.lib;cublas.lib;curand.lib;gflags.lib;glog.lib;libopenblas.dll.a;libprotobuf.lib;libprotoc.lib;leveldb.lib;lmdb.lib;ntdll.lib;libcaffehdf5.lib;libcaffehdf5_hl.lib;caffezlib.lib;Shlwapi.lib;boost_system-vc140-mt-1_61.lib;boost_thread-vc140-mt-1_61.lib;boost_filesystem-vc140-mt-1_61.lib;boost_chrono-vc140-mt-1_61.lib;boost_date_time-vc140-mt-1_61.lib;boost_atomic-vc140-mt-1_61.lib;boost_python-vc140-mt-1_61.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent />

@@ -14,8 +14,10 @@
 
 #include <boost/thread.hpp>
 
-//#include <ppl.h>
-//using namespace concurrency;
+#ifdef _MSC_VER
+#include <ppl.h>
+using namespace concurrency;
+#endif
 
 namespace caffe {
 
@@ -193,8 +195,8 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   this->transformed_data_.Reshape(top_shape);
   top_shape[0] = batch_size;
   top[0]->Reshape(top_shape);
-  for (int i = 0; i < this->PREFETCH_COUNT; ++i) {
-	  this->prefetch_[i].data_.Reshape(top_shape);
+  for (int i = 0; i < this->prefetch_.size(); ++i) {
+	  this->prefetch_[i]->data_.Reshape(top_shape);
   }
 
   LOG(INFO) << "output data size: " << top[0]->num() << ","
@@ -207,8 +209,8 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     label_shape[0] = batch_size;
     label_shape[1] = label_dim;
 	top[1]->Reshape(label_shape);
-	for (int i = 0; i < this->PREFETCH_COUNT; ++i) {
-	  this->prefetch_[i].label_.Reshape(label_shape);
+	for (int i = 0; i < this->prefetch_.size(); ++i) {
+	  this->prefetch_[i]->label_.Reshape(label_shape);
 	}
   }
 
@@ -474,6 +476,36 @@ void TsvDataLayer<Dtype>::process_one_label(const string &input_label_data, cons
 
 }
 
+template <typename Dtype>
+bool TsvDataLayer<Dtype>::Skip() {
+    int size = Caffe::solver_count();
+    int rank = Caffe::solver_rank();
+    bool keep = (offset_ % size) == rank ||
+        // In test mode, only rank 0 runs, so avoid skipping
+        this->layer_param_.phase() == TEST;
+    return !keep;
+}
+
+template<typename Dtype>
+void TsvDataLayer<Dtype>::Next() {
+    bool has_separate_label_file = this->layer_param().tsv_data_param().has_source_label();
+    if (tsv_.IsEOF()) {
+        LOG_IF(INFO, Caffe::root_solver())
+            << "Restarting data prefetching from start.";
+        tsv_.MoveToFirst();
+    }
+    tsv_.MoveToNext();
+    if (has_separate_label_file)
+    {
+        if (tsv_label_.IsEOF()) {
+            LOG_IF(INFO, Caffe::root_solver())
+                << "Restarting label prefetching from start.";
+            tsv_label_.MoveToFirst();
+        }
+        tsv_label_.MoveToNext();
+    }
+}
+
 // This function is called on prefetch thread
 template <typename Dtype>
 void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
@@ -507,38 +539,55 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
     timer.Start();
 	for (int item_id = 0; item_id < batch_size; ++item_id)
 	{
-		if (tsv_.ReadNextLine(base64coded_data, label) != 0)
-		{
-			DLOG(INFO) << "Restarting data prefetching from start.";
-			tsv_.MoveToFirst();
-			tsv_.ReadNextLine(base64coded_data, label);
-		}
+        while (Skip()) {
+            Next();
+            offset_++;
+        }
+        if (tsv_.IsEOF())
+        {
+            LOG_IF(INFO, Caffe::root_solver()) << "Restarting data prefetching from start.";
+            tsv_.MoveToFirst();
+        }
+        int result = tsv_.ReadNextLine(base64coded_data, label);
+        CHECK(result == 0) << "Data: empty line or unexpected EOF.";
 		if (has_separate_label_file)
 		{
-			if (tsv_label_.ReadNextLine(base64coded_data, label) != 0)
+			if (tsv_label_.IsEOF())
 			{
-				DLOG(INFO) << "Restarting label prefetching from start.";
+                LOG_IF(INFO, Caffe::root_solver()) << "Restarting label prefetching from start.";
 				tsv_label_.MoveToFirst();
-				tsv_label_.ReadNextLine(base64coded_data, label);
-			}
-		}
+            }
+            int result_label = tsv_label_.ReadNextLine(base64coded_data, label);
+            CHECK(result_label == 0) << "Label: empty line or unexpected EOF.";
+        }
+        // TsvRawDataFile allows sequential read. After calling ReadNextLine, the so-called cursor is 
+        // already pointing to the next line. So we don't need to call Next()
+        offset_++;
 	}
 	read_time += timer.MicroSeconds();
 
 	timer.Start();
-    #pragma omp parallel for
-    for (long long i = 0.; i < base64coded_data.size(); i++)
-    {
-        process_one_image(base64coded_data[i], tsv_param, batch->data_.mutable_cpu_data() + batch->data_.offset(i));
-        process_one_label(label[i], tsv_param, batch->label_.mutable_cpu_data() + batch->label_.offset(i));
+    Dtype *batch_data = batch->data_.mutable_cpu_data();
+    Dtype *label_data = batch->label_.mutable_cpu_data();
+#ifdef _MSC_VER
+    parallel_for((size_t)0, base64coded_data.size(), [&](size_t i) {
+#else
+    #pragma omp parallel for schedule(static)
+    for (long long i = 0; i < base64coded_data.size(); i++) {
+#endif
+        process_one_image(base64coded_data[i], tsv_param, batch_data + batch->data_.offset(i));
+        process_one_label(label[i], tsv_param, label_data + batch->label_.offset(i));
     }
+#ifdef _MSC_VER
+    );
+#endif
     trans_time += timer.MicroSeconds();
     
     timer.Stop();
 	batch_timer.Stop();
-	DLOG(INFO) << "Prefetch batch: " << batch_timer.MilliSeconds() << " ms.";
-	DLOG(INFO) << "     Read time: " << read_time / 1000 << " ms.";
-	DLOG(INFO) << "Transform time: " << trans_time / 1000 << " ms.";
+    DLOG_IF(INFO, Caffe::root_solver()) << "Prefetch batch: " << batch_timer.MilliSeconds() << " ms.";
+    DLOG_IF(INFO, Caffe::root_solver()) << "     Read time: " << read_time / 1000 << " ms.";
+    DLOG_IF(INFO, Caffe::root_solver()) << "Transform time: " << trans_time / 1000 << " ms.";
 }
 
 INSTANTIATE_CLASS(TsvDataLayer);
