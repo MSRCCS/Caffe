@@ -96,8 +96,8 @@
       <Command>scripts/PyProtoCompile.cmd "$(SolutionDir)" "$(SolutionDir)libraries\bin\"</Command>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>call scripts/CaffeLibPostBuild.cmd "$(SolutionDir)" "$(Configuration)" "$(SolutionDir)python\caffe"
-call scripts/PyCaffePostBuild.cmd "$(SolutionDir)" "$(Configuration)" "$(SolutionDir)python\caffe"
+      <Command>call scripts/CaffeLibPostBuild.cmd "$(SolutionDir)" "$(Configuration)" "$(SolutionDir)pythond\caffe"
+call scripts/PyCaffePostBuild.cmd "$(SolutionDir)" "$(Configuration)" "$(SolutionDir)pythond\caffe"
       </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>

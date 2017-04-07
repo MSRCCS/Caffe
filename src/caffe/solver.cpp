@@ -273,7 +273,7 @@ void Solver<Dtype>::Step(int iters) {
         }
       }
       // only report memory usage once after test
-      if (iter_ % param_.test_interval() == 0)
+      if (param_.test_interval()>0 && iter_ % param_.test_interval() == 0)
         REPORT_GPU_MEMORY_USAGE
     }
     for (int i = 0; i < callbacks_.size(); ++i) {
