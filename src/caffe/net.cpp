@@ -285,7 +285,7 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
   ShareWeights();
   debug_info_ = param.debug_info();
 
-  opt_train_memory_ = true; //param.opt_train_memory();
+  opt_train_memory_ = param.opt_train_memory();
   opt_test_memory_ = param.opt_test_memory();
   shared_blobs_.clear();
   shared_record_.clear();
