@@ -549,6 +549,9 @@
     <ClCompile Include="..\src\caffe\layers\multi_accuracy_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\tsv_box_data_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\caffe\blob.hpp">
@@ -909,6 +912,9 @@
       <Filter>Head Files\layers</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\multi_accuracy_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\tsv_box_data_layer.hpp">
       <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>
