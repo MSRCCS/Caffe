@@ -103,7 +103,7 @@ namespace CaffeTool
             if (cmd.labelmap != null)
                 labelmapFile = cmd.labelmap;
 
-            if (string.IsNullOrEmpty(labelmapFile) && cmd.blob.Length > 1)
+            if (!string.IsNullOrEmpty(labelmapFile) && cmd.blob.Length > 1)
             {
                 Console.WriteLine("When labelmap is provided (for getting topk prediction), only one blob (e.g. prob) can be specified.");
                 return;
