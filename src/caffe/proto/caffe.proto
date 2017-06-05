@@ -1368,6 +1368,11 @@ message BoxDataParameter {
 	required string labelmap = 6;
 	// specify for how many iters to do a resize
 	optional uint32  iter_for_resize = 7 [default = 80];
+	// specify random range for image resizing. Image dim will be sampled from [random_min, random_max] stepped by random_step.
+	// for example, the default values ([320, 608], 32) will generate image dims of 320, 352, 384, ..., 608 uniformly.
+	optional uint32 random_min = 8 [default = 320];
+	optional uint32 random_max = 9 [default = 608];
+	optional uint32 random_step = 10 [default = 32];
 }
 
 message SPPParameter {

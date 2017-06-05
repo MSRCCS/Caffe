@@ -12,6 +12,7 @@
 #include "caffe/util/rng.hpp"
 #include "caffe/util/random_helper.h"
 
+#define BOOST_SPIRIT_THREADSAFE
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/foreach.hpp>
@@ -635,12 +636,13 @@ void TsvBoxDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
     TsvDataLayer<Dtype>::DataLayerSetUp(bottom, top);
 
+    const BoxDataParameter &box_param = this->layer_param().box_data_param();
+
     iter_ = 0;
-    dim_ = 416;
+    dim_ = box_param.random_min();
 
     // reshape label
     vector<int> shape = top[1]->shape();
-    const BoxDataParameter &box_param = this->layer_param().box_data_param();
     iter_for_resize_ = box_param.iter_for_resize();
     CHECK(box_param.has_labelmap()) << "labelmap is expected in TsvBoxDataLayer";
     load_labelmap(box_param.labelmap());
@@ -679,8 +681,20 @@ void TsvBoxDataLayer<Dtype>::on_load_batch(Batch<Dtype>* batch)
     // change size
     if (iter_++ % this->iter_for_resize_ == 0)
     {
-        dim_ = (random_helper::uniform_int(0, 9) + 10) * 32;
-        LOG(INFO) << "Box data reshape to " << dim_ << "x" << dim_;
+        const BoxDataParameter &box_param = this->layer_param().box_data_param();
+        int rand_step = box_param.random_step();
+        int rand_min = box_param.random_min() / rand_step;
+        int rand_max = box_param.random_max() / rand_step;
+
+        if (rand_min == rand_max)
+        {
+            dim_ = box_param.random_min();
+        }
+        else
+        {
+            dim_ = random_helper::uniform_int(rand_min, rand_max) * rand_step;
+            LOG(INFO) << "Box data reshape to " << dim_ << "x" << dim_;
+        }
     }
     vector<int> shape = batch->data_.shape();
     shape[2] = dim_;
