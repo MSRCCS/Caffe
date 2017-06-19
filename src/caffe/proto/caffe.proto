@@ -419,6 +419,8 @@ message LayerParameter {
   optional XCovParameter xcov_param = 0x00584356; //"XCV"
   optional RPNProposalParameter rpn_proposal_param = 0x00525052; // "RPR"
   optional BoxDataParameter box_data_param = 0x00424F58; // "BOX"
+  optional RegionLossParameter region_loss_param = 0x00524547; // "REG"
+  optional RegionOutputParameter region_output_param = 0x0052474F; // "RGO"
 }
 
 // Message that stores parameters used to apply transformation
@@ -1373,6 +1375,34 @@ message BoxDataParameter {
 	optional uint32 random_min = 8 [default = 320];
 	optional uint32 random_max = 9 [default = 608];
 	optional uint32 random_step = 10 [default = 32];
+}
+
+message RegionLossParameter {
+	required uint32 classes = 1 [default = 20];  // 20 is for voc20
+	optional uint32 coords = 2 [default = 4];
+	optional bool bias_match = 3 [default = true];
+	optional bool softmax = 4 [default = true];
+	optional bool rescore = 5 [default = true];
+
+	optional float object_scale = 6 [default = 5.0];
+	optional float class_scale = 7 [default = 1.0];
+	optional float noobject_scale = 8 [default = 1.0];
+	optional float coord_scale = 9 [default = 1.0];
+	optional float thresh = 10 [default = 0.6];
+	repeated float biases = 11;
+	optional string tree = 12;
+	// optional string map = 13;
+}
+
+message RegionOutputParameter {
+	// specify the threshold for removing low confidence detections. The confidence score is defined as objectness * class_probability
+	optional float thresh = 1 [default = 0.24];
+	optional float hier_thresh = 2 [default = 0.5];
+	// specify the nms threshold. If the threshold <= 0, nms will not be skipped.
+	optional float nms = 3 [default = 0.45];
+	optional uint32 classes = 4 [default = 20];  // 20 is for voc20
+	repeated float biases = 5;
+	optional uint32 feat_stride = 6 [default = 32]; // the feature stride for all the previous layers
 }
 
 message SPPParameter {
