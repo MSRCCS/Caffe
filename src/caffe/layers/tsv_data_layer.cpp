@@ -182,8 +182,11 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   LOG(INFO) << "Total data: " << tsv_.TotalLines() << ", Batch size: " << batch_size << ", Epoch iterations: " << (float)tsv_.TotalLines() / batch_size;
 
   // initialize the prefetch and top blobs.
-  int new_width = tsv_param.new_width();
-  int new_height = tsv_param.new_height();
+  // For detection data, new_width, new_height, channels, crop_size can all be ignored.
+  // In case they are ignored, here we just initialize batch and top blob as placeholder.
+  // And they will be reshaped again in on_load_batch(...).
+  int new_width = tsv_param.has_new_width() ? tsv_param.new_width() : 256;
+  int new_height = tsv_param.has_new_height() ? tsv_param.new_height() : 256;
   int channels = tsv_param.channels();
   int crop_size = this->layer_param().transform_param().crop_size();
   vector<int> top_shape(4);
@@ -192,7 +195,6 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   top_shape[2] = crop_size > 0 ? crop_size : new_height;
   top_shape[3] = crop_size > 0 ? crop_size : new_width;
 
-  this->transformed_data_.Reshape(top_shape);
   top_shape[0] = batch_size;
   top[0]->Reshape(top_shape);
   for (int i = 0; i < this->prefetch_.size(); ++i) {
@@ -353,6 +355,13 @@ void TsvDataLayer<Dtype>::CVMatToBlobBuffer(const cv::Mat &cv_img_float, Dtype *
 }
 
 template <typename Dtype>
+void TsvDataLayer<Dtype>::process_one_image_and_label(const string &input_b64coded_data, const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_image_data, Dtype *output_label_data)
+{
+    process_one_image(input_b64coded_data, tsv_param, output_image_data);
+    process_one_label(input_label_data, tsv_param, output_label_data);
+}
+
+template <typename Dtype>
 void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, const TsvDataParameter &tsv_param, Dtype *output_image_data)
 {
     vector<BYTE> data = base64_decode(input_b64coded_data);
@@ -506,6 +515,18 @@ void TsvDataLayer<Dtype>::Next() {
     }
 }
 
+template <typename Dtype>
+void TsvDataLayer<Dtype>::on_load_batch(Batch<Dtype>* batch)
+{
+    const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
+    int crop_size = this->layer_param().transform_param().crop_size();
+
+    vector<int> shape = batch->data_.shape();
+    shape[2] = crop_size > 0 ? crop_size : tsv_param.new_height();
+    shape[3] = crop_size > 0 ? crop_size : tsv_param.new_width();
+    batch->data_.Reshape(shape);
+}
+
 // This function is called on prefetch thread
 template <typename Dtype>
 void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
@@ -516,22 +537,14 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	CPUTimer timer;
 	CHECK(batch->data_.count());
 
-    const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
-    
-    int batch_size = tsv_param.batch_size();
-    int crop_size = this->layer_param().transform_param().crop_size();
-
-	// initialize the prefetch and top blobs.
-	vector<int> top_shape(4);
-    top_shape[0] = batch_size;
-    top_shape[1] = tsv_param.channels();
-	top_shape[2] = crop_size > 0 ? crop_size : tsv_param.new_height();
-	top_shape[3] = crop_size > 0 ? crop_size : tsv_param.new_width();
-	batch->data_.Reshape(top_shape);
+    on_load_batch(batch);
 
 	if (this->output_labels_) {
         memset(batch->label_.mutable_cpu_data(), 0, batch->label_.count() * sizeof(Dtype));
 	}
+
+    const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
+    int batch_size = tsv_param.batch_size();
 
     vector<string> base64coded_data;
     vector<string> label;
@@ -574,9 +587,8 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 #else
     #pragma omp parallel for schedule(static)
     for (long long i = 0; i < base64coded_data.size(); i++) {
-#endif
-        process_one_image(base64coded_data[i], tsv_param, batch_data + batch->data_.offset(i));
-        process_one_label(label[i], tsv_param, label_data + batch->label_.offset(i));
+#endif // _MSC_VER
+        process_one_image_and_label(base64coded_data[i], label[i], tsv_param, batch_data + batch->data_.offset(i), label_data + batch->label_.offset(i));
     }
 #ifdef _MSC_VER
     );
