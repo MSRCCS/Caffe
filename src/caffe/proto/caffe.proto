@@ -418,6 +418,7 @@ message LayerParameter {
   optional WSgmParameter wsgm_param = 0x00575347; //"WSG"
   optional XCovParameter xcov_param = 0x00584356; //"XCV"
   optional RPNProposalParameter rpn_proposal_param = 0x00525052; // "RPR"
+  optional BoxDataParameter box_data_param = 0x00424F58; // "BOX"
 }
 
 // Message that stores parameters used to apply transformation
@@ -1351,6 +1352,22 @@ message TsvDataParameter{
 	optional string color_kl_file = 16;
 	// specify if to cache the tsv file for fast reading
 	optional bool cache_all = 17[default = false]; // default to false (no cache)
+}
+
+message BoxDataParameter {
+    optional uint32 max_boxes = 1 [default = 30];
+	// apply random jitter to aspect ratio by multiplying [-jitter, jitter] with width and height. 
+	optional float jitter = 2 [default = 0.2];
+	// apply random hue change by multiplying [-hue, hue] with hue_value
+    optional float hue = 3 [default = 0.1];
+	// apply random exposure change by multiplying [1, exposure] or [1/exposure, 1] with exposure_value
+    optional float exposure = 4 [default = 1.5];
+	// apply random saturation change by multiplying [1, saturation] or [1/saturation, 1] with saturation_value
+    optional float saturation = 5 [default = 1.5];
+	// specify a labelmap file so that to map class name to class id (used for box data only)
+	required string labelmap = 6;
+	// specify for how many iters to do a resize
+	optional uint32  iter_for_resize = 7 [default = 80];
 }
 
 message SPPParameter {
