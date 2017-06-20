@@ -713,11 +713,16 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
             ++class_count;
         }
     }
-    //printf("\n");
+    
     *(l.cost) = pow(mag_array(l.delta, l.outputs * l.batch), 2);
-    char msg[1024];
-    sprintf(msg, "Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", avg_iou / count, avg_cat / class_count, avg_obj / count, avg_anyobj / (l.w*l.h*l.n*l.batch), recall / count, count);
-    LOG(INFO) << msg;
+
+    const RegionLossParameter &region_param = this->layer_param().region_loss_param();
+    if (region_param.debug_info())
+    {
+        char msg[1024];
+        sprintf(msg, "Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", avg_iou / count, avg_cat / class_count, avg_obj / count, avg_anyobj / (l.w*l.h*l.n*l.batch), recall / count, count);
+        LOG(INFO) << msg;
+    }
 
     // multiplicate delta with -loss_weight to fit for caffe's sgd solver.
     caffe_cpu_scale(l.outputs*l.batch, -l.loss_weight / l.batch, l.delta, l.delta);

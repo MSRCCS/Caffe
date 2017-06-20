@@ -1401,6 +1401,7 @@ message RegionLossParameter {
 	repeated float biases = 11;
 	optional string tree = 12;
 	// optional string map = 13;
+	optional bool debug_info = 14 [default = false];
 }
 
 message RegionOutputParameter {
