@@ -451,16 +451,19 @@ void image_subtract_mean(image im, float r, float g, float b)
 
 vector<box_label> read_boxes(const string &input_label_data, map<string, int> &labelmap, int orig_img_w, int orig_img_h)
 {
+    vector<box_label> boxes;
+    if (input_label_data.length() == 0)
+        return boxes;
+
     // Read json.
     ptree pt;
     std::istringstream is(input_label_data);
     read_json(is, pt);
 
-    vector<box_label> boxes;
     for (boost::property_tree::ptree::iterator it = pt.begin(); it != pt.end(); ++it)
     {
-        int diff = it->second.get<int>("diff");         // 0: normal, 1: difficult
-        if (diff)
+        boost::optional<int> diff = it->second.get_optional<int>("diff");         // 0: normal, 1: difficult
+        if (diff && diff.get())
             continue;
 
         string cls = it->second.get<string>("class");
@@ -653,6 +656,12 @@ void TsvBoxDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     }
 }
 
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(),
+        std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+}
+
 template <typename Dtype>
 void TsvBoxDataLayer<Dtype>::load_labelmap(const string &filename)
 {
@@ -666,6 +675,7 @@ void TsvBoxDataLayer<Dtype>::load_labelmap(const string &filename)
     {
         std::string line;
         std::getline(labelmap_file, line);
+        rtrim(line);
         if (line.length() == 0)
             break;
 
