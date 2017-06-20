@@ -196,6 +196,9 @@
     <CudaCompile Include="..\src\caffe\layers\region_loss_layer.cu">
       <Filter>Source Files\layers</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\reorg_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\caffe\blob.cpp">
@@ -556,6 +559,9 @@
       <Filter>Source Files\layers</Filter>
     </ClCompile>
     <ClCompile Include="..\src\caffe\layers\region_loss_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\reorg_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
   </ItemGroup>
@@ -924,6 +930,9 @@
       <Filter>Head Files\layers</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\region_loss_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\reorg_layer.hpp">
       <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>

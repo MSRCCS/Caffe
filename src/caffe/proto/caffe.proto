@@ -421,6 +421,7 @@ message LayerParameter {
   optional BoxDataParameter box_data_param = 0x00424F58; // "BOX"
   optional RegionLossParameter region_loss_param = 0x00524547; // "REG"
   optional RegionOutputParameter region_output_param = 0x0052474F; // "RGO"
+  optional ReorgParameter reorg_param = 0x0052454F; // "REO"
 }
 
 // Message that stores parameters used to apply transformation
@@ -1403,6 +1404,12 @@ message RegionOutputParameter {
 	optional uint32 classes = 4 [default = 20];  // 20 is for voc20
 	repeated float biases = 5;
 	optional uint32 feat_stride = 6 [default = 32]; // the feature stride for all the previous layers
+}
+
+message ReorgParameter {
+	optional uint32 stride = 1 [default = 2];
+	optional bool reverse = 2 [default = false];
+	optional bool flatten = 3 [default = false];
 }
 
 message SPPParameter {
