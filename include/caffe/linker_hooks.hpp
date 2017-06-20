@@ -85,7 +85,10 @@ namespace caffe {
   FUNC(PReLU); \
   FUNC(Python); \
   FUNC(Reduction); \
+  FUNC(RegionLoss); \
+  FUNC(RegionOutput); \
   FUNC(ReLU); \
+  FUNC(Reorg); \
   FUNC(Reshape); \
   FUNC(RNN); \
   FUNC(ROIPooling); \

@@ -451,16 +451,19 @@ void image_subtract_mean(image im, float r, float g, float b)
 
 vector<box_label> read_boxes(const string &input_label_data, map<string, int> &labelmap, int orig_img_w, int orig_img_h)
 {
+    vector<box_label> boxes;
+    if (input_label_data.length() == 0)
+        return boxes;
+
     // Read json.
     ptree pt;
     std::istringstream is(input_label_data);
     read_json(is, pt);
 
-    vector<box_label> boxes;
     for (boost::property_tree::ptree::iterator it = pt.begin(); it != pt.end(); ++it)
     {
-        int diff = it->second.get<int>("diff");         // 0: normal, 1: difficult
-        if (diff)
+        boost::optional<int> diff = it->second.get_optional<int>("diff");         // 0: normal, 1: difficult
+        if (diff && diff.get())
             continue;
 
         string cls = it->second.get<string>("class");
@@ -581,7 +584,8 @@ void fill_truth_detection(const string &input_label_data, float *truth, int num_
 void load_data_detection(const string &input_b64coded_data, const string &input_label_data, float *output_image_data, float *output_label_data,
                          map<string, int> labelmap,
                          int w, int h, int boxes, float jitter, float hue, float saturation, float exposure,
-                         float mean_r, float mean_g, float mean_b)
+                         float mean_r, float mean_g, float mean_b,
+                         float pixel_value_scale)
 {
     vector<BYTE> imbuf = base64_decode(input_b64coded_data);
 
@@ -618,12 +622,12 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
     if (flip) flip_image(sized);
 
     // scale values back to [0,255]
-    scale_image(sized, 255.);
+    scale_image(sized, pixel_value_scale);
 
     // mean subtraction
     image_subtract_mean(sized, mean_r, mean_g, mean_b);
 
-    memcpy(output_image_data, sized.data, sizeof(float) * h * w);
+    memcpy(output_image_data, sized.data, sizeof(float) * h * w * orig.c);
     free_image(sized);
 
     fill_truth_detection(input_label_data, output_label_data, boxes, labelmap, orig.w, orig.h, flip, -dx / w, -dy / h, nw / w, nh / h);
@@ -652,6 +656,12 @@ void TsvBoxDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     }
 }
 
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(),
+        std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+}
+
 template <typename Dtype>
 void TsvBoxDataLayer<Dtype>::load_labelmap(const string &filename)
 {
@@ -665,6 +675,7 @@ void TsvBoxDataLayer<Dtype>::load_labelmap(const string &filename)
     {
         std::string line;
         std::getline(labelmap_file, line);
+        rtrim(line);
         if (line.length() == 0)
             break;
 
@@ -710,11 +721,12 @@ void TsvBoxDataLayer<Dtype>::process_one_image_and_label(const string &input_b64
     float hue = box_param.hue();
     float saturation = box_param.saturation();
     int max_boxes = box_param.max_boxes();
+    float pixel_value_scale = this->layer_param().tsv_data_param().pixel_value_scale();
     
     load_data_detection(input_b64coded_data, input_label_data, (float*)output_image_data, (float*)output_label_data,
         labelmap_,
         dim_, dim_, max_boxes, jitter, hue, saturation, exposure,
-        this->mean_values_[2], this->mean_values_[1], this->mean_values_[0]);
+        this->mean_values_[2], this->mean_values_[1], this->mean_values_[0], pixel_value_scale);
 }
 
 INSTANTIATE_CLASS(TsvBoxDataLayer);

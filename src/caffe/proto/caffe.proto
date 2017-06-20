@@ -164,6 +164,8 @@ message SolverParameter {
   //    - inv: return base_lr * (1 + gamma * iter) ^ (- power)
   //    - multistep: similar to step but it allows non uniform steps defined by
   //      stepvalue
+  //    - multifixed: similar to fixed but it allows non uniform learning rates
+  //      and steps defined by stagelr and stageiter
   //    - poly: the effective learning rate follows a polynomial decay, to be
   //      zero by the max_iter. return base_lr (1 - iter/max_iter) ^ (power)
   //    - sigmoid: the effective learning rate follows a sigmod decay
@@ -183,6 +185,9 @@ message SolverParameter {
   optional int32 stepsize = 13;
   // the stepsize for learning rate policy "multistep"
   repeated int32 stepvalue = 34;
+  // for rate policy "multifixed"
+  repeated float stagelr = 50;
+  repeated int32 stageiter = 51;
 
   // Set clip_gradients to >= 0 to clip parameter gradients to that L2 norm,
   // whenever their actual L2 norm is larger.
@@ -419,6 +424,9 @@ message LayerParameter {
   optional XCovParameter xcov_param = 0x00584356; //"XCV"
   optional RPNProposalParameter rpn_proposal_param = 0x00525052; // "RPR"
   optional BoxDataParameter box_data_param = 0x00424F58; // "BOX"
+  optional RegionLossParameter region_loss_param = 0x00524547; // "REG"
+  optional RegionOutputParameter region_output_param = 0x0052474F; // "RGO"
+  optional ReorgParameter reorg_param = 0x0052454F; // "REO"
 }
 
 // Message that stores parameters used to apply transformation
@@ -1335,8 +1343,8 @@ message TsvDataParameter{
     // Specify the batch size.
 	optional uint32 batch_size = 7;
 	// It will also resize images if new_height or new_width are not zero.
-	optional uint32 new_height = 9[default = 0];
-	optional uint32 new_width = 10[default = 0];
+	optional uint32 new_height = 9[default = 256];
+	optional uint32 new_width = 10[default = 256];
 	// Specify if the channels of data (default to 3 for color images)
 	optional uint32 channels = 11[default = 3];
 	// Specify the data column in TSV
@@ -1352,6 +1360,9 @@ message TsvDataParameter{
 	optional string color_kl_file = 16;
 	// specify if to cache the tsv file for fast reading
 	optional bool cache_all = 17[default = false]; // default to false (no cache)
+	// specify the output pixel value scale. Default is 255, but it can be also set to 1 with mean value (0,0,0) to
+	// limit the pixel value to be in [0,1].
+	optional float pixel_value_scale = 18 [default = 255];
 }
 
 message BoxDataParameter {
@@ -1373,6 +1384,41 @@ message BoxDataParameter {
 	optional uint32 random_min = 8 [default = 320];
 	optional uint32 random_max = 9 [default = 608];
 	optional uint32 random_step = 10 [default = 32];
+}
+
+message RegionLossParameter {
+	required uint32 classes = 1 [default = 20];  // 20 is for voc20
+	optional uint32 coords = 2 [default = 4];
+	optional bool bias_match = 3 [default = true];
+	optional bool softmax = 4 [default = true];
+	optional bool rescore = 5 [default = true];
+
+	optional float object_scale = 6 [default = 5.0];
+	optional float class_scale = 7 [default = 1.0];
+	optional float noobject_scale = 8 [default = 1.0];
+	optional float coord_scale = 9 [default = 1.0];
+	optional float thresh = 10 [default = 0.6];
+	repeated float biases = 11;
+	optional string tree = 12;
+	// optional string map = 13;
+	optional bool debug_info = 14 [default = false];
+}
+
+message RegionOutputParameter {
+	// specify the threshold for removing low confidence detections. The confidence score is defined as objectness * class_probability
+	optional float thresh = 1 [default = 0.24];
+	optional float hier_thresh = 2 [default = 0.5];
+	// specify the nms threshold. If the threshold <= 0, nms will not be skipped.
+	optional float nms = 3 [default = 0.45];
+	optional uint32 classes = 4 [default = 20];  // 20 is for voc20
+	repeated float biases = 5;
+	optional uint32 feat_stride = 6 [default = 32]; // the feature stride for all the previous layers
+}
+
+message ReorgParameter {
+	optional uint32 stride = 1 [default = 2];
+	optional bool reverse = 2 [default = false];
+	optional bool flatten = 3 [default = false];
 }
 
 message SPPParameter {

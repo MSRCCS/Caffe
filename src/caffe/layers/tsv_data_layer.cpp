@@ -185,8 +185,8 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   // For detection data, new_width, new_height, channels, crop_size can all be ignored.
   // In case they are ignored, here we just initialize batch and top blob as placeholder.
   // And they will be reshaped again in on_load_batch(...).
-  int new_width = tsv_param.has_new_width() ? tsv_param.new_width() : 256;
-  int new_height = tsv_param.has_new_height() ? tsv_param.new_height() : 256;
+  int new_width = tsv_param.new_width();
+  int new_height = tsv_param.new_height();
   int channels = tsv_param.channels();
   int crop_size = this->layer_param().transform_param().crop_size();
   vector<int> top_shape(4);
@@ -432,6 +432,10 @@ void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, c
             // copy to output buffer
             CVMatToBlobBuffer(cvImg, output_image_data);
         }
+        // Default pixel_value_scale is 255 in caffe.proto. The following function will not change the pixel values by default.
+        // But if pixel_value_scale is set to 1 and the mean_values to (0,0,0), we will be able to set the pixel value range to [0,1].
+        int crop_size = this->layer_param().transform_param().crop_size();
+        caffe_cpu_scale(crop_size * crop_size * tsv_param.channels(), Dtype(255) / tsv_param.pixel_value_scale(), output_image_data, output_image_data);
     }
     else if (tsv_param.data_format() == TsvDataParameter_Base64DataFormat_RawData)
     {
