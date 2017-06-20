@@ -164,6 +164,8 @@ message SolverParameter {
   //    - inv: return base_lr * (1 + gamma * iter) ^ (- power)
   //    - multistep: similar to step but it allows non uniform steps defined by
   //      stepvalue
+  //    - multifixed: similar to fixed but it allows non uniform learning rates
+  //      and steps defined by stagelr and stageiter
   //    - poly: the effective learning rate follows a polynomial decay, to be
   //      zero by the max_iter. return base_lr (1 - iter/max_iter) ^ (power)
   //    - sigmoid: the effective learning rate follows a sigmod decay
@@ -183,6 +185,9 @@ message SolverParameter {
   optional int32 stepsize = 13;
   // the stepsize for learning rate policy "multistep"
   repeated int32 stepvalue = 34;
+  // for rate policy "multifixed"
+  repeated float stagelr = 50;
+  repeated int32 stageiter = 51;
 
   // Set clip_gradients to >= 0 to clip parameter gradients to that L2 norm,
   // whenever their actual L2 norm is larger.

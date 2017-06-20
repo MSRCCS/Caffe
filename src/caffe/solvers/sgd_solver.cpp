@@ -16,6 +16,8 @@ namespace caffe {
 //    - inv: return base_lr * (1 + gamma * iter) ^ (- power)
 //    - multistep: similar to step but it allows non uniform steps defined by
 //      stepvalue
+//    - multifixed: similar to fixed but it allows non uniform learning rates
+//      and steps defined by stagelr and stageiter
 //    - poly: the effective learning rate follows a polynomial decay, to be
 //      zero by the max_iter. return base_lr (1 - iter/max_iter) ^ (power)
 //    - sigmoid: the effective learning rate follows a sigmod decay
@@ -29,7 +31,17 @@ Dtype SGDSolver<Dtype>::GetLearningRate() {
   const string& lr_policy = this->param_.lr_policy();
   if (lr_policy == "fixed") {
     rate = this->param_.base_lr();
-  } else if (lr_policy == "step") {
+  } else if (lr_policy == "multifixed") {
+      CHECK_EQ(this->param_.stageiter_size(), this->param_.stagelr_size());
+      int num_stages = this->param_.stagelr_size();
+      int stage = 0;
+      for (; stage < num_stages; ++stage) {
+          if (this->iter_ <= this->param_.stageiter(stage)) break;
+      }
+      stage = (stage == num_stages) ? stage - 1 : stage;
+      rate = this->param_.stagelr(stage);
+  }
+  else if (lr_policy == "step") {
     this->current_step_ = this->iter_ / this->param_.stepsize();
     rate = this->param_.base_lr() *
         pow(this->param_.gamma(), this->current_step_);
