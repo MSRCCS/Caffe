@@ -564,6 +564,12 @@
     <ClCompile Include="..\src\caffe\layers\reorg_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\tsv_cpm_data_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\cpm_data_transformer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\caffe\blob.hpp">
@@ -934,6 +940,12 @@
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\reorg_layer.hpp">
       <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\tsv_cpm_data_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\cpm_data_transformer.hpp">
+      <Filter>Head Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -109,6 +109,7 @@ namespace caffe {
   FUNC(Tile); \
   FUNC(TripletLoss); \
   FUNC(TsvBoxData); \
+  FUNC(TsvCPMData); \
   FUNC(TsvData); \
   FUNC(WSgmLoss); \
   FUNC(WindowData); \
