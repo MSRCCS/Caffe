@@ -56,6 +56,14 @@ struct layer {
     float temperature;
 
     tree *softmax_tree;
+
+    layer(): output(NULL), output_gpu(NULL), delta(NULL),
+            delta_gpu(NULL), biases(NULL), cost(NULL), 
+            loss_weight(0), batch(0), inputs(0), outputs(0),
+            n(0), w(0), h(0), coords(0), classes(0), softmax(0),
+            truths(0), bias_match(0), rescore(0), noobject_scale(0),
+            object_scale(0), class_scale(0), coord_scale(0), thresh(0),
+            temperature(0), softmax_tree(NULL){}
 };
 
 enum ACTIVATION {
