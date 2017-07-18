@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <glog/logging.h>
 
 #include "caffe/solver.hpp"
 #include "caffe/util/format.hpp"
@@ -294,6 +295,8 @@ void Solver<Dtype>::Step(int iters) {
       break;
     }
   }
+  google::FlushLogFiles(google::GLOG_INFO);
+  google::FlushLogFiles(google::GLOG_ERROR);
 }
 
 template <typename Dtype>

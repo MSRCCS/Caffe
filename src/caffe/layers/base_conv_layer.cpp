@@ -9,6 +9,31 @@
 namespace caffe {
 
 template <typename Dtype>
+void init_sym_multiplier(ConvolutionParameter_Symmetric symmetric, 
+        const vector<int> &weight_shape,
+        Blob<Dtype> &sym_multiplier) {
+    int h = weight_shape[2];
+    int w = weight_shape[3];
+    sym_multiplier.Reshape(h, w, h, w);
+    Dtype* ptr = sym_multiplier.mutable_cpu_data();
+    caffe_set<Dtype>(h * w * h * w, 0, ptr);
+    CHECK_EQ(weight_shape.size(), 4);
+    for (int i = 0; i < h; i++) {
+        for (int j = 0; j < w; j++) {
+            if (symmetric == ConvolutionParameter_Symmetric_LeftRight) {
+                *(ptr + sym_multiplier.offset(i, j, i, j)) = 1;
+                *(ptr + sym_multiplier.offset(i, j, i, w - j - 1)) = 1;
+            } else if (symmetric == ConvolutionParameter_Symmetric_LeftRightUpDown) {
+                *(ptr + sym_multiplier.offset(i, j, i, j)) = 1;
+                *(ptr + sym_multiplier.offset(i, j, i, w - j - 1)) = 1;
+                *(ptr + sym_multiplier.offset(i, j, h - 1 - i, j)) = 1;
+                *(ptr + sym_multiplier.offset(i, j, h - 1 - i, w - 1 - j)) = 1;
+            }
+        }
+    }
+}
+
+template <typename Dtype>
 void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   // Configure the kernel size, padding, stride, and inputs.
@@ -180,6 +205,58 @@ void BaseConvolutionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
   weight_offset_ = conv_out_channels_ * kernel_dim_ / group_;
   // Propagate gradients to the parameters (as directed by backward pass).
   this->param_propagate_down_.resize(this->blobs_.size(), true);
+
+  symmetric_ = conv_param.symmetric();
+  if (symmetric_ != ConvolutionParameter_Symmetric_None) {
+    init_sym_multiplier<Dtype>(symmetric_, weight_shape, this->sym_multiplier_);
+    weight_buffer_.Reshape(weight_shape);
+    this->sym_weight_data_cpu();
+  }
+}
+
+template <typename Dtype>
+void BaseConvolutionLayer<Dtype>::sym_weight_data_cpu() {
+    if (this->symmetric_ != ConvolutionParameter_Symmetric_None) {
+        Dtype* weight = this->blobs_[0]->mutable_cpu_data();
+        Dtype* weight_buf = this->weight_buffer_.mutable_cpu_data();
+        caffe_copy(this->blobs_[0]->count(), weight, weight_buf);
+        int M = this->blobs_[0]->num() * this->blobs_[0]->channels();
+        int K = this->blobs_[0]->width() * this->blobs_[0]->height();
+        int N = K;
+        Dtype* multiplier = this->sym_multiplier_.mutable_cpu_data();
+        caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M, N, K, (Dtype)1.0, 
+                weight_buf, multiplier, 0, weight);
+    }
+}
+
+template <typename Dtype>
+void BaseConvolutionLayer<Dtype>::sym_weight_diff_cpu() {
+    if (this->symmetric_ != ConvolutionParameter_Symmetric_None) {
+        Dtype* weight = this->blobs_[0]->mutable_cpu_diff();
+        Dtype* weight_buf = this->weight_buffer_.mutable_cpu_data();
+        caffe_copy(this->blobs_[0]->count(), weight, weight_buf);
+        int M = this->blobs_[0]->num() * this->blobs_[0]->channels();
+        int K = this->blobs_[0]->width() * this->blobs_[0]->height();
+        int N = K;
+        Dtype* multiplier = this->sym_multiplier_.mutable_cpu_data();
+        caffe_cpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M, N, K, (Dtype)1.0, 
+                weight_buf, multiplier, 0, weight);
+    }
+}
+
+template <typename Dtype>
+void BaseConvolutionLayer<Dtype>::sym_weight_diff_gpu() {
+    if (this->symmetric_ != ConvolutionParameter_Symmetric_None) {
+        Dtype* weight = this->blobs_[0]->mutable_gpu_diff();
+        Dtype* weight_buf = this->weight_buffer_.mutable_gpu_data();
+        caffe_copy(this->blobs_[0]->count(), weight, weight_buf);
+        int M = this->blobs_[0]->num() * this->blobs_[0]->channels();
+        int K = this->blobs_[0]->width() * this->blobs_[0]->height();
+        int N = K;
+        Dtype* multiplier = this->sym_multiplier_.mutable_gpu_data();
+        caffe_gpu_gemm<Dtype>(CblasNoTrans, CblasTrans, M, N, K, (Dtype)1.0, 
+                weight_buf, multiplier, 0, weight);
+    }
 }
 
 template <typename Dtype>

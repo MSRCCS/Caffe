@@ -545,7 +545,7 @@ void RegionLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, cons
     l.thresh = region_param.thresh();
     l.bias_match = region_param.bias_match();
     l.rescore = region_param.rescore();
-    l.softmax_tree = region_param.has_tree() ? l.softmax_tree = read_tree(region_param.tree().c_str()) : 0;
+    l.softmax_tree = region_param.has_tree() ? read_tree(region_param.tree().c_str()) : 0;
     l.softmax = region_param.softmax();
     l.temperature = 1;
 
@@ -580,6 +580,61 @@ void RegionLossLayer<Dtype>::prepare_net_layer(network &net, layer &l, const vec
     l.h = bottom[0]->shape(2);
     l.outputs = l.h * l.w * l.n * (l.classes + l.coords + 1);
     l.inputs = l.outputs;
+}
+
+void find_target_for_non_bbox_label(const box &truth, int cls,
+        const layer &l, int b, int &target_i, int &target_j, int &target_n)
+{
+    float best_confidence = -1;
+    target_i = -1;
+    target_j = -1;
+    target_n = -1;
+    for (int j = 0; j < l.h; j++) {
+        for (int i = 0; i < l.w; i++) {
+            for (int n = 0; n < l.n; n++) {
+                int obj_index = entry_index(l, b, n * l.w * l.h + j * l.w + i, 4);
+                int cls_index = entry_index(l, b, n * l.w * l.h + j * l.w + i, 5 + cls);
+                float confidence = l.output[cls_index] * l.output[obj_index];
+                if (confidence > best_confidence) {
+                    best_confidence = confidence;
+                    target_i = i;
+                    target_j = j;
+                    target_n = n;
+                }
+            }
+        }
+    }
+}
+
+void find_target_for_bbox_label(const box &truth, 
+        const layer &l, int b, int &target_i, int &target_j, int &target_n)
+{
+    target_i = (truth.x * l.w);
+    target_j = (truth.y * l.h);
+    box truth_shift = truth;
+    truth_shift.x = 0;
+    truth_shift.y = 0;
+    float best_iou = -1;
+
+    for (int n = 0; n < l.n; ++n) {
+        int box_index = entry_index(l, b, n*l.w*l.h + target_j*l.w + target_i, 0);
+        box pred = get_region_box(l.output, l.biases, n, box_index, target_i, target_j, l.w, l.h, l.w*l.h);
+        if (l.bias_match) {
+            pred.w = l.biases[2 * n] / l.w;
+            pred.h = l.biases[2 * n + 1] / l.h;
+        }
+        pred.x = 0;
+        pred.y = 0;
+        float iou = box_iou(pred, truth_shift);
+        if (iou > best_iou) {
+            best_iou = iou;
+            target_n = n;
+        }
+    }
+}
+
+bool is_global_label_without_box(const box &truth) {
+    return truth.x > 10000 && truth.y > 100000;
 }
 
 template <typename Dtype>
@@ -637,6 +692,9 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
                     float best_iou = 0;
                     for (t = 0; t < 30; ++t) {
                         box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
+                        if (is_global_label_without_box(truth)) {
+                            continue; // this is a class label without bbox
+                        }
                         if (!truth.x) break;
                         float iou = box_iou(pred, truth);
                         if (iou > best_iou) {
@@ -663,49 +721,40 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
         }
         for (t = 0; t < 30; ++t) {
             box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
-
-            if (!truth.x) break;
-            float best_iou = 0;
+            int cls = net.truth[t * 5 + b*l.truths + 4];
             int best_n = 0;
-            i = (truth.x * l.w);
-            j = (truth.y * l.h);
-            //printf("%d %f %d %f\n", i, truth.x*l.w, j, truth.y*l.h);
-            box truth_shift = truth;
-            truth_shift.x = 0;
-            truth_shift.y = 0;
-            //printf("index %d %d\n",i, j);
-            for (n = 0; n < l.n; ++n) {
-                int box_index = entry_index(l, b, n*l.w*l.h + j*l.w + i, 0);
-                box pred = get_region_box(l.output, l.biases, n, box_index, i, j, l.w, l.h, l.w*l.h);
-                if (l.bias_match) {
-                    pred.w = l.biases[2 * n] / l.w;
-                    pred.h = l.biases[2 * n + 1] / l.h;
-                }
-                //printf("pred: (%f, %f) %f x %f\n", pred.x, pred.y, pred.w, pred.h);
-                pred.x = 0;
-                pred.y = 0;
-                float iou = box_iou(pred, truth_shift);
-                if (iou > best_iou) {
-                    best_iou = iou;
-                    best_n = n;
-                }
-            }
-            //printf("%d %f (%f, %f) %f x %f\n", best_n, best_iou, truth.x, truth.y, truth.w, truth.h);
+            if (!truth.x) break;
 
-            int box_index = entry_index(l, b, best_n*l.w*l.h + j*l.w + i, 0);
-            float iou = delta_region_box(truth, l.output, l.biases, best_n, box_index, i, j, l.w, l.h, l.delta, l.coord_scale *  (2 - truth.w*truth.h), l.w*l.h);
-            if (iou > .5) recall += 1;
-            avg_iou += iou;
+            float iou; // this is the target iou
+            bool is_global_label = is_global_label_without_box(truth);
+            if (is_global_label) {
+                find_target_for_non_bbox_label(truth, cls, l, b, i, j, best_n);
+            } else {
+                find_target_for_bbox_label(truth, l, b, i, j, best_n);
+
+                int box_index = entry_index(l, b, best_n*l.w*l.h + j*l.w + i, 0);
+                iou = delta_region_box(truth, l.output, l.biases, best_n, 
+                        box_index, i, j, l.w, l.h, l.delta, l.coord_scale *  (2 - truth.w*truth.h), l.w*l.h);
+                if (iou > .5) recall += 1;
+                avg_iou += iou;
+            }
 
             //l.delta[best_index + 4] = iou - l.output[best_index + 4];
             int obj_index = entry_index(l, b, best_n*l.w*l.h + j*l.w + i, 4);
             avg_obj += l.output[obj_index];
-            l.delta[obj_index] = l.object_scale * (1 - l.output[obj_index]);
-            if (l.rescore) {
-                l.delta[obj_index] = l.object_scale * (iou - l.output[obj_index]);
+            if (!is_global_label) {
+                l.delta[obj_index] = l.object_scale * (1 - l.output[obj_index]);
+                if (l.rescore) {
+                    l.delta[obj_index] = l.object_scale * (iou - l.output[obj_index]);
+                }
+            } else  {
+                if (l.output[obj_index] < 0.3) {
+                    l.delta[obj_index] = l.object_scale * (0.3 - l.output[obj_index]);
+                } else {
+                    l.delta[obj_index] = 0;
+                }
             }
 
-            int cls = net.truth[t * 5 + b*l.truths + 4];
             //if (l.map) cls = l.map[cls];
             int class_index = entry_index(l, b, best_n*l.w*l.h + j*l.w + i, 5);
             delta_region_class(l.output, l.delta, class_index, cls, l.classes, l.softmax_tree, l.class_scale, l.w*l.h, &avg_cat);

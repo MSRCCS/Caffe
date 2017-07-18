@@ -49,19 +49,22 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
   const int crop_size = param_.crop_size();
   const Dtype scale = param_.scale();
   const bool do_mirror = param_.mirror() && Rand(2);
+  const int padding = param_.padding();
+  const int padded_width = datum_width + padding * 2; // left and right
+  const int padded_height = datum_height + padding * 2;
   const bool has_mean_file = param_.has_mean_file();
   const bool has_uint8 = data.size() > 0;
   const bool has_mean_values = mean_values_.size() > 0;
 
   CHECK_GT(datum_channels, 0);
-  CHECK_GE(datum_height, crop_size);
-  CHECK_GE(datum_width, crop_size);
+  CHECK_GE(padded_width, crop_size);
+  CHECK_GE(padded_height, crop_size);
 
   Dtype* mean = NULL;
   if (has_mean_file) {
     CHECK_EQ(datum_channels, data_mean_.channels());
-    CHECK_EQ(datum_height, data_mean_.height());
-    CHECK_EQ(datum_width, data_mean_.width());
+    CHECK_EQ(padded_height, data_mean_.height());
+    CHECK_EQ(padded_width, data_mean_.width());
     mean = data_mean_.mutable_cpu_data();
   }
   if (has_mean_values) {
@@ -75,8 +78,8 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
     }
   }
 
-  int height = datum_height;
-  int width = datum_width;
+  int height = padded_height;
+  int width = padded_width;
 
   int h_off = 0;
   int w_off = 0;
@@ -85,11 +88,11 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
     width = crop_size;
     // We only do random crop when we do training.
     if (phase_ == TRAIN) {
-      h_off = Rand(datum_height - crop_size + 1);
-      w_off = Rand(datum_width - crop_size + 1);
+      h_off = Rand(padded_height - crop_size + 1);
+      w_off = Rand(padded_width - crop_size + 1);
     } else {
-      h_off = (datum_height - crop_size) / 2;
-      w_off = (datum_width - crop_size) / 2;
+      h_off = (padded_height - crop_size) / 2;
+      w_off = (padded_width - crop_size) / 2;
     }
   }
 
@@ -104,11 +107,16 @@ void DataTransformer<Dtype>::Transform(const Datum& datum,
         } else {
           top_index = (c * height + h) * width + w;
         }
-        if (has_uint8) {
-          datum_element =
-            static_cast<Dtype>(static_cast<uint8_t>(data[data_index]));
+        if (h_off + h < 0 || h_off + h >= datum_height ||
+                w_off + w < 0 || w_off + w >= datum_width) {
+            datum_element = 0;
         } else {
-          datum_element = datum.float_data(data_index);
+            if (has_uint8) {
+              datum_element =
+                static_cast<Dtype>(static_cast<uint8_t>(data[data_index]));
+            } else {
+              datum_element = datum.float_data(data_index);
+            }
         }
         if (has_mean_file) {
           transformed_data[top_index] =

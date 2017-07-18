@@ -70,6 +70,7 @@ void ConvolutionLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       }
     }
   }
+  this->sym_weight_diff_cpu();
 }
 
 #ifdef CPU_ONLY
