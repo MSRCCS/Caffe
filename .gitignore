@@ -124,3 +124,5 @@ cudnn/
 
 # nccl files
 nccl/
+
+examples/
