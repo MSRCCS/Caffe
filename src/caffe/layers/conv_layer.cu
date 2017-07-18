@@ -53,6 +53,7 @@ void ConvolutionLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
       }
     }
   }
+  this->sym_weight_diff_gpu();
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS(ConvolutionLayer);

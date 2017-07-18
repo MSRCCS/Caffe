@@ -40,6 +40,9 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   void weight_cpu_gemm(const Dtype* input, const Dtype* output, Dtype*
       weights);
   void backward_cpu_bias(Dtype* bias, const Dtype* input);
+  void sym_weight_data_cpu();
+  void sym_weight_diff_cpu();
+  void sym_weight_diff_gpu();
 
 #ifndef CPU_ONLY
   void forward_gpu_gemm(const Dtype* col_input, const Dtype* weights,
@@ -164,9 +167,12 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   int kernel_dim_;
   int col_offset_;
   int output_offset_;
+  ConvolutionParameter_Symmetric symmetric_;
 
   Blob<Dtype> col_buffer_;
   Blob<Dtype> bias_multiplier_;
+  Blob<Dtype> sym_multiplier_;
+  Blob<Dtype> weight_buffer_;
 };
 
 }  // namespace caffe
