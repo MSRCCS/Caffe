@@ -127,9 +127,9 @@ class Net {
    * @brief For an already initialized net, copies the pre-trained layers from
    *        another Net.
    */
-  void CopyTrainedLayersFrom(const NetParameter& param);
-  void CopyTrainedLayersFrom(const string trained_filename);
-  void CopyTrainedLayersFromBinaryProto(const string trained_filename);
+  void CopyTrainedLayersFrom(const NetParameter& param, bool ignore_shape_mismatch = false);
+  void CopyTrainedLayersFrom(const string trained_filename, bool ignore_shape_mismatch = false);
+  void CopyTrainedLayersFromBinaryProto(const string trained_filename, bool ignore_shape_mismatch = false);
   void CopyTrainedLayersFromHDF5(const string trained_filename);
   /// @brief Writes the net to a proto.
   void ToProto(NetParameter* param, bool write_diff = false) const;

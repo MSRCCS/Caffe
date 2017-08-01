@@ -1111,7 +1111,7 @@ void Net<Dtype>::Reshape() {
 }
 
 template <typename Dtype>
-void Net<Dtype>::CopyTrainedLayersFrom(const NetParameter& param) {
+void Net<Dtype>::CopyTrainedLayersFrom(const NetParameter& param, bool ignore_shape_mismatch) {
   int num_source_layers = param.layer_size();
   for (int i = 0; i < num_source_layers; ++i) {
     const LayerParameter& source_layer = param.layer(i);
@@ -1135,44 +1135,46 @@ void Net<Dtype>::CopyTrainedLayersFrom(const NetParameter& param) {
         Blob<Dtype> source_blob;
         const bool kReshape = true;
         source_blob.FromProto(source_layer.blobs(j), kReshape);
-		if (target_blobs[j]->count() == source_blob.count())
-		{
-			target_blobs[j]->CopyFrom(source_blob, false, false,true);
+		if (target_blobs[j]->count() == source_blob.count()){
+		  target_blobs[j]->CopyFrom(source_blob, false, false,true);
 		}
-		else
-		{
-			LOG(FATAL) << "Cannot copy param " << j << " weights from layer '"
-				<< source_layer_name << "'; shape mismatch.  Source param shape is "
-				<< source_blob.shape_string() << "; target param shape is "
-				<< target_blobs[j]->shape_string() << ". "
-				<< "To learn this layer's parameters from scratch rather than "
-				<< "copying from a saved net, rename the layer.";
+		else if (!ignore_shape_mismatch){
+		  LOG(FATAL) << "Cannot copy param " << j << " weights from layer '"
+		    << source_layer_name << "'; shape mismatch.  Source param shape is "
+		    << source_blob.shape_string() << "; target param shape is "
+		    << target_blobs[j]->shape_string() << ". "
+		    << "To learn this layer's parameters from scratch rather than "
+		    << "copying from a saved net, rename the layer.";
+		} else {
+		  LOG(INFO) << "Shape mismatch in layer " << source_layer_name
+		    << ". Source param shape is "
+		    << source_blob.shape_string() << "; target param shape is "
+		    << target_blobs[j]->shape_string() << ". Weights will NOT be copied for this layer.";
 		}
+      } else {
+        const bool kReshape = false;
+	target_blobs[j]->FromProto(source_layer.blobs(j), kReshape);
       }
-	  else
-	  {
-		  const bool kReshape = false;
-		  target_blobs[j]->FromProto(source_layer.blobs(j), kReshape);
-	  }
     }
   }
 }
 
 template <typename Dtype>
-void Net<Dtype>::CopyTrainedLayersFrom(const string trained_filename) {
+void Net<Dtype>::CopyTrainedLayersFrom(const string trained_filename, bool ignore_shape_mismatch) {
   if (H5Fis_hdf5(trained_filename.c_str())) {
     CopyTrainedLayersFromHDF5(trained_filename);
   } else {
-    CopyTrainedLayersFromBinaryProto(trained_filename);
+    CopyTrainedLayersFromBinaryProto(trained_filename, ignore_shape_mismatch);
   }
 }
 
 template <typename Dtype>
 void Net<Dtype>::CopyTrainedLayersFromBinaryProto(
-    const string trained_filename) {
+    const string trained_filename,
+    bool ignore_shape_mismatch) {
   NetParameter param;
   ReadNetParamsFromBinaryFileOrDie(trained_filename, &param);
-  CopyTrainedLayersFrom(param);
+  CopyTrainedLayersFrom(param, ignore_shape_mismatch);
 }
 
 template <typename Dtype>

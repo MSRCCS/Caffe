@@ -387,6 +387,7 @@ class NCCL {
 #endif
 
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(SolveOverloads, Solve, 0, 1);
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(CopyTrainedLayersFromOverloads, CopyTrainedLayersFrom, 1, 2);
 
 BOOST_PYTHON_MODULE(_caffe) {
   // below, we prepend an underscore to methods that will be replaced
@@ -430,8 +431,9 @@ BOOST_PYTHON_MODULE(_caffe) {
     .def("reshape", &Net<Dtype>::Reshape)
     .def("clear_param_diffs", &Net<Dtype>::ClearParamDiffs)
     // The cast is to select a particular overload.
-    .def("copy_from", static_cast<void (Net<Dtype>::*)(const string)>(
-        &Net<Dtype>::CopyTrainedLayersFrom))
+    .def("copy_from", static_cast<void (Net<Dtype>::*)(const string, bool)>(&Net<Dtype>::CopyTrainedLayersFrom), CopyTrainedLayersFromOverloads((
+		bp::arg("trained_filename"),
+		bp::arg("ignore_shape_mismatch")=false)))
     .def("share_with", &Net<Dtype>::ShareTrainedLayersWith)
     .add_property("_blob_loss_weights", bp::make_function(
         &Net<Dtype>::blob_loss_weights, bp::return_internal_reference<>()))
