@@ -549,7 +549,10 @@ void RegionLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, cons
     l.softmax = region_param.softmax();
     l.temperature = 1;
 
-    seen_images_ = 0;
+    this->blobs_.resize(1);
+    this->blobs_[0].reset(new Blob<Dtype>(1, 1, 1, 1));
+    seen_images_ = this->blobs_[0]->mutable_cpu_data();
+    *seen_images_ = 0;
 }
 
 template <typename Dtype>
@@ -642,6 +645,8 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
 {
     int i, j, b, t, n;
 
+    seen_images_ = this->blobs_[0]->mutable_cpu_data();
+
     memset(l.delta, 0, l.outputs * l.batch * sizeof(float));
     float avg_iou = 0;
     float recall = 0;
@@ -708,7 +713,7 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
                         l.delta[obj_index] = 0;
                     }
 
-                    if (seen_images_ * Caffe::solver_count() < 12800) {
+                    if ((*seen_images_) * Caffe::solver_count() < 12800) {
                         box truth = { 0 };
                         truth.x = (i + .5) / l.w;
                         truth.y = (j + .5) / l.h;
@@ -777,7 +782,7 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
     caffe_cpu_scale(l.outputs*l.batch, -l.loss_weight / l.batch, l.delta, l.delta);
     *(l.cost) /= l.batch;
 
-    seen_images_ += l.batch;
+    (*seen_images_) += l.batch;
 }
 
 template <typename Dtype>

@@ -107,7 +107,7 @@ private:
   network net_;
   layer l_;
 
-  uint64_t seen_images_;
+  Dtype* seen_images_;
   
   void prepare_net_layer(network &net, layer &l, const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
   void forward_for_loss(network &net, layer &l);
