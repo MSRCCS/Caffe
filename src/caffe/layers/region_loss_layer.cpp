@@ -548,7 +548,8 @@ void RegionLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, cons
     l.softmax_tree = region_param.has_tree() ? read_tree(region_param.tree().c_str()) : 0;
     l.softmax = region_param.softmax();
     l.temperature = 1;
-
+    
+    anchor_aligned_images_ = region_param.anchor_aligned_images();
     this->blobs_.resize(1);
     this->blobs_[0].reset(new Blob<Dtype>(1, 1, 1, 1));
     seen_images_ = this->blobs_[0]->mutable_cpu_data();
@@ -713,7 +714,7 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
                         l.delta[obj_index] = 0;
                     }
 
-                    if ((*seen_images_) * Caffe::solver_count() < 12800) {
+                    if ((*seen_images_) * Caffe::solver_count() < this->anchor_aligned_images_) {
                         box truth = { 0 };
                         truth.x = (i + .5) / l.w;
                         truth.y = (j + .5) / l.h;

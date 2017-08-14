@@ -106,6 +106,7 @@ private:
   vector<float> biases_;
   network net_;
   layer l_;
+  uint64_t anchor_aligned_images_;
 
   Dtype* seen_images_;
   
