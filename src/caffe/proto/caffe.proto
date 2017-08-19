@@ -1445,7 +1445,7 @@ message RegionLossParameter {
 	repeated float biases = 11;
 	optional string tree = 12;
 	// optional string map = 13;
-	optional bool debug_info = 14 [default = false];
+	optional uint32 debug_info = 14 [default = 100];
     optional uint32 anchor_aligned_images = 15 [default = 12800];
 }
 

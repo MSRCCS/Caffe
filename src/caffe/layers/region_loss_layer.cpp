@@ -654,6 +654,29 @@ bool is_global_label_without_box(const box &truth) {
     return truth.x > 100000 && truth.y > 100000;
 }
 
+void print_bb_obj_class_loss(layer &l) {
+    float loss_xy = 0;
+    float loss_wh = 0;
+    float loss_objness = 0;
+    float loss_class = 0;
+    for (int b = 0; b < l.batch; b++) {
+        for (int n = 0; n < l.n; n++) {
+            int idx_xy = entry_index(l, b, n * l.w * l.h, 0);
+            loss_xy += pow(mag_array(l.delta + idx_xy, l.w * l.h * 2), 2);
+            int idx_wh = entry_index(l, b, n * l.w * l.h, 2);
+            loss_wh += pow(mag_array(l.delta + idx_wh, l.w * l.h * 2), 2);
+            int idx_objness = entry_index(l, b, n * l.w * l.h, 4);
+            loss_objness += pow(mag_array(l.delta + idx_objness, l.w * l.h), 2);
+            int idx_class = entry_index(l, b, n * l.w * l.h, 5);
+            loss_class += pow(mag_array(l.delta + idx_class, l.w * l.h * l.classes), 2);
+        }
+    }
+    LOG_IF(INFO, Caffe::root_solver()) << "loss_xy: " << loss_xy << "; "
+        << "loss_wh: " << loss_wh << "; "
+        << "loss_objness: " << loss_objness << "; "
+        << "loss_class: " << loss_class;
+}
+
 template <typename Dtype>
 void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
 {
@@ -785,11 +808,13 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
     *(l.cost) = pow(mag_array(l.delta, l.outputs * l.batch), 2);
 
     const RegionLossParameter &region_param = this->layer_param().region_loss_param();
-    if (region_param.debug_info())
+    if (region_param.debug_info() > 0 && ((((int)*seen_images_) / l.batch) % region_param.debug_info()) == 0)
     {
         char msg[1024];
-        sprintf(msg, "Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", avg_iou / count, avg_cat / class_count, avg_obj / count, avg_anyobj / (l.w*l.h*l.n*l.batch), recall / count, count);
-        LOG(INFO) << msg;
+        sprintf(msg, "Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", 
+                avg_iou / count, avg_cat / class_count, avg_obj / count, avg_anyobj / (l.w*l.h*l.n*l.batch), recall / count, count);
+        LOG_IF(INFO, Caffe::root_solver()) << msg;
+        print_bb_obj_class_loss(l);
     }
 
     // multiplicate delta with -loss_weight to fit for caffe's sgd solver.
@@ -954,7 +979,7 @@ void RegionOutputLayer<Dtype>::GetRegionBoxes(const vector<Blob<Dtype>*>& bottom
     vector<float*> probs(l.w*l.h*l.n);
     for (int j = 0; j < l.w*l.h*l.n; ++j)
         probs[j] = prob_output + (l.classes + 1) * j;
-
+    
     get_region_boxes(l, im_w, im_h, net_w_, net_h_, thresh_, &probs[0], boxes, 0, this->map_, hier_thresh_, 0);//1);
     if (nms_ > 0) {
         if (this->class_specific_nms_) {
