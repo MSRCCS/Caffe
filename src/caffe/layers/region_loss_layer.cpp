@@ -228,7 +228,7 @@ char *fgetl(FILE *fp)
 
 tree *read_tree(const char *filename)
 {
-    tree t = { 0 };
+    tree t;
     FILE *fp = fopen(filename, "r");
 
     char *line;
@@ -922,6 +922,7 @@ void RegionOutputLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const
     net_h_ = l.h * feat_stride_;
 
     output_.ReshapeLike(*bottom[0]);
+    output_gpu_.ReshapeLike(*bottom[0]);
 
     vector<int> shape = top[0]->shape();
     shape[1] = l.w*l.h*l.n;

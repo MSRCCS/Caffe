@@ -25,8 +25,16 @@ struct tree {
     char **name;
 
     int groups;
-    int *group_size;
+    int* group_size;
+    int* group_size_gpu;
     int *group_offset;
+    int* group_offset_gpu;
+
+public:
+    tree(): leaf(NULL), parent(NULL), child(NULL),
+        group(NULL), name(NULL), group_size(NULL), 
+        group_size_gpu(NULL),
+        group_offset(NULL) {}
 };
 
 struct layer {
@@ -160,7 +168,8 @@ protected:
     }
 
 private:
-    Blob<Dtype> output_;
+    // this is to reduce the number of mutable*() calls. 
+    Blob<Dtype> output_, output_gpu_;
     layer l_;
     int net_w_;
     int net_h_;
