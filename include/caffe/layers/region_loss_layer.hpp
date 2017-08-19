@@ -166,6 +166,7 @@ private:
     int net_h_;
     int classes_;
     vector<float> biases_;
+    vector<int> map_;
     float thresh_;
     float hier_thresh_;
     float nms_;

@@ -1459,6 +1459,7 @@ message RegionOutputParameter {
 	repeated float biases = 5;
 	optional uint32 feat_stride = 6 [default = 32]; // the feature stride for all the previous layers
 	optional string tree = 7;
+    optional string map = 8;
 }
 
 message ReorgParameter {

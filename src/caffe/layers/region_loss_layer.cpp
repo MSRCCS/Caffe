@@ -368,7 +368,20 @@ void correct_region_boxes(box *boxes, int n, int w, int h, int netw, int neth, i
     }
 }
 
-void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, float **probs, box *boxes, int only_objectness, int *map, float tree_thresh, int relative)
+vector<int> read_map(const char *filename)
+{
+    vector<int> map;
+    char *str;
+    FILE *file = fopen(filename, "r");
+    CHECK(file) << filename;
+    while((str=fgetl(file))){
+        map.push_back(atoi(str));
+    }
+    return map;
+}
+
+void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, float **probs, box *boxes, int only_objectness, 
+        const vector<int> &map, float tree_thresh, int relative)
 {
     int i, j, n, z;
     float *predictions = l.output;
@@ -411,8 +424,8 @@ void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, f
             int class_index = entry_index(l, 0, n*l.w*l.h + i, 5);
             if (l.softmax_tree) {
                 hierarchy_predictions(predictions + class_index, l.classes, l.softmax_tree, 0, l.w*l.h);
-                if (map) {
-                    for (j = 0; j < 200; ++j) {
+                if (map.size() > 0) {
+                    for (j = 0; j < map.size(); ++j) {
                         int class_index = entry_index(l, 0, n*l.w*l.h + i, 5 + map[j]);
                         float prob = scale*predictions[class_index];
                         probs[index][j] = (prob > thresh) ? prob : 0;
@@ -875,6 +888,12 @@ void RegionOutputLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, co
     l.biases = &biases_[0];
     l.softmax = true;
     l.softmax_tree = region_param.has_tree() ? read_tree(region_param.tree().c_str()) : 0;
+    if (region_param.has_map()) {
+        this->map_ = read_map(region_param.map().c_str());
+        CHECK_EQ(this->map_.size(), l.classes);
+    } else if (l.softmax_tree) {
+        CHECK_EQ(l.softmax_tree->n, l.classes);
+    }
 
     vector<int> shape(3);
     shape[0] = 1;
@@ -934,7 +953,7 @@ void RegionOutputLayer<Dtype>::GetRegionBoxes(const vector<Blob<Dtype>*>& bottom
     for (int j = 0; j < l.w*l.h*l.n; ++j)
         probs[j] = prob_output + (l.classes + 1) * j;
 
-    get_region_boxes(l, im_w, im_h, net_w_, net_h_, thresh_, &probs[0], boxes, 0, 0, hier_thresh_, 0);//1);
+    get_region_boxes(l, im_w, im_h, net_w_, net_h_, thresh_, &probs[0], boxes, 0, this->map_, hier_thresh_, 0);//1);
     if (nms_ > 0)
         do_nms_sort(boxes, &probs[0], l.w*l.h*l.n, l.classes, nms_);//0.4);
 }
