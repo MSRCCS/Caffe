@@ -1460,6 +1460,7 @@ message RegionOutputParameter {
 	optional uint32 feat_stride = 6 [default = 32]; // the feature stride for all the previous layers
 	optional string tree = 7;
     optional string map = 8;
+    optional bool class_specific_nms = 9 [default = false];
 }
 
 message ReorgParameter {

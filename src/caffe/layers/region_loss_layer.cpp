@@ -115,7 +115,7 @@ float overlap(float x1, float w1, float x2, float w2)
     return right - left;
 }
 
-float box_intersection(box a, box b)
+float box_intersection(const box &a, const box &b)
 {
     float w = overlap(a.x, a.w, b.x, b.w);
     float h = overlap(a.y, a.h, b.y, b.h);
@@ -124,19 +124,19 @@ float box_intersection(box a, box b)
     return area;
 }
 
-float box_union(box a, box b)
+float box_union(const box &a, const box &b)
 {
     float i = box_intersection(a, b);
     float u = a.w*a.h + b.w*b.h - i;
     return u;
 }
 
-float box_iou(box a, box b)
+float box_iou(const box &a, const box &b)
 {
     return box_intersection(a, b) / box_union(a, b);
 }
 
-box get_region_box(float *x, float *biases, int n, int index, int i, int j, int w, int h, int stride)
+box get_region_box(const float *x, float *biases, int n, int index, int i, int j, int w, int h, int stride)
 {
     box b;
     b.x = (i + x[index + 0 * stride]) / w;
@@ -310,7 +310,7 @@ void hierarchy_predictions(float *predictions, int n, tree *hier, int only_leave
     }
 }
 
-int hierarchy_top_prediction(float *predictions, tree *hier, float thresh, int stride)
+int hierarchy_top_prediction(const float *predictions, tree *hier, float thresh, int stride)
 {
     float p = 1;
     int group = 0;
@@ -894,6 +894,7 @@ void RegionOutputLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, co
     } else if (l.softmax_tree) {
         CHECK_EQ(l.softmax_tree->n, l.classes);
     }
+    this->class_specific_nms_ = region_param.class_specific_nms();
 
     vector<int> shape(3);
     shape[0] = 1;
@@ -955,8 +956,13 @@ void RegionOutputLayer<Dtype>::GetRegionBoxes(const vector<Blob<Dtype>*>& bottom
         probs[j] = prob_output + (l.classes + 1) * j;
 
     get_region_boxes(l, im_w, im_h, net_w_, net_h_, thresh_, &probs[0], boxes, 0, this->map_, hier_thresh_, 0);//1);
-    if (nms_ > 0)
-        do_nms_sort(boxes, &probs[0], l.w*l.h*l.n, l.classes, nms_);//0.4);
+    if (nms_ > 0) {
+        if (this->class_specific_nms_) {
+            do_nms_sort(boxes, &probs[0], l.w*l.h*l.n, l.classes, nms_);//0.4);
+        } else {
+            do_nms_obj(boxes, &probs[0], l.w*l.h*l.n, l.classes, nms_);//0.4);
+        }
+    }
 }
 
 template <typename Dtype>
