@@ -1458,6 +1458,7 @@ message RegionOutputParameter {
 	optional uint32 classes = 4 [default = 20];  // 20 is for voc20
 	repeated float biases = 5;
 	optional uint32 feat_stride = 6 [default = 32]; // the feature stride for all the previous layers
+	optional string tree = 7;
 }
 
 message ReorgParameter {

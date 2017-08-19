@@ -874,6 +874,7 @@ void RegionOutputLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, co
     l.n = biases_.size() / 2;
     l.biases = &biases_[0];
     l.softmax = true;
+    l.softmax_tree = region_param.has_tree() ? read_tree(region_param.tree().c_str()) : 0;
 
     vector<int> shape(3);
     shape[0] = 1;
