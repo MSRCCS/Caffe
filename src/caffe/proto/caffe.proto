@@ -1445,7 +1445,8 @@ message RegionLossParameter {
 	repeated float biases = 11;
 	optional string tree = 12;
 	// optional string map = 13;
-	optional bool debug_info = 14 [default = false];
+	optional uint32 debug_info = 14 [default = 100];
+    optional uint32 anchor_aligned_images = 15 [default = 12800];
 }
 
 message RegionOutputParameter {
@@ -1457,6 +1458,9 @@ message RegionOutputParameter {
 	optional uint32 classes = 4 [default = 20];  // 20 is for voc20
 	repeated float biases = 5;
 	optional uint32 feat_stride = 6 [default = 32]; // the feature stride for all the previous layers
+	optional string tree = 7;
+    optional string map = 8;
+    optional bool class_specific_nms = 9 [default = false];
 }
 
 message ReorgParameter {

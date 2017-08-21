@@ -192,10 +192,58 @@ void RegionLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
 
 INSTANTIATE_LAYER_GPU_FUNCS(RegionLossLayer);
 
+int *cuda_make_int_array(int *x, size_t n)
+{
+    int *x_gpu;
+    size_t size = sizeof(int)*n;
+    CUDA_CHECK(cudaMalloc((void **)&x_gpu, size));
+    if(x){
+        CUDA_CHECK(cudaMemcpy(x_gpu, x, size, cudaMemcpyHostToDevice));
+    }
+    return x_gpu;
+}
+
+__global__ void softmax_tree_kernel(const float *input, int spatial, int batch, int stride, float temp, float *output, int groups, int *group_size, int *group_offset)
+{
+    int id = (blockIdx.x + blockIdx.y*gridDim.x) * blockDim.x + threadIdx.x;
+    if (id >= spatial*batch*groups) return;
+    int s = id % spatial;
+    id = id / spatial;
+    int g = id % groups;
+    int b = id / groups;
+    int goff = group_offset[g]*spatial;
+    int boff = b*stride;
+    softmax_device(input + goff + boff + s, group_size[g], temp, spatial, output + goff + boff + s);
+}
+
+void cuda_free(float *x_gpu)
+{
+    CUDA_CHECK(cudaFree(x_gpu));
+}
+
+void softmax_tree(const float *input, int spatial, int batch, int stride, float temp, float *output, tree &hier)
+{
+    if (hier.group_size_gpu == NULL) {
+        hier.group_size_gpu = cuda_make_int_array(hier.group_size, hier.groups);
+        hier.group_offset_gpu = cuda_make_int_array(hier.group_offset, hier.groups);
+    } 
+    int* tree_groups_size = hier.group_size_gpu;
+    int* tree_groups_offset = hier.group_offset_gpu;
+    int num = spatial*batch*hier.groups;
+    softmax_tree_kernel<<<cuda_gridsize(num), BLOCK>>>(input, spatial, batch, stride, temp, output, hier.groups, tree_groups_size, tree_groups_offset);
+    CUDA_CHECK(cudaPeekAtLastError());
+}
+
+#define OPTIMIZE_REGION_OUTPUT_FORWARD_COPY
+
 template <typename Dtype>
 void RegionOutputLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-    layer &l = this->l_;
+    layer l = this->l_;
+#ifdef OPTIMIZE_REGION_OUTPUT_FORWARD_COPY
+    l.output_gpu = (float *)output_gpu_.mutable_gpu_data();
+#else
     l.output_gpu = (float *)output_.mutable_gpu_data();
+#endif
     network net;
     net.input_gpu = (float *)bottom[0]->gpu_data();
 
@@ -210,13 +258,15 @@ void RegionOutputLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, c
         }
     }
     if (l.softmax_tree) {
-        int count = 5;
-        for (int i = 0; i < l.softmax_tree->groups; ++i) {
-            int group_size = l.softmax_tree->group_size[i];
-            int index = entry_index(l, 0, 0, count);
-            softmax_gpu(net.input_gpu + index, group_size, l.batch*l.n, l.inputs / l.n, l.w*l.h, 1, l.w*l.h, 1, l.output_gpu + index);
-            count += group_size;
-        }
+        // int count = 5;
+        // for (int i = 0; i < l.softmax_tree->groups; ++i) {
+        //     int group_size = l.softmax_tree->group_size[i];
+        //     int index = entry_index(l, 0, 0, count);
+        //     softmax_gpu(net.input_gpu + index, group_size, l.batch*l.n, l.inputs / l.n, l.w*l.h, 1, l.w*l.h, 1, l.output_gpu + index);
+        //     count += group_size;
+        // }
+        int index = entry_index(l, 0, 0, l.coords + 1);
+        softmax_tree(net.input_gpu + index, l.w*l.h, l.batch*l.n, l.inputs/l.n, 1, l.output_gpu + index, *l.softmax_tree);
     }
     else if (l.softmax) {
         int index = entry_index(l, 0, 0, 5);
@@ -224,6 +274,10 @@ void RegionOutputLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, c
         softmax_gpu(net.input_gpu + index, l.classes, l.batch*l.n, l.inputs / l.n, l.w*l.h, 1, l.w*l.h, 1, l.output_gpu + index);
     }
 
+#ifdef OPTIMIZE_REGION_OUTPUT_FORWARD_COPY
+    Dtype* dst = output_.mutable_cpu_data();
+    caffe_gpu_memcpy(output_.count() * sizeof(Dtype), l.output_gpu, dst);
+#endif
     GetRegionBoxes(bottom, top);
 }
 

@@ -115,7 +115,7 @@ float overlap(float x1, float w1, float x2, float w2)
     return right - left;
 }
 
-float box_intersection(box a, box b)
+float box_intersection(const box &a, const box &b)
 {
     float w = overlap(a.x, a.w, b.x, b.w);
     float h = overlap(a.y, a.h, b.y, b.h);
@@ -124,19 +124,19 @@ float box_intersection(box a, box b)
     return area;
 }
 
-float box_union(box a, box b)
+float box_union(const box &a, const box &b)
 {
     float i = box_intersection(a, b);
     float u = a.w*a.h + b.w*b.h - i;
     return u;
 }
 
-float box_iou(box a, box b)
+float box_iou(const box &a, const box &b)
 {
     return box_intersection(a, b) / box_union(a, b);
 }
 
-box get_region_box(float *x, float *biases, int n, int index, int i, int j, int w, int h, int stride)
+box get_region_box(const float *x, float *biases, int n, int index, int i, int j, int w, int h, int stride)
 {
     box b;
     b.x = (i + x[index + 0 * stride]) / w;
@@ -228,7 +228,7 @@ char *fgetl(FILE *fp)
 
 tree *read_tree(const char *filename)
 {
-    tree t = { 0 };
+    tree t;
     FILE *fp = fopen(filename, "r");
 
     char *line;
@@ -310,7 +310,7 @@ void hierarchy_predictions(float *predictions, int n, tree *hier, int only_leave
     }
 }
 
-int hierarchy_top_prediction(float *predictions, tree *hier, float thresh, int stride)
+int hierarchy_top_prediction(const float *predictions, tree *hier, float thresh, int stride)
 {
     float p = 1;
     int group = 0;
@@ -368,7 +368,20 @@ void correct_region_boxes(box *boxes, int n, int w, int h, int netw, int neth, i
     }
 }
 
-void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, float **probs, box *boxes, int only_objectness, int *map, float tree_thresh, int relative)
+vector<int> read_map(const char *filename)
+{
+    vector<int> map;
+    char *str;
+    FILE *file = fopen(filename, "r");
+    CHECK(file) << filename;
+    while((str=fgetl(file))){
+        map.push_back(atoi(str));
+    }
+    return map;
+}
+
+void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, float **probs, box *boxes, int only_objectness, 
+        const vector<int> &map, float tree_thresh, int relative)
 {
     int i, j, n, z;
     float *predictions = l.output;
@@ -411,8 +424,8 @@ void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, f
             int class_index = entry_index(l, 0, n*l.w*l.h + i, 5);
             if (l.softmax_tree) {
                 hierarchy_predictions(predictions + class_index, l.classes, l.softmax_tree, 0, l.w*l.h);
-                if (map) {
-                    for (j = 0; j < 200; ++j) {
+                if (map.size() > 0) {
+                    for (j = 0; j < map.size(); ++j) {
                         int class_index = entry_index(l, 0, n*l.w*l.h + i, 5 + map[j]);
                         float prob = scale*predictions[class_index];
                         probs[index][j] = (prob > thresh) ? prob : 0;
@@ -548,8 +561,12 @@ void RegionLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, cons
     l.softmax_tree = region_param.has_tree() ? read_tree(region_param.tree().c_str()) : 0;
     l.softmax = region_param.softmax();
     l.temperature = 1;
-
-    seen_images_ = 0;
+    
+    anchor_aligned_images_ = region_param.anchor_aligned_images();
+    this->blobs_.resize(1);
+    this->blobs_[0].reset(new Blob<Dtype>(1, 1, 1, 1));
+    seen_images_ = this->blobs_[0]->mutable_cpu_data();
+    *seen_images_ = 0;
 }
 
 template <typename Dtype>
@@ -637,10 +654,35 @@ bool is_global_label_without_box(const box &truth) {
     return truth.x > 100000 && truth.y > 100000;
 }
 
+void print_bb_obj_class_loss(layer &l) {
+    float loss_xy = 0;
+    float loss_wh = 0;
+    float loss_objness = 0;
+    float loss_class = 0;
+    for (int b = 0; b < l.batch; b++) {
+        for (int n = 0; n < l.n; n++) {
+            int idx_xy = entry_index(l, b, n * l.w * l.h, 0);
+            loss_xy += pow(mag_array(l.delta + idx_xy, l.w * l.h * 2), 2);
+            int idx_wh = entry_index(l, b, n * l.w * l.h, 2);
+            loss_wh += pow(mag_array(l.delta + idx_wh, l.w * l.h * 2), 2);
+            int idx_objness = entry_index(l, b, n * l.w * l.h, 4);
+            loss_objness += pow(mag_array(l.delta + idx_objness, l.w * l.h), 2);
+            int idx_class = entry_index(l, b, n * l.w * l.h, 5);
+            loss_class += pow(mag_array(l.delta + idx_class, l.w * l.h * l.classes), 2);
+        }
+    }
+    LOG_IF(INFO, Caffe::root_solver()) << "loss_xy: " << loss_xy << "; "
+        << "loss_wh: " << loss_wh << "; "
+        << "loss_objness: " << loss_objness << "; "
+        << "loss_class: " << loss_class;
+}
+
 template <typename Dtype>
 void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
 {
     int i, j, b, t, n;
+
+    seen_images_ = this->blobs_[0]->mutable_cpu_data();
 
     memset(l.delta, 0, l.outputs * l.batch * sizeof(float));
     float avg_iou = 0;
@@ -708,7 +750,7 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
                         l.delta[obj_index] = 0;
                     }
 
-                    if (seen_images_ * Caffe::solver_count() < 12800) {
+                    if ((*seen_images_) * Caffe::solver_count() < this->anchor_aligned_images_) {
                         box truth = { 0 };
                         truth.x = (i + .5) / l.w;
                         truth.y = (j + .5) / l.h;
@@ -766,18 +808,20 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
     *(l.cost) = pow(mag_array(l.delta, l.outputs * l.batch), 2);
 
     const RegionLossParameter &region_param = this->layer_param().region_loss_param();
-    if (region_param.debug_info())
+    if (region_param.debug_info() > 0 && ((((int)*seen_images_) / l.batch) % region_param.debug_info()) == 0)
     {
         char msg[1024];
-        sprintf(msg, "Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", avg_iou / count, avg_cat / class_count, avg_obj / count, avg_anyobj / (l.w*l.h*l.n*l.batch), recall / count, count);
-        LOG(INFO) << msg;
+        sprintf(msg, "Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", 
+                avg_iou / count, avg_cat / class_count, avg_obj / count, avg_anyobj / (l.w*l.h*l.n*l.batch), recall / count, count);
+        LOG_IF(INFO, Caffe::root_solver()) << msg;
+        print_bb_obj_class_loss(l);
     }
 
     // multiplicate delta with -loss_weight to fit for caffe's sgd solver.
     caffe_cpu_scale(l.outputs*l.batch, -l.loss_weight / l.batch, l.delta, l.delta);
     *(l.cost) /= l.batch;
 
-    seen_images_ += l.batch;
+    (*seen_images_) += l.batch;
 }
 
 template <typename Dtype>
@@ -868,6 +912,14 @@ void RegionOutputLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, co
     l.n = biases_.size() / 2;
     l.biases = &biases_[0];
     l.softmax = true;
+    l.softmax_tree = region_param.has_tree() ? read_tree(region_param.tree().c_str()) : 0;
+    if (region_param.has_map()) {
+        this->map_ = read_map(region_param.map().c_str());
+        CHECK_EQ(this->map_.size(), l.classes);
+    } else if (l.softmax_tree) {
+        CHECK_EQ(l.softmax_tree->n, l.classes);
+    }
+    this->class_specific_nms_ = region_param.class_specific_nms();
 
     vector<int> shape(3);
     shape[0] = 1;
@@ -896,6 +948,7 @@ void RegionOutputLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const
     net_h_ = l.h * feat_stride_;
 
     output_.ReshapeLike(*bottom[0]);
+    output_gpu_.ReshapeLike(*bottom[0]);
 
     vector<int> shape = top[0]->shape();
     shape[1] = l.w*l.h*l.n;
@@ -926,10 +979,15 @@ void RegionOutputLayer<Dtype>::GetRegionBoxes(const vector<Blob<Dtype>*>& bottom
     vector<float*> probs(l.w*l.h*l.n);
     for (int j = 0; j < l.w*l.h*l.n; ++j)
         probs[j] = prob_output + (l.classes + 1) * j;
-
-    get_region_boxes(l, im_w, im_h, net_w_, net_h_, thresh_, &probs[0], boxes, 0, 0, hier_thresh_, 0);//1);
-    if (nms_ > 0)
-        do_nms_sort(boxes, &probs[0], l.w*l.h*l.n, l.classes, nms_);//0.4);
+    
+    get_region_boxes(l, im_w, im_h, net_w_, net_h_, thresh_, &probs[0], boxes, 0, this->map_, hier_thresh_, 0);//1);
+    if (nms_ > 0) {
+        if (this->class_specific_nms_) {
+            do_nms_sort(boxes, &probs[0], l.w*l.h*l.n, l.classes, nms_);//0.4);
+        } else {
+            do_nms_obj(boxes, &probs[0], l.w*l.h*l.n, l.classes, nms_);//0.4);
+        }
+    }
 }
 
 template <typename Dtype>
