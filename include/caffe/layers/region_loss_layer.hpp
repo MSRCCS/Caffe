@@ -160,12 +160,17 @@ protected:
             if (propagate_down[i]) { NOT_IMPLEMENTED; }
         }
     }
+#ifdef CPU_ONLY
+    virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+#else
     virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
         const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
         for (int i = 0; i < propagate_down.size(); ++i) {
             if (propagate_down[i]) { NOT_IMPLEMENTED; }
         }
     }
+#endif
 
 private:
     // this is to reduce the number of mutable*() calls. 
