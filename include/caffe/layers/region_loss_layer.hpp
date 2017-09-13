@@ -110,7 +110,7 @@ protected:
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
 private:
-  Blob<Dtype> output_;
+  Blob<Dtype> output_, output_gpu_;
   vector<float> biases_;
   network net_;
   layer l_;
