@@ -54,6 +54,7 @@ private:
     void CVMatToBlobBuffer(const cv::Mat &cv_img_float, Dtype *buffer);
 
     void process_one_image(const string &input_b64coded_data, const TsvDataParameter &tsv_param, Dtype *output_image_data);
+    void process_one_image(const cv::Mat &img_origin, const TsvDataParameter &tsv_param, Dtype *output_image_data);
     void process_one_label(const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_label_data);
 
     // kl eigen values and vectors for color jittering
