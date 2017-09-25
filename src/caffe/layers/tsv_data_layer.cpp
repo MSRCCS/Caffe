@@ -362,83 +362,92 @@ void TsvDataLayer<Dtype>::process_one_image_and_label(const string &input_b64cod
 }
 
 template <typename Dtype>
+void TsvDataLayer<Dtype>::process_one_image(const cv::Mat &img_origin, const TsvDataParameter &tsv_param, Dtype *output_image_data)
+{
+    if (tsv_param.crop_type() == TsvDataParameter_CropType_AlexStyle) {
+        Datum datum;
+        CVMatToDatum(img_origin, &datum);
+        this->data_transformer_->TransformData(datum, output_image_data);
+    } else {
+        // crop
+        cv::Rect crop_rect = get_crop_rect(img_origin, tsv_param);
+        cv::Mat img_crop = img_origin(crop_rect).clone();
+
+        // flip
+        if (this->phase_ == TRAIN && random_helper::uniform_int(0, 1))
+            cv::flip(img_crop, img_crop, 1);
+
+        // convert to float 
+        cv::Mat img_float;
+        img_crop.convertTo(img_float, CV_32F);
+
+        if (tsv_param.channels() > 1) {
+            std::vector<float> shift(3);
+            // color jittering
+            if (this->phase_ == TRAIN && tsv_param.has_color_kl_file())
+                get_random_kl_shift(shift, 0.1);
+
+            // mean subtraction
+            shift[0] -= mean_values_[0];
+            shift[1] -= mean_values_[1];
+            shift[2] -= mean_values_[2];
+
+            int nChannel = img_float.channels();
+            for (int y = 0; y < img_float.rows; y++) {
+                float *pImg = (float*)img_float.ptr(y);
+                for (int x = 0; x < img_float.cols; x++) {
+                    pImg[nChannel*x] += shift[0];
+                    pImg[nChannel*x + 1] += shift[1];
+                    pImg[nChannel*x + 2] += shift[2];
+                }
+            }
+        } else {
+            float shift = 0;
+            // mean subtraction
+            shift -= mean_values_[0];
+            for (int y = 0; y < img_float.rows; y++) {
+                float *pImgStart = (float*)img_float.ptr(y);
+                for (float* pImg = pImgStart; pImg<pImgStart + img_float.cols; pImg++) {
+                    *pImg += shift;
+                }
+            }
+        }
+        // resize
+        cv::Mat cvImg;
+        int crop_size = this->layer_param().transform_param().crop_size();
+        cv::resize(img_float, cvImg, cv::Size(crop_size, crop_size));
+
+        // copy to output buffer
+        CVMatToBlobBuffer(cvImg, output_image_data);
+    }
+    // Default pixel_value_scale is 255 in caffe.proto. The following function will not change the pixel values by default.
+    // But if pixel_value_scale is set to 1 and the mean_values to (0,0,0), we will be able to set the pixel value range to [0,1].
+    int crop_size = this->layer_param().transform_param().crop_size();
+    caffe_cpu_scale(crop_size * crop_size * tsv_param.channels(), Dtype(255) / tsv_param.pixel_value_scale(), output_image_data, output_image_data);
+}
+
+template <typename Dtype>
 void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, const TsvDataParameter &tsv_param, Dtype *output_image_data)
 {
-    vector<BYTE> data = base64_decode(input_b64coded_data);
-    if (tsv_param.data_format() == TsvDataParameter_Base64DataFormat_Image)
+    if (tsv_param.data_format() == TsvDataParameter_DataFormat_ImagePath)         
     {
-        if (tsv_param.crop_type() == TsvDataParameter_CropType_AlexStyle)
-        {
-            cv::Mat cvImg = ReadImageStreamToCVMat(data, tsv_param.new_height(), tsv_param.new_width(), tsv_param.channels() > 1);
-            Datum datum;
-            CVMatToDatum(cvImg, &datum);
-            this->data_transformer_->TransformData(datum, output_image_data);
-        }
-        else
-        {
-            cv::Mat img_origin = ReadImageStreamToCVMat(data, -1, -1, tsv_param.channels() > 1);
-
-            // crop
-            cv::Rect crop_rect = get_crop_rect(img_origin, tsv_param);
-            cv::Mat img_crop = img_origin(crop_rect).clone();
-
-            // flip
-            if (this->phase_ == TRAIN && random_helper::uniform_int(0, 1))
-                cv::flip(img_crop, img_crop, 1);
-
-            // convert to float 
-            cv::Mat img_float;
-            img_crop.convertTo(img_float, CV_32F);
-
-            if (tsv_param.channels() > 1)
-            {
-                std::vector<float> shift(3);
-                // color jittering
-                if (this->phase_ == TRAIN && tsv_param.has_color_kl_file())
-                    get_random_kl_shift(shift, 0.1);
-
-                // mean subtraction
-                shift[0] -= mean_values_[0];
-                shift[1] -= mean_values_[1];
-                shift[2] -= mean_values_[2];
-
-                int nChannel = img_float.channels();
-                for (int y = 0; y < img_float.rows; y++) {
-                    float *pImg = (float*)img_float.ptr(y);
-                    for (int x = 0; x < img_float.cols; x++) {
-                        pImg[nChannel*x] += shift[0];
-                        pImg[nChannel*x + 1] += shift[1];
-                        pImg[nChannel*x + 2] += shift[2];
-                    }
-                }
-            }
-            else
-            {
-                float shift = 0;
-                // mean subtraction
-                shift -= mean_values_[0];
-                for (int y = 0; y < img_float.rows; y++) {
-                    float *pImgStart = (float*)img_float.ptr(y);
-                    for (float* pImg = pImgStart; pImg<pImgStart+img_float.cols; pImg++) {
-                        *pImg += shift;
-                    }
-                }
-            }
-            // resize
-            cv::Mat cvImg;
-            int crop_size = this->layer_param().transform_param().crop_size();
-            cv::resize(img_float, cvImg, cv::Size(crop_size, crop_size));
-
-            // copy to output buffer
-            CVMatToBlobBuffer(cvImg, output_image_data);
-        }
-        // Default pixel_value_scale is 255 in caffe.proto. The following function will not change the pixel values by default.
-        // But if pixel_value_scale is set to 1 and the mean_values to (0,0,0), we will be able to set the pixel value range to [0,1].
-        int crop_size = this->layer_param().transform_param().crop_size();
-        caffe_cpu_scale(crop_size * crop_size * tsv_param.channels(), Dtype(255) / tsv_param.pixel_value_scale(), output_image_data, output_image_data);
+        cv::Mat img_origin = ReadImageToCVMat(input_b64coded_data, tsv_param.channels() > 1);
+        process_one_image(img_origin, tsv_param, output_image_data);
     }
-    else if (tsv_param.data_format() == TsvDataParameter_Base64DataFormat_RawData)
+    else if (tsv_param.data_format() == TsvDataParameter_DataFormat_Image) 
     {
+        vector<BYTE> data = base64_decode(input_b64coded_data);
+        cv::Mat img_origin;
+        if (tsv_param.crop_type() == TsvDataParameter_CropType_AlexStyle) {
+            img_origin = ReadImageStreamToCVMat(data, tsv_param.new_height(), tsv_param.new_width(), tsv_param.channels() > 1);
+        } else {
+            img_origin = ReadImageStreamToCVMat(data, -1, -1, tsv_param.channels() > 1);
+        }
+        process_one_image(img_origin, tsv_param, output_image_data);
+    }
+    else if (tsv_param.data_format() == TsvDataParameter_DataFormat_RawData)
+    {
+        vector<BYTE> data = base64_decode(input_b64coded_data);
         caffe_copy(tsv_param.new_height() * tsv_param.new_width() * tsv_param.channels(), (Dtype*)&data[0], output_image_data);
     }
 }
