@@ -29,7 +29,7 @@ class CPMDataTransformer {
    */
   void InitRand();
   
-  void Transform_nv2(const std::string &input_b64coded_data, const std::string &input_label_data, Dtype* transformed_data, Dtype* transformed_label);
+  void Transform_nv2(const std::string &input_b64coded_data, const std::string &input_label_data, Dtype* transformed_data, Dtype* transformed_label, bool is_image_path = false);
 
   struct AugmentSelection {
     bool flip;
