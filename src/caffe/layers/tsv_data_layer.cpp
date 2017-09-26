@@ -429,9 +429,14 @@ void TsvDataLayer<Dtype>::process_one_image(const cv::Mat &img_origin, const Tsv
 template <typename Dtype>
 void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, const TsvDataParameter &tsv_param, Dtype *output_image_data)
 {
-    if (tsv_param.data_format() == TsvDataParameter_DataFormat_ImagePath)         
+    if (tsv_param.data_format() == TsvDataParameter_DataFormat_ImagePath)
     {
-        cv::Mat img_origin = ReadImageToCVMat(input_b64coded_data, tsv_param.channels() > 1);
+        cv::Mat img_origin;
+        if (tsv_param.crop_type() == TsvDataParameter_CropType_AlexStyle) {
+            img_origin = ReadImageToCVMat(input_b64coded_data, tsv_param.new_height(), tsv_param.new_width(), tsv_param.channels() > 1);
+        } else {
+            img_origin = ReadImageToCVMat(input_b64coded_data, tsv_param.channels() > 1);
+        }
         process_one_image(img_origin, tsv_param, output_image_data);
     }
     else if (tsv_param.data_format() == TsvDataParameter_DataFormat_Image) 

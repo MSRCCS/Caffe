@@ -56,7 +56,7 @@ namespace caffe {
 	void TsvCPMDataLayer<Dtype>::process_one_image_and_label(const string &input_b64coded_data, const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_image_data, Dtype *output_label_data)
 	{
 		this->cpm_data_transformer_->Transform_nv2(input_b64coded_data, input_label_data,
-			output_image_data, output_label_data);
+			output_image_data, output_label_data, tsv_param.data_format() == TsvDataParameter_DataFormat_ImagePath);
 	}
 
 	INSTANTIATE_CLASS(TsvCPMDataLayer);

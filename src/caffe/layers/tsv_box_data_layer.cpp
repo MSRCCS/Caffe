@@ -184,9 +184,19 @@ image ipl_to_image(IplImage* src)
 // imbuf is image stream in memory
 image load_image_cv(vector<unsigned char>& imbuf, int channels)
 {
-    cv::Mat cv_img;
     int cv_read_flag = (channels == 3 ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_GRAYSCALE);
     cv::Mat src = cv::imdecode(cv::Mat(imbuf), cv_read_flag);
+
+    image out = cvmat_to_image(&src);
+    // Here we directly work in the BGR format, not as in https://github.com/pjreddie/darknet/blob/master/src/image.c#L526
+    // rgbgr_image(out);
+    return out;
+}
+
+// imbuf is image stream in memory
+image load_image_cv(const string &filename, int channels) 
+{
+    cv::Mat src = ReadImageToCVMat(filename, channels > 1);
 
     image out = cvmat_to_image(&src);
     // Here we directly work in the BGR format, not as in https://github.com/pjreddie/darknet/blob/master/src/image.c#L526
@@ -206,9 +216,26 @@ image load_image(vector<unsigned char>& imbuf, int w, int h, int c)
     return out;
 }
 
+image load_image(const string &filename, int w, int h, int c) 
+{
+    image out = load_image_cv(filename, c);
+
+    if ((h && w) && (h != out.h || w != out.w)) {
+        image resized = resize_image(out, w, h);
+        free_image(out);
+        out = resized;
+    }
+    return out;
+}
+
 image load_image_color(vector<unsigned char>& imbuf, int w, int h)
 {
     return load_image(imbuf, w, h, 3);
+}
+
+image load_image_color(const string &filename, int w, int h)
+{
+    return load_image(filename, w, h, 3);
 }
 
 void fill_image(image m, float s)
@@ -585,12 +612,17 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
                          map<string, int> labelmap,
                          int w, int h, int boxes, float jitter, float hue, float saturation, float exposure,
                          float mean_r, float mean_g, float mean_b,
-                         float pixel_value_scale)
+                         float pixel_value_scale,
+                         bool is_image_path)
 {
-    vector<BYTE> imbuf = base64_decode(input_b64coded_data);
-
+    image orig;
     // load image in BGR format with values ranging in [0,1]
-    image orig = load_image_color(imbuf, 0, 0);
+    if (is_image_path) {
+        orig = load_image_color(input_b64coded_data, 0, 0);
+    } else {
+        vector<BYTE> imbuf = base64_decode(input_b64coded_data);
+        orig = load_image_color(imbuf, 0, 0);
+    }
 
     image sized = make_image(w, h, orig.c);
     fill_image(sized, .5);
@@ -726,7 +758,8 @@ void TsvBoxDataLayer<Dtype>::process_one_image_and_label(const string &input_b64
     load_data_detection(input_b64coded_data, input_label_data, (float*)output_image_data, (float*)output_label_data,
         labelmap_,
         dim_, dim_, max_boxes, jitter, hue, saturation, exposure,
-        this->mean_values_[2], this->mean_values_[1], this->mean_values_[0], pixel_value_scale);
+        this->mean_values_[2], this->mean_values_[1], this->mean_values_[0], pixel_value_scale,
+        tsv_param.data_format() == TsvDataParameter_DataFormat_ImagePath);
 }
 
 INSTANTIATE_CLASS(TsvBoxDataLayer);
