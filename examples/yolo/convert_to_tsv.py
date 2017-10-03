@@ -24,10 +24,26 @@ else:
             if not exist_ok:
                 raise
 
+abs_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(abs_path)
+
+try:
+    from synsetizer import Synsetizer
+    _syn_cache = Synsetizer()
+except (ImportError, LookupError):
+    print("""Warning: NLTK Wordnet is needed for COCO dataset labels.
+    pip install nltk
+    nltk.download()  # 1. download wordnet from corpus
+                     # 2. download brown from corpus
+                     # 3. download averaged perceptron model
+    """)
+    Synsetizer = None
+    _syn_cache = None
+
 _valid_extensions = [".jpg", ".png"]
 _valid_phases = ["train", "test", "val"]
-_synset_label_pattern = re.compile(r'^(?P<LABEL>n\d{8,9})(?P<EXT>_\d+)?(_(?P<META>\w+))?')
-_coco_label_pattern = re.compile(r'^(?P<META>COCO_.*)_(?P<LABEL>\d{12,13})$')
+_synset_label_pattern = re.compile(r'^(?P<LABEL>n\d{8})(?P<EXT>_\d+)?(_(?P<META>\w+))?')
+_coco_label_pattern = re.compile(r'^(?P<META>COCO_.*)?(?P<LABEL>\d{12})$')
 
 
 def listarchive(path, is_root=True, extension_pattern='\.\w+', filter_func=None):
@@ -101,7 +117,7 @@ def listarchive(path, is_root=True, extension_pattern='\.\w+', filter_func=None)
 def guess_phase(path):
     """Guess the phase from path
     :param path: file or directory path to guess the phase name from
-    :rtype str
+    :rtype: str
     """
     for elem in reversed(path.replace("\\", "/").split("/")):
         if not elem:
@@ -116,7 +132,7 @@ def guess_phase(path):
 def guess_label(path):
     """Guess the label from path
     :param path: file path to guess the label from
-    :rtype (str, str, str)
+    :rtype: (Union[str,int], str, str)
     """
 
     for elem in reversed(path.replace("\\", "/").split("/")):
@@ -126,22 +142,21 @@ def guess_label(path):
         if match:
             label = match.group('LABEL')
             full_label = label + match.group('EXT') or ''
-            return label, full_label, match.group('META') or ''
+            return label, full_label, 'IN_' + (match.group('META') or '')
 
     elem, _ = os.path.splitext(os.path.basename(path))
     match = _coco_label_pattern.match(elem)
     if match:
         full_label = label = match.group('LABEL')
-        # TODO: Convert the label to synset equivalent
-        return label, full_label, match.group('META')
+        return int(label), full_label, 'COCO_' + (match.group('META') or '')
 
     # Use immediate directory as label
     parent = os.path.dirname(path)
-    label = os.path.basename(parent)
+    label = _syn_cache.synset_offset(os.path.basename(parent), os.path.basename(elem))
     return label, label, label
 
 
-def gather_images(root_path, imagedata, counts, phase=None, max_keep_per_label=np.inf):
+def gather_images(root_path, imagedata, counts, max_keep_per_label=np.inf):
     """Create image structure from images in root_path
     Example:
     /root_path/training/n04422727/blue_cheese.jpg
@@ -156,16 +171,16 @@ def gather_images(root_path, imagedata, counts, phase=None, max_keep_per_label=n
             # Ignore hidden files and directories
             continue
         s0 = os.path.join(root_path, s0)
-        if not phase:
-            phase = guess_phase(s0)
+        phase = guess_phase(s0)
         if os.path.isdir(s0):
-            gather_images(s0, imagedata, counts, phase, max_keep_per_label=max_keep_per_label)
+            gather_images(s0, imagedata, counts, max_keep_per_label=max_keep_per_label)
             continue
         _, file_extension = os.path.splitext(s0)
         if file_extension.lower() not in _valid_extensions:
             continue
 
         label, full_label, meta = guess_label(s0)
+
         if label not in counts:
             counts[label] = 1
         elif counts[label] >= max_keep_per_label:
@@ -209,13 +224,58 @@ def get_xml_rects(path, label):
     return rects
 
 
-def get_boxes(full_label, label, meta, annotations):
+def get_coco_bboxes(path):
+    """Parse bboxes from json in the path
+    """
+    with open(path) as f:
+        content = json.load(f)
+
+    annotations = content['annotations']
+    categories = {cat['id']: (cat['name'], cat['supercategory']) for cat in content['categories']}
+    del content
+
+    bboxes = {}
+    for ann in annotations:
+        image_id = int(ann['image_id'])
+        cat_id = int(ann['category_id'])
+        name, parent = categories[cat_id]
+        label = _syn_cache.synset_offset(name, parent)
+        bbox = ann['bbox']
+        bbox[2] += bbox[0]
+        bbox[3] += bbox[1]
+        if image_id not in bboxes:
+            bboxes[image_id] = [{'class': label, 'rect': bbox}]
+        else:
+            bboxes[image_id].append({'class': label, 'rect': bbox})
+
+    return bboxes
+
+
+def get_boxes(phase, full_label, label, meta, annotations, phase_cache):
     """Get the list of boxes for a label
     :rtype list
     """
-    if 'COCO' in meta:
-        # TODO: implement using nltk wordnet
-        return
+
+    if meta.startswith('COCO_'):
+        if not _syn_cache:
+            raise Exception("""Wordnet not found.
+            Install nltk and wordnet:
+            pip install nltk
+            nltk.download()  # 1. download wordnet from corpus
+                             # 2. download brown from corpus
+                             # 3. download averaged perceptron model
+            """)
+
+        for ann_path in annotations:
+            for path in listarchive(ann_path, extension_pattern='\.json'):
+                fname = os.path.basename(path)
+                if 'instances' in fname and phase in fname:
+                    if fname not in phase_cache:
+                        phase_cache[fname] = get_coco_bboxes(path)
+                    if label not in phase_cache[fname]:
+                        # COCO needs category id from the annotation file
+                        return []
+                    return phase_cache[fname][label]
 
     def voc_ann_filter(elem):
         if label in elem:
@@ -256,14 +316,22 @@ convert_to_tsv.py d:/data/imagenet/ -a d:/data/imagenet/Annotation.tar.gz'''))
     counts = {}
     gather_images(root_path, images, counts, max_keep_per_label=max_keep_per_label)
 
+    # noinspection PyTypeChecker
+    multi_phase = len(images.keys()) > 1
     for phase, vs in images.items():
+        if multi_phase:
+            print("Phase: {}".format(phase))
+        phase_cache = {}
         with open(os.path.join(root_path, phase + '.lineidx'), "w") as idx_file:
             with open(os.path.join(root_path, phase + '.tsv'), "w") as tsv_file:
                 for v in vs:
-                    idx_file.write("{}\n".format(tsv_file.tell()))
                     path, label, full_label, meta = v
                     relpath = os.path.relpath(path, root_path).replace("\\", "/")
-                    boxes = get_boxes(full_label, label, meta, args.annotation)
+                    boxes = get_boxes(phase, full_label, label, meta, args.annotation, phase_cache)
+                    if not boxes:
+                        print("No annotation for {}".format(path))
+                        continue
+                    idx_file.write("{}\n".format(tsv_file.tell()))
                     tsv_file.write("{}\t{}\t{}\n".format(full_label, json.dumps(boxes), relpath))
 
     return images, counts
