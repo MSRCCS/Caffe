@@ -43,7 +43,7 @@ namespace TsvTool
 
                     string line = sr.ReadLine();
                     if (line.Length == 0)
-                        break;
+                        Console.WriteLine("Warning! Empty line encountered! line#{0}", nLines + 1);
 
                     index.Add(currentLinePos);
                     nLines += 1;
