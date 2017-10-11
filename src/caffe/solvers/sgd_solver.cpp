@@ -226,6 +226,10 @@ void SGDSolver<Dtype>::ComputeUpdateValue(int param_id, Dtype rate) {
   const vector<Blob<Dtype>*>& net_params = this->net_->learnable_params();
   const vector<float>& net_params_lr = this->net_->params_lr();
   Dtype momentum = this->param_.momentum();
+  if (this->param_.momentum_correction() && history_rate_ > 0 && rate != history_rate_) {   //momentum correction 
+      momentum *= rate / history_rate_;
+  }
+  history_rate_ = rate;
   Dtype local_rate = rate * net_params_lr[param_id];
   // Compute the update to history, then copy it to the parameter diff.
   switch (Caffe::mode()) {
