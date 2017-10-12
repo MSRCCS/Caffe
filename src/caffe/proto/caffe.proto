@@ -429,6 +429,8 @@ message LayerParameter {
   optional RegionOutputParameter region_output_param = 0x0052474F; // "RGO"
   optional ReorgParameter reorg_param = 0x0052454F; // "REO"
   optional CPMTransformationParameter cpm_transform_param = 0x0043504D; // "CPM"
+  optional RegionTargetParameter region_target_param = 0x00524554; // "RET"
+  optional RegionPredictionParameter region_prediction_param = 0x00524550; // "REP"
 }
 
 // Message that stores parameters used to apply transformation
@@ -1464,6 +1466,25 @@ message RegionOutputParameter {
     optional string map = 8;
     optional bool class_specific_nms = 9 [default = true];
     optional uint32 coords = 10 [default = 4];
+}
+
+message RegionPredictionParameter {
+	// specify the threshold for removing low confidence detections. The confidence score is defined as objectness * class_probability
+	optional float thresh = 1 [default = 0.24];
+	// specify the nms threshold. If the threshold <= 0, nms will not be skipped.
+	optional float nms = 2 [default = 0.45];
+	optional uint32 classes = 3 [default = 20];  // 20 is for voc20
+	repeated float biases = 4;
+	optional uint32 feat_stride = 5 [default = 32]; // the feature stride for all the previous layers
+    optional bool class_specific_nms = 6 [default = true];
+}
+
+message RegionTargetParameter {
+	optional float coord_scale = 1 [default = 1.0];
+	optional bool rescore = 2 [default = true];
+	optional float thresh = 3 [default = 0.6];
+	repeated float biases = 4;
+    optional uint32 anchor_aligned_images = 5 [default = 12800];
 }
 
 message ReorgParameter {

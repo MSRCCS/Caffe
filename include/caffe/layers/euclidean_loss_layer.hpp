@@ -45,6 +45,9 @@ class EuclideanLossLayer : public LossLayer<Dtype> {
   virtual void Reshape(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top);
 
+  // if it is 3, the last one is the weight. 
+  virtual inline int ExactNumBottomBlobs() const { return -1; }
+
   virtual inline const char* type() const { return "EuclideanLoss"; }
   /**
    * Unlike most loss layers, in the EuclideanLossLayer we can backpropagate
@@ -100,6 +103,8 @@ class EuclideanLossLayer : public LossLayer<Dtype> {
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
   Blob<Dtype> diff_;
+  // the squired value
+  Blob<Dtype> diff2_;
 };
 
 }  // namespace caffe
