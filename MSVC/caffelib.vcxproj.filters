@@ -199,6 +199,12 @@
     <CudaCompile Include="..\src\caffe\layers\reorg_layer.cu">
       <Filter>Source Files\layers</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\region_prediction_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\region_target_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\caffe\blob.cpp">
@@ -569,6 +575,12 @@
     </ClCompile>
     <ClCompile Include="..\src\caffe\cpm_data_transformer.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\region_prediction_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\region_target_layer.cpp">
+      <Filter>Source Files\layers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -945,6 +957,15 @@
       <Filter>Head Files\layers</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\cpm_data_transformer.hpp">
+      <Filter>Head Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\region_prediction_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\region_target_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\region_common.hpp">
       <Filter>Head Files</Filter>
     </ClInclude>
   </ItemGroup>

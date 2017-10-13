@@ -87,6 +87,8 @@ namespace caffe {
   FUNC(Reduction); \
   FUNC(RegionLoss); \
   FUNC(RegionOutput); \
+  FUNC(RegionPrediction); \
+  FUNC(RegionTarget); \
   FUNC(ReLU); \
   FUNC(Reorg); \
   FUNC(Reshape); \
