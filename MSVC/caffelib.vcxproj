@@ -67,7 +67,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level1</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;USE_CUDNN;USE_NCCL;USE_OPENCV;USE_LEVELDB;USE_LMDB;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WITH_PYTHON_LAYER;BOOST_ALL_NO_LIB;BOOST_NO_CXX11_TEMPLATE_ALIASES;USE_CUDNN;USE_NCCL;USE_OPENCV;USE_LEVELDB;USE_LMDB;DEBUG;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>..\include;..\src;..\libraries\include;..\libraries\include\boost-1_61;..\libraries\include\openblas;..\libraries\include\hdf5;..\libraries\include\opencv;$(PYTHON_ROOT)\include;..\cudnn\cuda\include;..\nccl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>-D_SCL_SECURE_NO_WARNINGS   /FS %(AdditionalOptions)</AdditionalOptions>
