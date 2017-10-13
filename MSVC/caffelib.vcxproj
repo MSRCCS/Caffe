@@ -213,6 +213,7 @@
     <ClCompile Include="..\src\caffe\layers\smooth_L1_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\softmax_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\softmax_loss_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\softmaxtree_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\split_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\spp_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\tanh_layer.cpp" />
@@ -309,6 +310,7 @@
     <CudaCompile Include="..\src\caffe\layers\smooth_L1_loss_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\softmax_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\softmax_loss_layer.cu" />
+    <CudaCompile Include="..\src\caffe\layers\softmaxtree_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\split_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\tanh_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\threshold_layer.cu" />
@@ -410,6 +412,7 @@
     <ClInclude Include="..\include\caffe\layers\smooth_L1_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\softmax_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\softmax_loss_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\softmaxtree_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\split_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\spp_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\tanh_layer.hpp" />

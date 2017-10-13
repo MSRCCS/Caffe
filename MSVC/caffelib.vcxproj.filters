@@ -205,6 +205,9 @@
     <CudaCompile Include="..\src\caffe\layers\region_target_layer.cu">
       <Filter>Source Files\layers</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\softmaxtree_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\caffe\blob.cpp">
@@ -580,6 +583,9 @@
       <Filter>Source Files\layers</Filter>
     </ClCompile>
     <ClCompile Include="..\src\caffe\layers\region_target_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\softmaxtree_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
   </ItemGroup>
@@ -967,6 +973,9 @@
     </ClInclude>
     <ClInclude Include="..\include\caffe\region_common.hpp">
       <Filter>Head Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\softmaxtree_layer.hpp">
+      <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

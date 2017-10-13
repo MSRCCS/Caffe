@@ -104,6 +104,7 @@ namespace caffe {
   FUNC(SmoothL1Loss); \
   FUNC(Softmax); \
   FUNC(SoftmaxWithLoss); \
+  FUNC(SoftmaxTree); \
   FUNC(Split); \
   FUNC(SPP); \
   FUNC(TanH); \
