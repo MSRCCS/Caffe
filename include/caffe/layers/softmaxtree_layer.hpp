@@ -9,32 +9,43 @@
 
 namespace caffe {
 
-struct Tree {
-    int *leaf;
-    int n; // Total number of nodes in the tree
-    int *parent;
-    int *child;
-    int *group;
-    char **name;
+class Tree {
+private:
+    int* leaf_;
+    int n_; // Total number of nodes in the tree
+    int* parent_;
+    int* child_;
+    int* group_;
+    char** name_;
 
-    int groups;
-    int* group_size_cpu_ptr;
-    int* group_offset_cpu_ptr;
-    shared_ptr<SyncedMemory> group_size;
-    shared_ptr<SyncedMemory> group_offset;
+    int groups_; // Number of groups in the tree
+    int* group_size_cpu_ptr_;
+    int* group_offset_cpu_ptr_;
 
 public:
-    Tree() : leaf(NULL), parent(NULL), child(NULL),
-        group(NULL), name(NULL), groups(0),
-        group_size_cpu_ptr(NULL), group_offset_cpu_ptr(NULL),
-        group_size(), group_offset() {
+    Tree() : leaf_(NULL), parent_(NULL), child_(NULL),
+        group_(NULL), name_(NULL), groups_(0),
+        group_size_cpu_ptr_(NULL), group_offset_cpu_ptr_(NULL),
+        group_size_(), group_offset_() {
     }
+    void read(const char *filename);
+    int groups() {
+        return groups_;
+    }
+    int nodes() {
+        return n_;
+    }
+    Blob<int> group_size_;
+    Blob<int> group_offset_;
 };
 
 /**
- * @brief Computes the softmax_tree function.
+ * @brief Computes the softmax function for a taxonomy tree of classes.
  *
- * TODO(dox): thorough documentation for Forward, Backward, and proto params.
+ * This is a generalization of softmax (softmax is a tree with only a single group, all roots)
+ * IOW softmaxtree can be interpreted as a softmax function that can operate on a dense matrix of sparse groups of channels 
+ * (i.e. softmax_axis_ is the flattened sparse matrix).
+ * Forward and backward are computed similar to softmax, but per-group of siblings
  */
 template <typename Dtype>
 class SoftmaxTreeLayer : public Layer<Dtype> {

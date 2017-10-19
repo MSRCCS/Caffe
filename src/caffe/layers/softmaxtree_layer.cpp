@@ -36,8 +36,11 @@ char *fgetl(FILE *fp) {
     return line;
 }
 
-caffe::Tree read_tree(const char *filename) {
-    caffe::Tree t;
+}
+
+namespace caffe {
+
+void Tree::read(const char *filename) {
     FILE *fp = fopen(filename, "r");
     CHECK(fp) << "Cannot open the tree file: " << filename;
 
@@ -50,27 +53,27 @@ caffe::Tree read_tree(const char *filename) {
         char *id = (char *)calloc(256, sizeof(char));
         int parent = -1;
         sscanf(line, "%s %d", id, &parent);
-        t.parent = (int *)realloc(t.parent, (n + 1) * sizeof(int));
-        t.parent[n] = parent;
+        parent_ = (int *)realloc(parent_, (n + 1) * sizeof(int));
+        parent_[n] = parent;
 
-        t.child = (int *)realloc(t.child, (n + 1) * sizeof(int));
-        t.child[n] = -1;
+        child_ = (int *)realloc(child_, (n + 1) * sizeof(int));
+        child_[n] = -1;
 
-        t.name = (char **)realloc(t.name, (n + 1) * sizeof(char *));
-        t.name[n] = id;
+        name_ = (char **)realloc(name_, (n + 1) * sizeof(char *));
+        name_[n] = id;
         if (parent != last_parent) {
             ++groups;
-            t.group_offset_cpu_ptr = (int *)realloc(t.group_offset_cpu_ptr, groups * sizeof(int));
-            t.group_offset_cpu_ptr[groups - 1] = n - group_size;
-            t.group_size_cpu_ptr = (int *)realloc(t.group_size_cpu_ptr, groups * sizeof(int));
-            t.group_size_cpu_ptr[groups - 1] = group_size;
+            group_offset_cpu_ptr_ = (int *)realloc(group_offset_cpu_ptr_, groups * sizeof(int));
+            group_offset_cpu_ptr_[groups - 1] = n - group_size;
+            group_size_cpu_ptr_ = (int *)realloc(group_size_cpu_ptr_, groups * sizeof(int));
+            group_size_cpu_ptr_[groups - 1] = group_size;
             group_size = 0;
             last_parent = parent;
         }
-        t.group = (int *)realloc(t.group, (n + 1) * sizeof(int));
-        t.group[n] = groups;
+        group_ = (int *)realloc(group_, (n + 1) * sizeof(int));
+        group_[n] = groups;
         if (parent >= 0) {
-            t.child[parent] = groups;
+            child_[parent] = groups;
         }
         ++n;
         ++group_size;
@@ -78,43 +81,41 @@ caffe::Tree read_tree(const char *filename) {
     fclose(fp);
 
     ++groups;
-    t.group_offset_cpu_ptr = (int *)realloc(t.group_offset_cpu_ptr, groups * sizeof(int));
-    t.group_offset_cpu_ptr[groups - 1] = n - group_size;
-    t.group_size_cpu_ptr = (int *)realloc(t.group_size_cpu_ptr, groups * sizeof(int));
-    t.group_size_cpu_ptr[groups - 1] = group_size;
+    group_offset_cpu_ptr_ = (int *)realloc(group_offset_cpu_ptr_, groups * sizeof(int));
+    group_offset_cpu_ptr_[groups - 1] = n - group_size;
+    group_size_cpu_ptr_ = (int *)realloc(group_size_cpu_ptr_, groups * sizeof(int));
+    group_size_cpu_ptr_[groups - 1] = group_size;
 
-    t.n = n;
-    t.groups = groups;
-    t.leaf = (int *)calloc(n, sizeof(int));
+    n_ = n;
+    groups_ = groups;
+    leaf_ = (int *)calloc(n, sizeof(int));
     int i;
-    for (i = 0; i < n; ++i) 
-        t.leaf[i] = 1;
-    for (i = 0; i < n; ++i) 
-        if (t.parent[i] >= 0) 
-            t.leaf[t.parent[i]] = 0;
+    for (i = 0; i < n; ++i)
+        leaf_[i] = 1;
+    for (i = 0; i < n; ++i)
+        if (parent_[i] >= 0)
+            leaf_[parent_[i]] = 0;
 
-    t.group_offset.reset(new caffe::SyncedMemory(groups * sizeof(int)));
-    t.group_offset->set_cpu_data(t.group_offset_cpu_ptr);
-    t.group_size.reset(new caffe::SyncedMemory(groups * sizeof(int)));
-    t.group_size->set_cpu_data(t.group_size_cpu_ptr);
-
-    return t;
+    std::vector<int> shape{ groups };
+    group_offset_.Reshape(shape);
+    group_offset_.set_cpu_data(group_offset_cpu_ptr_);
+    group_size_.Reshape(shape);
+    group_size_.set_cpu_data(group_size_cpu_ptr_);
 }
-
-}
-
-namespace caffe {
 
 template <typename Dtype>
 void SoftmaxTreeLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
     Layer<Dtype>::LayerSetUp(bottom, top);
     const SoftmaxTreeParameter &softmaxtree_param = this->layer_param().softmaxtree_param();
-    softmax_tree_ = read_tree(softmaxtree_param.tree().c_str());
+    softmax_tree_.read(softmaxtree_param.tree().c_str());
+    if (softmax_tree_.groups() == 1)
+        LOG(WARNING) << "With only a single group in the tree, it is more efficient to use SoftmaxLayer instead of SoftmaxTreeLayer";
+
 #ifndef CPU_ONLY
     // Pre-fetch data
     if (Caffe::mode() == Caffe::GPU) {
-        softmax_tree_.group_size->mutable_gpu_data();
-        softmax_tree_.group_offset->mutable_gpu_data();
+        softmax_tree_.group_size_.mutable_gpu_data();
+        softmax_tree_.group_offset_.mutable_gpu_data();
     }
 #endif
 }
@@ -128,7 +129,7 @@ void SoftmaxTreeLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   int channels = bottom[0]->shape(softmax_axis_);
 
   // This may requires a reshape layer to reshape to CxA before softmaxtree
-  CHECK(channels == softmax_tree_.n) << "Channel count: " << channels << " must match tree node count: " << softmax_tree_.n;
+  CHECK(channels == softmax_tree_.nodes()) << "Channel count: " << channels << " must match tree node count: " << softmax_tree_.nodes();
 
   top[0]->ReshapeLike(*bottom[0]);
   outer_num_ = bottom[0]->count(0, softmax_axis_);
@@ -143,27 +144,27 @@ void SoftmaxTreeLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void SoftmaxTreeLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
-  const Dtype* bottom_data = bottom[0]->cpu_data();
   Dtype* top_data = top[0]->mutable_cpu_data();
-  auto group_offset_data = (const int*)softmax_tree_.group_offset->cpu_data();
-  auto group_size_data = (const int*)softmax_tree_.group_size->cpu_data();
+  auto group_offset_data = softmax_tree_.group_offset_.cpu_data();
+  auto group_size_data = softmax_tree_.group_size_.cpu_data();
+  auto groups = softmax_tree_.groups();
   int channels = bottom[0]->shape(softmax_axis_);
   int dim = bottom[0]->count() / outer_num_; // == channels * inner_num_
-  caffe_copy(bottom[0]->count(), bottom_data, top_data);
+  caffe_copy(bottom[0]->count(), bottom[0]->cpu_data(), top_data);
 
   // We need to subtract the per-group max to avoid numerical issues, compute the exp,
   // and then normalize per-group.
   for (int i = 0; i < outer_num_; ++i) {
 
 #pragma omp parallel for
-    for (int g = 0; g < softmax_tree_.groups; ++g) {
+    for (int g = 0; g < groups; ++g) {
         auto offset = group_offset_data[g];
         auto size = group_size_data[g];
         for (int k = 0; k < inner_num_; ++k) {
             Dtype maxval = -FLT_MAX;
             for (int j = 0; j < size; ++j) {
-                if (bottom_data[(offset + j) * inner_num_ + k] > maxval)
-                    maxval = bottom_data[(offset + j) * inner_num_ + k];
+                if (top_data[(offset + j) * inner_num_ + k] > maxval)
+                    maxval = top_data[(offset + j) * inner_num_ + k];
             }
             // Subtract the max
             for (int j = 0; j < size; ++j)
@@ -176,7 +177,7 @@ void SoftmaxTreeLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 
     // per-group sum after exp, and divide
 #pragma omp parallel for
-    for (int g = 0; g < softmax_tree_.groups; ++g) {
+    for (int g = 0; g < groups; ++g) {
         auto offset = group_offset_data[g];
         auto size = group_size_data[g];
         for (int k = 0; k < inner_num_; ++k) {
@@ -188,7 +189,6 @@ void SoftmaxTreeLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     }
 
     top_data += dim;
-    bottom_data += dim;
   }
 }
 
@@ -199,19 +199,17 @@ void SoftmaxTreeLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   const Dtype* top_diff = top[0]->cpu_diff();
   const Dtype* top_data = top[0]->cpu_data();
   Dtype* bottom_diff = bottom[0]->mutable_cpu_diff();
-  auto group_offset_data = (const int*)softmax_tree_.group_offset->cpu_data();
-  auto group_size_data = (const int*)softmax_tree_.group_size->cpu_data();
+  auto group_offset_data = softmax_tree_.group_offset_.cpu_data();
+  auto group_size_data = softmax_tree_.group_size_.cpu_data();
+  auto groups = softmax_tree_.groups();
   int channels = top[0]->shape(softmax_axis_);
   int dim = top[0]->count() / outer_num_; // == channels * inner_num_
   caffe_copy(top[0]->count(), top_diff, bottom_diff);
 
-  // darknet only does this only:
-  //caffe_axpy(bottom[0]->count(), Dtype(1.), top_diff, bottom_diff);
-
   for (int i = 0; i < outer_num_; ++i) {
     // compute per-group dot(top_diff, top_data) and subtract them from the bottom diff
 #pragma omp parallel for
-      for (int g = 0; g < softmax_tree_.groups; ++g) {
+      for (int g = 0; g < groups; ++g) {
           auto offset = group_offset_data[g];
           auto size = group_size_data[g];
           for (int k = 0; k < inner_num_; ++k) {
