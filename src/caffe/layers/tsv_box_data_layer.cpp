@@ -613,6 +613,7 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
                          int w, int h, int boxes, float jitter, float hue, float saturation, float exposure,
                          float mean_r, float mean_g, float mean_b,
                          float pixel_value_scale,
+                         const BoxDataParameter &box_param,
                          bool is_image_path)
 {
     image orig;
@@ -631,7 +632,9 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
     float dh = jitter * orig.h;
 
     float new_ar = (orig.w + rand_uniform(-dw, dw)) / (orig.h + rand_uniform(-dh, dh));
-    float scale = rand_uniform(.25, 2);
+    float random_scale_min = box_param.random_scale_min();
+    float random_scale_max = box_param.random_scale_max();
+    float scale = rand_uniform(random_scale_min, random_scale_max);
 
     float nw, nh;
 
@@ -644,14 +647,21 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
         nh = nw / new_ar;
     }
 
-    float dx = rand_uniform(0, w - nw);
-    float dy = rand_uniform(0, h - nh);
+    float dx;
+    float dy;
+    if (box_param.fix_offset()) {
+        dx = (w - nw) / 2;
+        dy = (h - nh) / 2;
+    } else {
+        dx = rand_uniform(0, w - nw);
+        dy = rand_uniform(0, h - nh);
+    }
 
     place_image(orig, nw, nh, dx, dy, sized);
 
     random_distort_image(sized, hue, saturation, exposure);
     int flip = random_helper::uniform_int(0, 1);
-    if (flip) flip_image(sized);
+    if (flip && !box_param.fix_offset()) flip_image(sized);
 
     // scale values back to [0,255]
     scale_image(sized, pixel_value_scale);
@@ -759,6 +769,7 @@ void TsvBoxDataLayer<Dtype>::process_one_image_and_label(const string &input_b64
         labelmap_,
         dim_, dim_, max_boxes, jitter, hue, saturation, exposure,
         this->mean_values_[2], this->mean_values_[1], this->mean_values_[0], pixel_value_scale,
+        box_param, 
         tsv_param.data_format() == TsvDataParameter_DataFormat_ImagePath);
 }
 

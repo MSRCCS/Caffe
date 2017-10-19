@@ -1432,6 +1432,9 @@ message BoxDataParameter {
     optional uint32 random_min = 8 [default = 320];
     optional uint32 random_max = 9 [default = 608];
     optional uint32 random_step = 10 [default = 32];
+    optional float random_scale_min = 11 [default = 0.25];
+    optional float random_scale_max = 12 [default = 2];
+    optional bool fix_offset = 13 [default = false];
 }
 
 message RegionLossParameter {
