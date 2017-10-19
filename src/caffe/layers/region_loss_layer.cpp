@@ -102,13 +102,13 @@ float mag_array(float *a, int n)
     return sqrt(sum);
 }
 
-box float_to_box(const float *f, int stride)
+box float_to_box(const float *f)
 {
     box b;
     b.x = f[0];
-    b.y = f[1 * stride];
-    b.w = f[2 * stride];
-    b.h = f[3 * stride];
+    b.y = f[1];
+    b.w = f[2];
+    b.h = f[3];
     return b;
 }
 
@@ -622,6 +622,7 @@ void RegionLossLayer<Dtype>::prepare_net_layer(network &net, layer &l, const vec
     l.loss_weight = top[0]->cpu_diff()[0];
 
     l.truths = bottom[1]->shape(1);
+    l.boxes = l.truths / (l.coords + 1);
 
     l.batch = bottom[0]->shape(0);
     l.w = bottom[0]->shape(3);
@@ -731,37 +732,41 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
     *(l.cost) = 0;
     if (l.softmax_tree) {
         for (int b = 0; b < l.batch; ++b) {
-                int onlyclass = 0;
-                for (int t = 0; t < 30; ++t) {
-                    box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
-                    if (!truth.x) break;
-                    int cls = net.truth[t * 5 + b*l.truths + 4];
+            for (int t = 0; t < l.boxes; ++t) {
+                box truth = float_to_box(net.truth + t * (l.coords + 1) + b*l.truths);
+                if (!truth.x) 
+                    break;
+                if (is_global_label_without_box(truth)) {
+                    assert(t == 0);
+
+                    int cls = net.truth[t * (l.coords + 1) + b*l.truths + l.coords];
                     float maxp = 0;
                     int maxi = 0;
-                    if (truth.x > 100000 && truth.y > 100000) {
-                        //#pragma omp parallel for reduction(max:maxp)
-                        for (int n = 0; n < l.n*l.w*l.h; ++n) {
-                            int class_index = entry_index(l, b, n, l.coords + 1);
-                            int obj_index = entry_index(l, b, n, l.coords);
-                            float scale = l.output[obj_index];
-                            l.delta[obj_index] = l.noobject_scale * (0 - l.output[obj_index]);
-                            float p = scale*get_hierarchy_probability(l.output + class_index, l.softmax_tree, cls, l.w*l.h);
-                            if (p > maxp) {
-                                maxp = p;
-                                maxi = n;
-                            }
+                    //#pragma omp parallel for reduction(max:maxp)
+                    for (int n = 0; n < l.n*l.w*l.h; ++n) {
+                        int class_index = entry_index(l, b, n, l.coords + 1);
+                        int obj_index = entry_index(l, b, n, l.coords);
+                        float scale = l.output[obj_index];
+                        l.delta[obj_index] = l.noobject_scale * (0 - l.output[obj_index]);
+                        float p = scale*get_hierarchy_probability(l.output + class_index, l.softmax_tree, cls, l.w*l.h);
+                        if (p > maxp) {
+                            maxp = p;
+                            maxi = n;
                         }
-                        int class_index = entry_index(l, b, maxi, l.coords + 1);
-                        int obj_index = entry_index(l, b, maxi, l.coords);
-                        delta_region_class(l.output, l.delta, class_index, cls, l.classes, l.softmax_tree, l.class_scale, l.w*l.h, &avg_cat);
-                        if (l.output[obj_index] < .3) l.delta[obj_index] = l.object_scale * (.3 - l.output[obj_index]);
-                        else  l.delta[obj_index] = 0;
-                        ++class_count;
-                        onlyclass = 1;
-                        break;
                     }
+                    int class_index = entry_index(l, b, maxi, l.coords + 1);
+                    int obj_index = entry_index(l, b, maxi, l.coords);
+                    delta_region_class(l.output, l.delta, class_index, cls, l.classes, l.softmax_tree, l.class_scale, l.w*l.h, &avg_cat);
+                    if (l.output[obj_index] < .3) 
+                        l.delta[obj_index] = l.object_scale * (.3 - l.output[obj_index]);
+                    else  
+                        l.delta[obj_index] = 0;
+                    ++class_count;
+
+                    // The entire of this batch is class-only
+                    break;
                 }
-                if (onlyclass) continue;
+            }
         }
     }
 #pragma omp parallel for reduction(+:avg_anyobj)
@@ -776,16 +781,17 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
         box pred = get_region_box(l.output, l.biases, n, box_index, i, j, l.w, l.h, l.w*l.h);
         float best_iou = 0;
         int best_cls = 0;
-        for (int t = 0; t < 30; ++t) {
-            box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
+        for (int t = 0; t < l.boxes; ++t) {
+            box truth = float_to_box(net.truth + t * (l.coords + 1) + b*l.truths);
             if (is_global_label_without_box(truth)) {
                 continue; // this is a class label without bbox
             }
-            if (!truth.x) break;
+            if (!truth.x) 
+                break;
             float iou = box_iou(pred, truth);
             if (iou > best_iou) {
                 best_iou = iou;
-                best_cls = (int)(*(net.truth + t * 5 + b * l.truths));
+                best_cls = (int)(*(net.truth + t * (l.coords + 1) + b * l.truths));
             }
         }
         int obj_index = entry_index(l, b, n*l.w*l.h + j*l.w + i, l.coords);
@@ -814,11 +820,12 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
         }
     }
     for (int b = 0; b < l.batch; ++b) {
-        for (int t = 0; t < 30; ++t) {
-            const box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
-            int cls = net.truth[t * 5 + b*l.truths + 4];
+        for (int t = 0; t < l.boxes; ++t) {
+            const box truth = float_to_box(net.truth + t * (l.coords + 1) + b*l.truths);
+            int cls = net.truth[t * (l.coords + 1) + b*l.truths + l.coords];
             int best_n = 0;
-            if (!truth.x) break;
+            if (!truth.x) 
+                break;
 
             float iou; // this is the target iou
             bool is_global_label = is_global_label_without_box(truth);
@@ -838,7 +845,7 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
                 avg_iou += iou;
             }
 
-            //l.delta[best_index + 4] = iou - l.output[best_index + 4];
+            //l.delta[best_index + l.coords] = iou - l.output[best_index + l.coords];
             int obj_index = entry_index(l, b, best_n*l.w*l.h + j*l.w + i, l.coords);
             avg_obj += l.output[obj_index];
             if (!is_global_label) {
