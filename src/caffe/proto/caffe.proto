@@ -1436,6 +1436,7 @@ message BoxDataParameter {
     optional float random_scale_min = 11 [default = 0.25];
     optional float random_scale_max = 12 [default = 2];
     optional bool fix_offset = 13 [default = false];
+    optional float rotate_max = 14 [default = 0.];
 }
 
 message RegionLossParameter {
