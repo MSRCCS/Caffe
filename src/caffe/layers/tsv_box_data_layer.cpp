@@ -660,8 +660,8 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
     place_image(orig, nw, nh, dx, dy, sized);
 
     random_distort_image(sized, hue, saturation, exposure);
-    int flip = random_helper::uniform_int(0, 1);
-    if (flip && !box_param.fix_offset()) flip_image(sized);
+    int flip = random_helper::uniform_int(0, 1) && !box_param.fix_offset();
+    if (flip) flip_image(sized);
 
     // scale values back to [0,255]
     scale_image(sized, pixel_value_scale);
