@@ -39,7 +39,7 @@ TYPED_TEST(RegionPredictionLayerTest, SameWithRegionOutput) {
   int classes = 20;
   float nms = 0.45;
   float thresh = 0.005;
-  std::vector<float> biases = {0.77871, 1.14074, 3.00525, 4.31277, 9.22725, 9.61974};
+  std::vector<float> biases = {0.77871f, 1.14074f, 3.00525f, 4.31277f, 9.22725f, 9.61974f};
 
   // reshape
   blob_xy.Reshape(num, num_anchor * 2, height, width);

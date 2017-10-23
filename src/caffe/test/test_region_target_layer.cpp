@@ -65,8 +65,8 @@ TYPED_TEST(RegionTargetLayerTest, IdenticalWithRegionLoss) {
   int num_gt = 30;
   float gt_label = 2;
   int classes = 20;
-  vector<float> biases = {0.77871, 1.14074, 3.00525, 4.31277,
-                            9.22725, 9.61974};
+  vector<float> biases = {0.77871f, 1.14074f, 3.00525f, 4.31277f,
+                          9.22725f, 9.61974f};
 
   int num_anchor = biases.size() / 2;
 
@@ -370,8 +370,8 @@ TYPED_TEST(RegionTargetLayerTest, OneGT) {
   float gt_y = 0.1;
   int gt_aligned_biases = 1;
   float gt_label = 2;
-  vector<float> biases = {0.77871, 1.14074, 3.00525, 4.31277,
-                            9.22725, 9.61974};
+  vector<float> biases = {0.77871f, 1.14074f, 3.00525f, 4.31277f,
+                          9.22725f, 9.61974f};
   float gt_w = biases[gt_aligned_biases * 2] / width;
   float gt_h = biases[gt_aligned_biases * 2 + 1] / height;
 
@@ -463,8 +463,8 @@ TYPED_TEST(RegionTargetLayerTest, NoGroundTruthNoAlign) {
     int width = 13;
     int height = 13;
     int num_gt = 15;
-    vector<float> biases = {0.77871, 1.14074, 3.00525, 4.31277,
-        9.22725, 9.61974};
+    vector<float> biases = {0.77871f, 1.14074f, 3.00525f, 4.31277f,
+        9.22725f, 9.61974f};
 
     int num_anchor = biases.size() / 2;
 
@@ -525,8 +525,8 @@ TYPED_TEST(RegionTargetLayerTest, NoGroundTruth) {
     int width = 13;
     int height = 13;
     int num_gt = 15;
-    vector<float> biases = {0.77871, 1.14074, 3.00525, 4.31277,
-        9.22725, 9.61974};
+    vector<float> biases = {0.77871f, 1.14074f, 3.00525f, 4.31277f,
+        9.22725f, 9.61974f};
 
     int num_anchor = biases.size() / 2;
 
