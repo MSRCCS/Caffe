@@ -432,6 +432,7 @@ message LayerParameter {
   optional RegionTargetParameter region_target_param = 0x00524554; // "RET"
   optional RegionPredictionParameter region_prediction_param = 0x00524550; // "REP"
   optional SoftmaxTreeParameter softmaxtree_param = 0x00534D54; // "SMT"
+  optional SoftmaxTreeLossParameter softmaxtree_loss_param = 0x0053544C; // "STL"
 }
 
 // Message that stores parameters used to apply transformation
@@ -1508,6 +1509,11 @@ message SoftmaxTreeParameter {
 
   // Path to the tree file
   required string tree = 12;
+}
+
+message SoftmaxTreeLossParameter {
+  // If the objectness predictions provided by bottom layer
+  optional bool with_objectness = 1 [default = false];
 }
 
 message ReorgParameter {
