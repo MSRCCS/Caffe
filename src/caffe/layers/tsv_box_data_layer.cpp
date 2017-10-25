@@ -259,16 +259,75 @@ float bilinear_interpolate(image im, float x, float y, int c)
     return val;
 }
 
-void place_image(image im, int w, int h, int dx, int dy, image canvas)
+void original_image_to_network_input(float x3, float y3, 
+        float cos_rad, float sin_rad,
+        int orig_img_w, int orig_img_h, 
+        int nw, int nh, 
+        int network_w, int network_h,
+        float dx, float dy,
+        float &rotate_x3, float &rotate_y3) {
+    float offset_x3 = x3 * nw / orig_img_w - 0.5 * nw;
+    float offset_y3 = y3 * nh / orig_img_h - 0.5 * nh; 
+    rotate_x3 = cos_rad * offset_x3 - sin_rad * offset_y3;
+    rotate_y3 = sin_rad * offset_x3 + cos_rad * offset_y3;
+    rotate_x3 += (float)nw / 2. + dx;
+    rotate_y3 += (float)nh / 2. + dy;
+}
+
+void network_input_to_original_image(float in_x, float in_y,
+        float cos_rad, float sin_rad,
+        int orig_img_w, int orig_img_h,
+        int nw, int nh,
+        int network_w, int network_h,
+        float dx, float dy,
+        float &out_x, float &out_y) {
+    float rx = in_x - 0.5 * nw - dx;
+    float ry = in_y - 0.5 * nh - dy;
+    out_x = cos_rad * rx + sin_rad * ry; 
+    out_y = -sin_rad * rx + cos_rad * ry;
+    out_x *= orig_img_w / (float)nw;
+    out_y *= orig_img_h / (float)nh;
+    out_x += orig_img_w * .5;
+    out_y += orig_img_h * .5;
+}
+
+void place_image(image im, int w, int h, int dx, int dy, image canvas, float rad)
 {
-    int x, y, c;
-    for (c = 0; c < im.c; ++c) {
-        for (y = 0; y < h; ++y) {
-            for (x = 0; x < w; ++x) {
-                int rx = ((float)x / w) * im.w;
-                int ry = ((float)y / h) * im.h;
-                float val = bilinear_interpolate(im, rx, ry, c);
-                set_pixel(canvas, x + dx, y + dy, c, val);
+    if (rad) {
+        const float fill_value = 0.5;
+        float cos_rad = cos(rad);
+        float sin_rad = sin(rad);
+        for (int c = 0; c < im.c; c++) {
+            for (int y1 = 0; y1 < canvas.h; y1++) {
+                for (int x1 = 0; x1 < canvas.w; x1++) {
+                    float m_x, m_y;
+                    network_input_to_original_image((float)x1, (float)y1,
+                            cos_rad, sin_rad,
+                            im.w, im.h,
+                            w, h,
+                            canvas.w, canvas.h,
+                            dx, dy,
+                            m_x, m_y);
+                    float val;
+                    if (m_x < 0 || m_x >= im.w - 1 || m_y < 0 || m_y >= im.h - 1) {
+                        val = fill_value;
+                    } else {
+                        val = bilinear_interpolate(im, m_x, m_y, c);
+                    }
+                    set_pixel(canvas, x1, y1, c, val);
+                }
+            }
+        }
+    } else {
+        int x, y, c;
+        for (c = 0; c < im.c; ++c) {
+            for (y = 0; y < h; ++y) {
+                for (x = 0; x < w; ++x) {
+                    int rx = ((float)x / w) * im.w;
+                    int ry = ((float)y / h) * im.h;
+                    float val = bilinear_interpolate(im, rx, ry, c);
+                    set_pixel(canvas, x + dx, y + dy, c, val);
+                }
             }
         }
     }
@@ -543,9 +602,15 @@ float constrain(float min, float max, float a)
     return a;
 }
 
-void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float sy, int flip)
+void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float sy, int flip,
+        float rad,
+        int orig_img_w, int orig_img_h, 
+        int nw, int nh,
+        int network_w, int network_h, float odx, float ody)
 {
     int i;
+    float cos_rad = cos(rad);
+    float sin_rad = sin(rad);
     for (i = 0; i < n; ++i) {
         if (boxes[i].x == 0 && boxes[i].y == 0) {
             boxes[i].x = 999999;
@@ -554,10 +619,56 @@ void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float 
             boxes[i].h = 999999;
             continue;
         }
-        boxes[i].left = boxes[i].left  * sx - dx;
-        boxes[i].right = boxes[i].right * sx - dx;
-        boxes[i].top = boxes[i].top   * sy - dy;
-        boxes[i].bottom = boxes[i].bottom* sy - dy;
+        if (rad) {
+            float x0 = boxes[i].left * orig_img_w;
+            float y0 = boxes[i].top * orig_img_h;
+            float x3 = boxes[i].right * orig_img_w;
+            float y3 = boxes[i].bottom * orig_img_h;
+            float x1 = x3;
+            float y1 = y0;
+            float x2 = x0;
+            float y2 = y3;
+            float area_in_new = (boxes[i].right - boxes[i].left) * 
+                (boxes[i].bottom - boxes[i].top) * nw * nh;
+            original_image_to_network_input(x0, y0, cos_rad, sin_rad, orig_img_w, orig_img_h,
+                    nw, nh, network_w, network_h,
+                    odx, ody,
+                    x0, y0);
+            original_image_to_network_input(x1, y1, cos_rad, sin_rad, orig_img_w, orig_img_h,
+                    nw, nh, network_w, network_h,
+                    odx, ody,
+                    x1, y1);
+            original_image_to_network_input(x2, y2, cos_rad, sin_rad, orig_img_w, orig_img_h,
+                    nw, nh, network_w, network_h,
+                    odx, ody,
+                    x2, y2);
+            original_image_to_network_input(x3, y3, cos_rad, sin_rad, orig_img_w, orig_img_h,
+                    nw, nh, network_w, network_h,
+                    odx, ody,
+                    x3, y3);
+            float left = fmin(fmin(fmin(x0, x1), x2), x3);
+            float right = fmax(fmax(fmax(x0, x1), x2), x3);
+            float top = fmin(fmin(fmin(y0, y1), y2), y3);
+            float bottom = fmax(fmax(fmax(y0, y1), y2), y3);
+            {
+                // make the area the same with the aspect ratio held
+                float shrink = sqrt(area_in_new / (right - left) / (bottom - top));
+                float final_width = (right - left) * shrink;
+                float final_height = (bottom - top) * shrink;
+                float final_cx = (left + right) / 2.;
+                float final_cy = (top + bottom) / 2.;
+                boxes[i].left = (final_cx - final_width / 2.) / network_w;
+                boxes[i].right = (final_cx + final_width / 2.) / network_w;
+                boxes[i].top = (final_cy - final_height / 2.) / network_h;
+                boxes[i].bottom = (final_cy + final_height / 2.) / network_h;
+                
+            }
+        } else {
+            boxes[i].left = boxes[i].left  * sx - dx;
+            boxes[i].right = boxes[i].right * sx - dx;
+            boxes[i].top = boxes[i].top   * sy - dy;
+            boxes[i].bottom = boxes[i].bottom* sy - dy;
+        }
 
         if (flip) {
             float swap = boxes[i].left;
@@ -580,11 +691,15 @@ void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float 
     }
 }
 
-void fill_truth_detection(const string &input_label_data, float *truth, int num_boxes, map<string, int> &labelmap, int orig_img_w, int orig_img_h, int flip, float dx, float dy, float sx, float sy)
+void fill_truth_detection(const string &input_label_data, float *truth, int num_boxes, map<string, int> &labelmap, 
+        int orig_img_w, int orig_img_h, int flip, float dx, float dy, float sx, float sy,
+        float rad,
+        int nw, int nh, int network_w, int network_h, float odx, float ody)
 {
     vector<box_label> boxes = read_boxes(input_label_data, labelmap, orig_img_w, orig_img_h);
     randomize_boxes(&boxes[0], boxes.size());
-    correct_boxes(&boxes[0], boxes.size(), dx, dy, sx, sy, flip);
+    correct_boxes(&boxes[0], boxes.size(), dx, dy, sx, sy, flip, rad, 
+            orig_img_w, orig_img_h, nw, nh, network_w, network_h, odx, ody);
     int count = boxes.size();
     if (count > num_boxes) count = num_boxes;
     float x, y, w, h;
@@ -636,6 +751,11 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
     float random_scale_max = box_param.random_scale_max();
     float scale = rand_uniform(random_scale_min, random_scale_max);
 
+    if (box_param.scale_relative_input()) {
+        auto alpha = w * h / (float)(orig.w * orig.h);
+        scale *= alpha;
+    }
+
     float nw, nh;
 
     if (new_ar < 1) {
@@ -657,7 +777,11 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
         dy = rand_uniform(0, h - nh);
     }
 
-    place_image(orig, nw, nh, dx, dy, sized);
+    float rad = rand_uniform(-box_param.rotate_max(),
+            box_param.rotate_max());
+    rad *= M_PI / 180.;
+
+    place_image(orig, nw, nh, dx, dy, sized, rad);
 
     random_distort_image(sized, hue, saturation, exposure);
     int flip = random_helper::uniform_int(0, 1) && !box_param.fix_offset();
@@ -672,7 +796,10 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
     memcpy(output_image_data, sized.data, sizeof(float) * h * w * orig.c);
     free_image(sized);
 
-    fill_truth_detection(input_label_data, output_label_data, boxes, labelmap, orig.w, orig.h, flip, -dx / w, -dy / h, nw / w, nh / h);
+    fill_truth_detection(input_label_data, output_label_data, boxes, labelmap, orig.w, orig.h, flip, 
+            -dx / w, -dy / h, nw / w, nh / h,
+            rad,
+            nw, nh, sized.w, sized.h, dx, dy);
     free_image(orig);
 }
 
