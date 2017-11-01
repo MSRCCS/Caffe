@@ -431,6 +431,7 @@ message LayerParameter {
   optional CPMTransformationParameter cpm_transform_param = 0x0043504D; // "CPM"
   optional RegionTargetParameter region_target_param = 0x00524554; // "RET"
   optional RegionPredictionParameter region_prediction_param = 0x00524550; // "REP"
+  optional SoftmaxTreeParameter softmaxtree_param = 0x00534D54; // "SMT"
 }
 
 // Message that stores parameters used to apply transformation
@@ -1488,6 +1489,24 @@ message RegionTargetParameter {
 	optional float thresh = 3 [default = 0.6];
 	repeated float biases = 4;
     optional uint32 anchor_aligned_images = 5 [default = 12800];
+}
+
+// Message that stores parameters used by SoftmaxTreeLayer, SoftmaxTreeWithLossLayer
+message SoftmaxTreeParameter {
+  enum Engine {
+    DEFAULT = 0;
+    CAFFE = 1;
+    CUDNN = 2;
+  }
+  optional Engine engine = 1 [default = DEFAULT];
+
+  // The axis along which to perform the softmax -- may be negative to index
+  // from the end (e.g., -1 for the last axis).
+  // Any other axes will be evaluated as independent softmaxes.
+  optional int32 axis = 2 [default = 1];
+
+  // Path to the tree file
+  required string tree = 12;
 }
 
 message ReorgParameter {

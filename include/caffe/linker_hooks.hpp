@@ -87,6 +87,8 @@ namespace caffe {
   FUNC(Reduction); \
   FUNC(RegionLoss); \
   FUNC(RegionOutput); \
+  FUNC(RegionPrediction); \
+  FUNC(RegionTarget); \
   FUNC(ReLU); \
   FUNC(Reorg); \
   FUNC(Reshape); \
@@ -102,6 +104,7 @@ namespace caffe {
   FUNC(SmoothL1Loss); \
   FUNC(Softmax); \
   FUNC(SoftmaxWithLoss); \
+  FUNC(SoftmaxTree); \
   FUNC(Split); \
   FUNC(SPP); \
   FUNC(TanH); \
