@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <vector>
+#include <float.h>
 
 #include "caffe/layers/softmaxtree_layer.hpp"
 #include "caffe/util/math_functions.hpp"
