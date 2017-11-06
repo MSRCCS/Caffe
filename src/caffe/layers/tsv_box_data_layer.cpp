@@ -1,3 +1,4 @@
+#define _USE_MATH_DEFINES
 #include <opencv2/core/core.hpp>
 
 #include <stdint.h>
