@@ -46,17 +46,12 @@ void SoftmaxWithLossLayer<Dtype>::Reshape(
   inner_num_ = bottom[0]->count(softmax_axis_ + 1);
   label_num_ = softmax_axis_ < bottom[1]->num_axes() ?
       bottom[1]->shape(softmax_axis_) : 1;
-  CHECK_EQ(outer_num_, bottom[1]->count(0, softmax_axis_));
-  if (softmax_axis_ < bottom[1]->num_axes()) {
-    CHECK_EQ(inner_num_, bottom[1]->count(softmax_axis_ + 1));
-  } else {
-    CHECK_EQ(inner_num_, 1);
-  }
-//  CHECK_EQ(outer_num_ * inner_num_, bottom[1]->count())
-//      << "Number of labels must match number of predictions; "
-//      << "e.g., if softmax axis == 1 and prediction shape is (N, C, H, W), "
-//      << "label count (number of labels) must be N*H*W, "
-//      << "with integer values in {0, 1, ..., C-1}.";
+  CHECK_EQ(outer_num_ * label_num_ * inner_num_, bottom[1]->count())
+      << "Number of labels must match number of predictions (times labels per prediction); "
+      << "e.g., if softmax axis == 1 and prediction shape is (N, C, H, W), "
+      << "label count (number of labels) must be N*P*H*W, "
+      << "with integer values in {0, 1, ..., C-1}"
+      << "and P the number of labels per prediction (for multi-label predictions)";
   if (top.size() >= 2) {
     // softmax output
     top[1]->ReshapeLike(*bottom[0]);
@@ -141,17 +136,22 @@ void SoftmaxWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     int count = 0;
     for (int i = 0; i < outer_num_; ++i) {
       for (int j = 0; j < inner_num_; ++j) {
-        int label_cnt = 0;
-        for (int k = 0; k < label_num_; ++k) {
-          const int label_value = static_cast<int>(
-              label[(i * label_num_ + k) * inner_num_ + j]);
-          if (has_ignore_label_ && label_value == ignore_label_) {
-            continue;
+        int label_cnt = label_num_;
+        if (has_ignore_label_) {
+          label_cnt = 0;
+          for (int k = 0; k < label_num_; ++k) {
+            const int label_value = static_cast<int>(
+                label[(i * label_num_ + k) * inner_num_ + j]);
+            if (label_value == ignore_label_) {
+              continue;
+            }
+            ++label_cnt;
           }
-          ++label_cnt;
         }
-        for (int c = 0; c < bottom[0]->shape(softmax_axis_); ++c) {
-          bottom_diff[i * dim + c * inner_num_ + j] *= label_cnt;
+        if (label_cnt != 1) {
+          for (int c = 0; c < bottom[0]->shape(softmax_axis_); ++c) {
+            bottom_diff[i * dim + c * inner_num_ + j] *= label_cnt;
+          }
         }
         for (int k = 0; k < label_num_; ++k) {
           const int label_value = static_cast<int>(

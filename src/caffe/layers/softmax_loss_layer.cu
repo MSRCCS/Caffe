@@ -75,17 +75,22 @@ __global__ void SoftmaxLossBackwardGPU(const int nthreads, const Dtype* top,
   CUDA_KERNEL_LOOP(index, nthreads) {
     const int n = index / spatial_dim;
     const int s = index % spatial_dim;
-    int label_cnt = 0;
-    for (int k = 0; k < label_num; ++k) {
-      const int label_value = static_cast<int>(
-          label[(n * label_num + k) * spatial_dim + s]);
-      if (has_ignore_label_ && label_value == ignore_label_) {
-        continue;
+    int label_cnt = label_num;
+    if (has_ignore_label_) {
+      label_cnt = 0;
+      for (int k = 0; k < label_num; ++k) {
+        const int label_value = static_cast<int>(
+            label[(n * label_num + k) * spatial_dim + s]);
+        if (label_value == ignore_label_) {
+          continue;
+        }
+        ++label_cnt;
       }
-      ++label_cnt;
     }
-    for (int c = 0; c < channels; ++c) {
-      bottom_diff[n * dim + c * spatial_dim + s] *= label_cnt;
+    if (label_cnt != 1) {
+      for (int c = 0; c < channels; ++c) {
+        bottom_diff[n * dim + c * spatial_dim + s] *= label_cnt;
+      }
     }
     counts[index] = label_cnt;
     for (int k = 0; k < label_num; ++k) {
