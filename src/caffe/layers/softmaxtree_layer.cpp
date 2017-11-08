@@ -54,8 +54,8 @@ void Tree::read(const char *filename) {
         char *id = (char *)calloc(256, sizeof(char));
         int parent = -1;
         sscanf(line, "%s %d", id, &parent);
-        parent_ = (int *)realloc(parent_, (n + 1) * sizeof(int));
-        parent_[n] = parent;
+        parent_cpu_ptr_ = (int *)realloc(parent_cpu_ptr_, (n + 1) * sizeof(int));
+        parent_cpu_ptr_[n] = parent;
 
         child_ = (int *)realloc(child_, (n + 1) * sizeof(int));
         child_[n] = -1;
@@ -71,8 +71,8 @@ void Tree::read(const char *filename) {
             group_size = 0;
             last_parent = parent;
         }
-        group_ = (int *)realloc(group_, (n + 1) * sizeof(int));
-        group_[n] = groups;
+        group_cpu_ptr_ = (int *)realloc(group_cpu_ptr_, (n + 1) * sizeof(int));
+        group_cpu_ptr_[n] = groups;
         if (parent >= 0) {
             child_[parent] = groups;
         }
@@ -94,14 +94,19 @@ void Tree::read(const char *filename) {
     for (i = 0; i < n; ++i)
         leaf_[i] = 1;
     for (i = 0; i < n; ++i)
-        if (parent_[i] >= 0)
-            leaf_[parent_[i]] = 0;
+        if (parent_cpu_ptr_[i] >= 0)
+            leaf_[parent_cpu_ptr_[i]] = 0;
 
     std::vector<int> shape{ groups };
     group_offset_.Reshape(shape);
     group_offset_.set_cpu_data(group_offset_cpu_ptr_);
     group_size_.Reshape(shape);
     group_size_.set_cpu_data(group_size_cpu_ptr_);
+    shape[0] = n;
+    parent_.Reshape(shape);
+    parent_.set_cpu_data(parent_cpu_ptr_);
+    group_.Reshape(shape);
+    group_.set_cpu_data(group_cpu_ptr_);
 }
 
 template <typename Dtype>

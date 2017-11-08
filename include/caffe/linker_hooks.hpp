@@ -105,6 +105,7 @@ namespace caffe {
   FUNC(Softmax); \
   FUNC(SoftmaxWithLoss); \
   FUNC(SoftmaxTree); \
+  FUNC(SoftmaxTreeWithLoss); \
   FUNC(Split); \
   FUNC(SPP); \
   FUNC(TanH); \
