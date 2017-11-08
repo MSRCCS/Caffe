@@ -97,12 +97,11 @@ __global__ void SoftmaxTreeWithLossBackwardGPU(
     const int* parent_data, const int* group_offset_data, const int* group_size_data, const int* group_data,
     const Dtype* label, const Dtype* prob_data, Dtype* bottom_diff,
     const int dim, const int spatial_dim,
-    const bool has_ignore_label_, const int ignore_label_, Dtype* counts) {
+    const bool has_ignore_label_, const int ignore_label_) {
     CUDA_KERNEL_LOOP(index, nthreads) {
         // index == n * spatial_dim + s
         const int n = index / spatial_dim;
         const int s = index % spatial_dim;
-        counts[index] = 0;
         int label_value = static_cast<int>(label[index]);
         if (has_ignore_label_ && label_value == ignore_label_)
             continue;
@@ -114,7 +113,6 @@ __global__ void SoftmaxTreeWithLossBackwardGPU(
                 bottom_diff[n * dim + (offset + c) * spatial_dim + s] = prob_data[n * dim + (offset + c) * spatial_dim + s];
 
             bottom_diff[n * dim + label_value * spatial_dim + s] -= 1;
-            counts[index]++;
             label_value = parent_data[label_value];
         }
     }
@@ -126,12 +124,11 @@ __global__ void SoftmaxTreeWithLossBackwardGPUWithObjectness(
     const int* parent_data, const int* group_offset_data, const int* group_size_data, const int* group_data,
     const Dtype* label, const int* label_index_data, const Dtype* prob_data, Dtype* bottom_diff,
     const int dim, const int spatial_dim, const int label_stride,
-    const bool has_ignore_label_, const int ignore_label_, Dtype* counts) {
+    const bool has_ignore_label_, const int ignore_label_) {
 
     CUDA_KERNEL_LOOP(n, num) {
         int label_value = static_cast<int>(label[n * label_stride]);
 
-        counts[n] = 0;
         if (has_ignore_label_ && label_value == ignore_label_)
             continue;
 
@@ -144,7 +141,6 @@ __global__ void SoftmaxTreeWithLossBackwardGPUWithObjectness(
                 bottom_diff[n * dim + (offset + c) * spatial_dim + label_spatial_idx] = prob_data[n * dim + (offset + c) * spatial_dim + label_spatial_idx];
 
             bottom_diff[n * dim + label_value * spatial_dim + label_spatial_idx] -= 1;
-            counts[n]++;
             label_value = parent_data[label_value];
         }
     }
@@ -197,6 +193,8 @@ void SoftmaxTreeWithLossLayer<Dtype>::Forward_gpu(
     // Only launch another CUDA kernel if we actually need the count of valid outputs.
     if (normalization_ == LossParameter_NormalizationMode_VALID) {
         caffe_gpu_asum(nthreads, counts, &valid_count);
+        // Keep the count to re-use in backward
+        loss_.mutable_cpu_diff()[0] = valid_count;
     }
     top[0]->mutable_cpu_data()[0] = loss / get_normalizer(normalization_, valid_count);
     if (top.size() == 2) {
@@ -230,7 +228,6 @@ void SoftmaxTreeWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& t
     auto group_data = softmaxtree_layer_->softmax_tree_.group_.gpu_data();
     const int dim = prob_.count() / outer_num_;
     int nthreads = outer_num_ * inner_num_;
-    auto counts = loss_.mutable_gpu_diff();
     if (with_objectness_) {
         nthreads = outer_num_;
         SoftmaxTreeWithLossBackwardGPUWithObjectness<Dtype> << <CAFFE_GET_BLOCKS(nthreads),
@@ -238,19 +235,18 @@ void SoftmaxTreeWithLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& t
                                          parent_data, group_offset_data, group_size_data, group_data,
                                          label, label_index_.gpu_data(), prob_data, bottom_diff,
                                          dim, inner_num_, objectness_label_stride_,
-                                         has_ignore_label_, ignore_label_, counts);
+                                         has_ignore_label_, ignore_label_);
     } else {
         SoftmaxTreeWithLossBackwardGPU<Dtype> << <CAFFE_GET_BLOCKS(nthreads),
             CAFFE_CUDA_NUM_THREADS >> > (nthreads,
                                          parent_data, group_offset_data, group_size_data, group_data,
                                          label, prob_data, bottom_diff,
                                          dim, inner_num_,
-                                         has_ignore_label_, ignore_label_, counts);
+                                         has_ignore_label_, ignore_label_);
     }
     Dtype valid_count = -1;
-    // Only launch another CUDA kernel if we actually need the count of valid outputs.
     if (normalization_ == LossParameter_NormalizationMode_VALID) {
-        caffe_gpu_asum(nthreads, counts, &valid_count);
+        valid_count = loss_.cpu_diff()[0];
     }
     const Dtype loss_weight = top[0]->cpu_diff()[0] / get_normalizer(normalization_, valid_count);
     caffe_gpu_scal(bottom[0]->count(), loss_weight, bottom_diff);

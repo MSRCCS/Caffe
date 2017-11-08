@@ -218,6 +218,8 @@ void SoftmaxTreeWithLossLayer<Dtype>::Forward_cpu(
     // Only sum counts if we actually need the count of valid outputs.
     if (normalization_ == LossParameter_NormalizationMode_VALID) {
         count = caffe_cpu_asum(nthreads, counts);
+        // Keep the count to re-use in backward
+        counts[0] = count;
     }
 
     top[0]->mutable_cpu_data()[0] = loss / get_normalizer(normalization_, count);
@@ -251,14 +253,11 @@ void SoftmaxTreeWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& t
     auto group_data = softmaxtree_layer_->softmax_tree_.group_.cpu_data();
     int dim = prob_.count() / outer_num_;
     int nthreads = outer_num_ * inner_num_;
-    // Since this memory is never used for anything else,
-    auto counts = loss_.mutable_cpu_diff();
     if (with_objectness_) {
         nthreads = outer_num_;
         auto label_index_data = label_index_.cpu_data();
 #pragma omp parallel for
         for (int n = 0; n < nthreads; ++n) {
-            counts[n] = 0;
             int label_value = static_cast<int>(label[n * objectness_label_stride_]);
             if (has_ignore_label_ && label_value == ignore_label_)
                 continue;
@@ -270,7 +269,6 @@ void SoftmaxTreeWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& t
                     bottom_diff[n * dim + (offset + c) * inner_num_ + label_spatial_idx] = prob_data[n * dim + (offset + c) * inner_num_ + label_spatial_idx];
 
                 bottom_diff[n * dim + label_value * inner_num_ + label_spatial_idx] -= 1;
-                ++counts[n];
                 label_value = parent_data[label_value];
             }
         }
@@ -280,7 +278,6 @@ void SoftmaxTreeWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& t
             // index == n * inner_num_ + s
             const int n = index / inner_num_;
             const int s = index % inner_num_;
-            counts[index] = 0;
             int label_value = static_cast<int>(label[index]);
             if (has_ignore_label_ && label_value == ignore_label_)
                 continue;
@@ -291,14 +288,13 @@ void SoftmaxTreeWithLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& t
                     bottom_diff[n * dim + (offset + c) * inner_num_ + s] = prob_data[n * dim + (offset + c) * inner_num_ + s];
 
                 bottom_diff[n * dim + label_value * inner_num_ + s] -= 1;
-                counts[index]++;
                 label_value = parent_data[label_value];
             }
         }
     }
     int count = -1;
     if (normalization_ == LossParameter_NormalizationMode_VALID) {
-        count = caffe_cpu_asum(nthreads, counts);
+        count = loss_.cpu_diff()[0];
     }
     // Scale gradient
     Dtype loss_weight = top[0]->cpu_diff()[0] / get_normalizer(normalization_, count);
