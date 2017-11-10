@@ -238,6 +238,7 @@ tree *read_tree(const char *filename)
 {
     tree t;
     FILE *fp = fopen(filename, "r");
+    CHECK(fp) << "Cannot open the tree file: " << filename;
 
     char *line;
     int last_parent = -1;
