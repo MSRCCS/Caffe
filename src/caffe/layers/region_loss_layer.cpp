@@ -731,14 +731,15 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
     *(l.cost) = 0;
     if (l.softmax_tree) {
         for (int b = 0; b < l.batch; ++b) {
-                int onlyclass = 0;
                 for (int t = 0; t < 30; ++t) {
                     box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
                     if (!truth.x) break;
                     int cls = net.truth[t * 5 + b*l.truths + 4];
                     float maxp = 0;
                     int maxi = 0;
-                    if (truth.x > 100000 && truth.y > 100000) {
+                    if (is_global_label_without_box(truth)) {
+                        assert(t == 0);
+
                         //#pragma omp parallel for reduction(max:maxp)
                         for (int n = 0; n < l.n*l.w*l.h; ++n) {
                             int class_index = entry_index(l, b, n, l.coords + 1);
@@ -757,11 +758,9 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
                         if (l.output[obj_index] < .3) l.delta[obj_index] = l.object_scale * (.3 - l.output[obj_index]);
                         else  l.delta[obj_index] = 0;
                         ++class_count;
-                        onlyclass = 1;
                         break;
                     }
                 }
-                if (onlyclass) continue;
         }
     }
 #pragma omp parallel for reduction(+:avg_anyobj)
@@ -776,11 +775,12 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
         box pred = get_region_box(l.output, l.biases, n, box_index, i, j, l.w, l.h, l.w*l.h);
         float best_iou = 0;
         int best_cls = 0;
+        bool is_global_label = false;
         for (int t = 0; t < 30; ++t) {
             box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
-            if (is_global_label_without_box(truth)) {
-                continue; // this is a class label without bbox
-            }
+            is_global_label = is_global_label_without_box(truth);
+            if (is_global_label)
+                break; // this is a class label without bbox
             if (!truth.x) break;
             float iou = box_iou(pred, truth);
             if (iou > best_iou) {
@@ -788,6 +788,8 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
                 best_cls = (int)(*(net.truth + t * 5 + b * l.truths));
             }
         }
+        if (is_global_label && l.softmax_tree)
+            continue;
         int obj_index = entry_index(l, b, n*l.w*l.h + j*l.w + i, l.coords);
         avg_anyobj += l.output[obj_index];
         l.delta[obj_index] = l.noobject_scale * (0 - l.output[obj_index]);
@@ -824,6 +826,9 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
             bool is_global_label = is_global_label_without_box(truth);
             int i, j;
             if (is_global_label) {
+                if (l.softmax_tree)
+                    break;
+                // Weak labels with no tree
                 find_target_for_non_bbox_label(truth, cls, l, b, i, j, best_n);
             } else {
                 bool valid = find_target_for_bbox_label(truth, l, b, i, j, best_n);
