@@ -46,7 +46,7 @@ class SoftmaxTreeWithLossLayer : public LossLayer<Dtype> {
 
   virtual inline const char* type() const { return "SoftmaxTreeWithLoss"; }
   virtual inline int ExactNumBottomBlobs() const {
-      if (layer_param_.softmaxtree_loss_param().with_objectness()) {
+      if (this->layer_param_.softmaxtree_loss_param().with_objectness()) {
           return 3;
       }
       return 2; 

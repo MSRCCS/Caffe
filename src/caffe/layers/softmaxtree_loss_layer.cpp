@@ -10,7 +10,7 @@ namespace caffe {
 template <typename Dtype>
 void SoftmaxTreeWithLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
     LossLayer<Dtype>::LayerSetUp(bottom, top);
-    LayerParameter softmaxtree_param(layer_param_);
+    LayerParameter softmaxtree_param(this->layer_param_);
     softmaxtree_param.clear_loss_weight(); // Ignore loss_wight if set
     softmaxtree_param.set_type("SoftmaxTree");
     softmaxtree_layer_ = boost::dynamic_pointer_cast<SoftmaxTreeLayer<Dtype>>(LayerRegistry<Dtype>::CreateLayer(softmaxtree_param));
@@ -20,19 +20,19 @@ void SoftmaxTreeWithLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bot
     softmaxtree_top_vec_.push_back(&prob_);
     softmaxtree_layer_->SetUp(softmaxtree_bottom_vec_, softmaxtree_top_vec_);
 
-    with_objectness_ = layer_param_.softmaxtree_loss_param().with_objectness();
-    has_ignore_label_ = layer_param_.loss_param().has_ignore_label();
+    with_objectness_ = this->layer_param_.softmaxtree_loss_param().with_objectness();
+    has_ignore_label_ = this->layer_param_.loss_param().has_ignore_label();
     if (has_ignore_label_) {
-        ignore_label_ = layer_param_.loss_param().ignore_label();
+        ignore_label_ = this->layer_param_.loss_param().ignore_label();
         CHECK_LT(ignore_label_, 0) << "Ignore label must be negative";
     }
-    if (!layer_param_.loss_param().has_normalization() &&
-        layer_param_.loss_param().has_normalize()) {
-        normalization_ = layer_param_.loss_param().normalize() ?
+    if (!this->layer_param_.loss_param().has_normalization() &&
+        this->layer_param_.loss_param().has_normalize()) {
+        normalization_ = this->layer_param_.loss_param().normalize() ?
             LossParameter_NormalizationMode_VALID :
             LossParameter_NormalizationMode_BATCH_SIZE;
     } else {
-        normalization_ = layer_param_.loss_param().normalization();
+        normalization_ = this->layer_param_.loss_param().normalization();
     }
 #ifndef CPU_ONLY
     // Pre-fetch data
@@ -49,7 +49,7 @@ template <typename Dtype>
 void SoftmaxTreeWithLossLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
     LossLayer<Dtype>::Reshape(bottom, top);
     softmaxtree_layer_->Reshape(softmaxtree_bottom_vec_, softmaxtree_top_vec_);
-    softmax_axis_ = bottom[0]->CanonicalAxisIndex(layer_param_.softmaxtree_param().axis());
+    softmax_axis_ = bottom[0]->CanonicalAxisIndex(this->layer_param_.softmaxtree_param().axis());
     outer_num_ = bottom[0]->count(0, softmax_axis_);
     inner_num_ = bottom[0]->count(softmax_axis_ + 1);
     objectness_label_stride_ = inner_num_;
