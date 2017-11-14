@@ -129,8 +129,7 @@ void SoftmaxTreeLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, con
 template <typename Dtype>
 void SoftmaxTreeLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
-  softmax_axis_ =
-      bottom[0]->CanonicalAxisIndex(this->layer_param_.softmaxtree_param().axis());
+  softmax_axis_ = bottom[0]->CanonicalAxisIndex(this->layer_param_.softmax_param().axis());
 
   int channels = bottom[0]->shape(softmax_axis_);
 

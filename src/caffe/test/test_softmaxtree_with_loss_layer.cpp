@@ -30,6 +30,7 @@ protected:
         blob_bottom_label_perbatch_(new Blob<Dtype>({ 5, 1 })),
         blob_bottom_objectness_(new Blob<Dtype>(5, 1, 2, 3)),
         blob_top_loss_(new Blob<Dtype>()),
+        blob_top_index_(new Blob<Dtype>({ 5, 1 })),
         blob_top_prob_(new Blob<Dtype>(5, 11, 2, 3)) {
         // fill the values
         FillerParameter filler_param;
@@ -58,6 +59,7 @@ protected:
         delete blob_bottom_label_perbatch_;
         delete blob_bottom_objectness_;
         delete blob_top_loss_;
+        delete blob_top_index_;
         delete blob_top_prob_;
     }
     string tree_file_name_;
@@ -67,6 +69,7 @@ protected:
     Blob<Dtype>* const blob_bottom_label_perbatch_;
     Blob<Dtype>* const blob_bottom_objectness_;
     Blob<Dtype>* const blob_top_loss_;
+    Blob<Dtype>* const blob_top_index_;
     Blob<Dtype>* const blob_top_prob_;
     vector<Blob<Dtype>*> blob_bottom_vec_;
     vector<Blob<Dtype>*> blob_top_vec_;
@@ -189,13 +192,16 @@ TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardWithObjectness) {
     layer_param.mutable_loss_param()->set_normalization(LossParameter_NormalizationMode_NONE);
     layer_param.add_loss_weight(1);
     layer_param.add_loss_weight(0);
+    layer_param.add_loss_weight(0);
     // Need shared probability blob at the top
+    this->blob_top_vec_.push_back(this->blob_top_index_);
     this->blob_top_vec_.push_back(this->blob_top_prob_);
     this->blob_bottom_vec_.push_back(this->blob_bottom_objectness_);
-
+    
     scoped_ptr<SoftmaxTreeWithLossLayer<Dtype>> layer(new SoftmaxTreeWithLossLayer<Dtype>(layer_param));
     layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
     layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    vector<int> index;
     Dtype loss = 0;
     int count = 0;
     for (int i = 0; i < this->blob_bottom_data_->num(); ++i) {
@@ -221,6 +227,7 @@ TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardWithObjectness) {
                 }
             }
         }
+        index.push_back(max_k * this->blob_bottom_data_->width() + max_l);
         int label_value = label_value_orig;
         while (label_value >= 0) {
             loss -= log(std::max(this->blob_top_prob_->data_at(i, label_value, max_k, max_l), Dtype(FLT_MIN)));
@@ -229,6 +236,10 @@ TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardWithObjectness) {
         }
     }
     EXPECT_NEAR(loss, this->blob_top_loss_->cpu_data()[0], 1e-3);
+
+    EXPECT_EQ(index.size(), this->blob_top_index_->count());
+    for (int i = 0; i < index.size(); ++i)
+        EXPECT_EQ(index[i], static_cast<int>(this->blob_top_index_->data_at({ i, 0 })));
 
     layer_param.mutable_loss_param()->set_normalization(LossParameter_NormalizationMode_VALID);
     layer.reset(new SoftmaxTreeWithLossLayer<Dtype>(layer_param));
@@ -245,9 +256,10 @@ TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardWithObjectnessPerBatchLabels
     layer_param.mutable_loss_param()->set_normalization(LossParameter_NormalizationMode_NONE);
     layer_param.add_loss_weight(1);
     layer_param.add_loss_weight(0);
+    layer_param.add_loss_weight(0);
     // Need shared probability blob at the top
+    this->blob_top_vec_.push_back(this->blob_top_index_);
     this->blob_top_vec_.push_back(this->blob_top_prob_);
-    this->blob_bottom_vec_.push_back(this->blob_bottom_objectness_);
 
     this->blob_bottom_vec_.clear();
     this->blob_bottom_vec_.push_back(this->blob_bottom_data_);
@@ -257,6 +269,7 @@ TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardWithObjectnessPerBatchLabels
     scoped_ptr<SoftmaxTreeWithLossLayer<Dtype>> layer(new SoftmaxTreeWithLossLayer<Dtype>(layer_param));
     layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
     layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    vector<int> index;
     Dtype loss = 0;
     int count = 0;
     for (int i = 0; i < this->blob_bottom_data_->num(); ++i) {
@@ -282,6 +295,7 @@ TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardWithObjectnessPerBatchLabels
                 }
             }
         }
+        index.push_back(max_k * this->blob_bottom_data_->width() + max_l);
         int label_value = label_value_orig;
         while (label_value >= 0) {
             loss -= log(std::max(this->blob_top_prob_->data_at(i, label_value, max_k, max_l), Dtype(FLT_MIN)));
@@ -290,6 +304,10 @@ TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardWithObjectnessPerBatchLabels
         }
     }
     EXPECT_NEAR(loss, this->blob_top_loss_->cpu_data()[0], 1e-3);
+
+    EXPECT_EQ(index.size(), this->blob_top_index_->count());
+    for (int i = 0; i < index.size(); ++i)
+        EXPECT_EQ(index[i], static_cast<int>(this->blob_top_index_->data_at({ i, 0 })));
 
     layer_param.mutable_loss_param()->set_normalization(LossParameter_NormalizationMode_VALID);
     layer.reset(new SoftmaxTreeWithLossLayer<Dtype>(layer_param));

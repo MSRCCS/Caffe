@@ -49,7 +49,7 @@ template <typename Dtype>
 void SoftmaxTreeWithLossLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
     LossLayer<Dtype>::Reshape(bottom, top);
     softmaxtree_layer_->Reshape(softmaxtree_bottom_vec_, softmaxtree_top_vec_);
-    softmax_axis_ = bottom[0]->CanonicalAxisIndex(this->layer_param_.softmaxtree_param().axis());
+    softmax_axis_ = bottom[0]->CanonicalAxisIndex(this->layer_param_.softmax_param().axis());
     outer_num_ = bottom[0]->count(0, softmax_axis_);
     inner_num_ = bottom[0]->count(softmax_axis_ + 1);
     objectness_label_stride_ = inner_num_;
@@ -69,9 +69,16 @@ void SoftmaxTreeWithLossLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom
             << "with integer values in {0, 1, ..., C-1}";
     }
     loss_.ReshapeLike(*bottom[1]);
-    if (top.size() >= 2) {
-        // softmax output
-        top[1]->ReshapeLike(*bottom[0]);
+    if (top.size() == 2) {
+        if (with_objectness_)
+            top[1]->Reshape({ outer_num_ , 1}); // index output
+        else
+            top[1]->ReshapeLike(*bottom[0]); // softmax output
+    } else if (top.size() == 3) {
+        assert(with_objectness_);
+
+        top[1]->Reshape({ outer_num_ , 1 }); // index output
+        top[2]->ReshapeLike(*bottom[0]); // softmax output
     }
     if (with_objectness_) {
         // TODO: add an image_axis_ (default 0) and add support for softmax_axis_ != 1
@@ -82,10 +89,8 @@ void SoftmaxTreeWithLossLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom
             << "e.g., if softmax axis == 1 and prediction shape is (N, C, H, W), "
             << "objects count (number of objectness predictions) must be N*H*W";
 
-        vector<int> dims(outer_num_, inner_num_);
-        label_prob_.Reshape(dims);
-        dims[1] = 1;
-        label_index_.Reshape(dims);
+        label_prob_.Reshape({ outer_num_, inner_num_ });
+        label_index_.Reshape({ outer_num_, 1 });
     }
 }
 
@@ -173,6 +178,8 @@ void SoftmaxTreeWithLossLayer<Dtype>::Forward_cpu(
                 }
             }
 
+            // This means index can go only as high as 24bits with float
+            // Also note that index is over spatial dimension (not including C)
             label_index_data[n] = max_idx;
         }
 
@@ -185,7 +192,7 @@ void SoftmaxTreeWithLossLayer<Dtype>::Forward_cpu(
             if (has_ignore_label_ && label_value == ignore_label_)
                 continue;
 
-            int label_spatial_idx = label_index_data[n];
+            int label_spatial_idx = static_cast<int>(label_index_data[n]);
             while (label_value >= 0) {
                 loss_data[n] -= log(std::max(prob_data[n * dim + label_value * inner_num_ + label_spatial_idx], Dtype(FLT_MIN)));
                 ++counts[n];
@@ -223,8 +230,17 @@ void SoftmaxTreeWithLossLayer<Dtype>::Forward_cpu(
     }
 
     top[0]->mutable_cpu_data()[0] = loss / get_normalizer(normalization_, count);
-    if (top.size() == 2)
-        top[1]->ShareData(prob_);
+    if (top.size() == 2) {
+        if (with_objectness_)
+            top[1]->ShareData(label_index_);
+        else
+            top[1]->ShareData(prob_);
+    } else if (top.size() == 3) {
+        assert(with_objectness_);
+
+        top[1]->ShareData(label_index_);
+        top[2]->ShareData(prob_);
+    }
 }
 
 template <typename Dtype>

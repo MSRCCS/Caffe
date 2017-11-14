@@ -433,6 +433,7 @@ message LayerParameter {
   optional RegionPredictionParameter region_prediction_param = 0x00524550; // "REP"
   optional SoftmaxTreeParameter softmaxtree_param = 0x00534D54; // "SMT"
   optional SoftmaxTreeLossParameter softmaxtree_loss_param = 0x0053544C; // "STL"
+  optional IndexedThresholdLossParameter indexedthreshold_loss_param = 0x0049544C; // "ITL"
 }
 
 // Message that stores parameters used to apply transformation
@@ -1502,18 +1503,24 @@ message SoftmaxTreeParameter {
   }
   optional Engine engine = 1 [default = DEFAULT];
 
-  // The axis along which to perform the softmax -- may be negative to index
-  // from the end (e.g., -1 for the last axis).
-  // Any other axes will be evaluated as independent softmaxes.
-  optional int32 axis = 2 [default = 1];
-
   // Path to the tree file
-  required string tree = 12;
+  required string tree = 2;
 }
 
 message SoftmaxTreeLossParameter {
   // If the objectness predictions provided by bottom layer
   optional bool with_objectness = 1 [default = false];
+}
+
+message IndexedThresholdLossParameter {
+  // The axis before which the indices are provided
+  optional int32 axis = 1 [default = 0];
+  // The positive threshold (and target)
+  optional float threshold = 2 [default = 0.3];
+  // The scale for positive target (e.g. object)
+  optional float positive_scale = 3 [default = 5.0];
+  // The scale for null target (e.g. noobject)
+  optional float null_scale = 4 [default = 1.0];
 }
 
 message ReorgParameter {

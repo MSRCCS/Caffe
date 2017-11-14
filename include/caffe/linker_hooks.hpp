@@ -55,6 +55,7 @@ namespace caffe {
   FUNC(Eltwise); \
   FUNC(ELU); \
   FUNC(EuclideanLoss); \
+  FUNC(IndexedThresholdLoss); \
   FUNC(Exp); \
   FUNC(Embed); \
   FUNC(Filter); \
