@@ -54,8 +54,8 @@ TYPED_TEST(SoftmaxTreeLayerTest, TestForward) {
         for (int k = 0; k < this->blob_bottom_->height(); ++k) {
             for (int l = 0; l < this->blob_bottom_->width(); ++l) {
                 int offset = 0;
-                for (int g = 0; g < groups_; ++g) {
-                    int size = group_size_[g];
+                for (int g = 0; g < this->groups_; ++g) {
+                    int size = this->group_size_[g];
                     Dtype sum = 0;
                     for (int j = 0; j < size; ++j) {
                         sum += this->blob_top_->data_at(i, offset + j, k, l);
