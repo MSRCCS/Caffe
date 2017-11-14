@@ -249,6 +249,9 @@
     <ClCompile Include="..\src\caffe\test\test_softmaxtree_with_loss_layer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\caffe\test\test_indexed_threshold_loss_layer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\caffe\test\test_gradient_check_util.hpp">
