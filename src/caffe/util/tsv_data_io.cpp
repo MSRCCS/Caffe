@@ -1,3 +1,5 @@
+#include <utility>
+#include <boost/algorithm/string.hpp>
 #include "caffe/util/tsv_data_io.hpp"
 
 namespace caffe {
@@ -169,6 +171,36 @@ int TsvRawDataFile::LoadLineIndex(const char *fileName, vector<int64_t> &lineInd
 	return 0;
 }
 
+void LoadLineIndex(const string &filename, vector<std::pair<int64_t, int64_t>>&lineIndex) {
+	std::ifstream index_file;
+	index_file.open(filename.c_str());
+    CHECK(!index_file.fail()) << "File open failed: " << filename 
+        << ", error: " << strerror(errno);
+
+	lineIndex.clear();
+	while (!index_file.eof()) {
+		std::string line;
+		std::getline(index_file, line);
+		if (line.length() == 0) {
+			break;
+        }
+        vector<string> parts;
+        boost::split(parts, line, boost::is_any_of("\t"));
+        if (parts.size() == 1) {
+            lineIndex.push_back(std::make_pair<int64_t, int64_t>(0L, atoll(parts[0].c_str())));
+        } else if (parts.size() == 2) {
+		    lineIndex.push_back(std::make_pair<int64_t, int64_t>(atoll(parts[0].c_str()), 
+                        atoll(parts[1].c_str())));
+        } else {
+            LOG(FATAL) << "illegal line: " << line;
+        }
+	}
+
+    LOG(INFO) << "# of idx loaded: " << lineIndex.size();
+
+	index_file.close();
+}
+
 int TsvRawDataFile::Open(const char *fileName, bool cache_all, int colData, int colLabel)
 {
 	_tsvFileName = fileName;
@@ -195,7 +227,7 @@ void TsvRawDataFile::Close()
 	_dataFile.Close();
 }
 
-void TsvRawDataFile::ShuffleData(string filename)
+void TsvRawDataFile::ShuffleData(const string &filename)
 {
     // shuffle file consists of random line numbers (not line index which corresponds to file position of each line)
     // this kind of shuffle is useful for constructing pairwise or triplet data
@@ -291,6 +323,107 @@ void TsvRawDataFile::MoveToNext()
 int TsvRawDataFile::TotalLines()
 {
     return _shuffleLines.size() > 0 ? _shuffleLines.size() : _lineIndex.size();
+}
+
+ITsvDataFile* ITsvDataFile::make_tsv(const char* fileName, bool cache_all, int colData, int colLabel) {
+    TsvRawDataFile* result = new TsvRawDataFile();
+    auto code = result->Open(fileName, cache_all, colData, colLabel);
+    CHECK(!code);
+    return result;
+}
+
+ITsvDataFile* ITsvDataFile::make_tsv(const vector<string> &fileNames, 
+            const vector<bool> &cache_all,
+            const vector<int> &colData,
+            const vector<int> &colLabel) {
+    auto result = new MultiSourceTsvRawDataFile();
+    result->Open(fileNames, cache_all, colData, colLabel);
+    return result;
+}
+
+ITsvDataFile* ITsvDataFile::make_tsv(const vector<string> &fileNames, 
+            bool cache_all,
+            int colData,
+            int colLabel) {
+    vector<int> vec_colData(fileNames.size(), colData);
+    vector<int> vec_colLabel(fileNames.size(), colLabel);
+    vector<bool> vec_cacheAll(fileNames.size(), cache_all);
+    return ITsvDataFile::make_tsv(fileNames, vec_cacheAll, vec_colData, vec_colLabel);
+}
+
+void MultiSourceTsvRawDataFile::Open(const vector<string> &fileNames, 
+        const vector<bool> &cache_all,
+        const vector<int> &colData, const vector<int> &colLabel) {
+    CHECK_EQ(fileNames.size(), colData.size());
+    CHECK_EQ(fileNames.size(), colLabel.size());
+
+    int num = fileNames.size();
+    _dataFiles.clear();
+    for (int i = 0; i < num; i++) {
+        shared_ptr<ITsvDataFile> tsvFile(ITsvDataFile::make_tsv(fileNames[i].c_str(), cache_all[i], colData[i], colLabel[i]));
+        _dataFiles.push_back(tsvFile);
+    }
+
+	_currentLine = 0;
+}
+
+void MultiSourceTsvRawDataFile::Close() {
+    for (auto f: _dataFiles) {
+        f->Close();
+    }
+}
+
+void MultiSourceTsvRawDataFile::ShuffleData(const string &filename) {
+    LOG(INFO) << "Loading shuffle file...";
+    LoadLineIndex(filename, _shuffleLines); 
+}
+
+bool MultiSourceTsvRawDataFile::IsEOF() {
+	return _currentLine >= TotalLines();
+}
+
+void MultiSourceTsvRawDataFile::EnsureShuffleDataInitialized() {
+    if (_shuffleLines.size() == 0) {
+        for (size_t i = 0; i < _dataFiles.size(); i++) {
+            for (size_t j = 0; j < _dataFiles[i]->TotalLines(); j++) {
+                _shuffleLines.push_back(std::make_pair<int64_t, int64_t>(
+                            i, j));
+            }
+        }
+    }
+}
+
+void MultiSourceTsvRawDataFile::MoveToFirst() {
+    this->MoveToLine(0);
+}
+
+void MultiSourceTsvRawDataFile::MoveToLine(int lineNo) {
+    EnsureShuffleDataInitialized();
+    auto &p = _shuffleLines[lineNo];
+    _dataFiles[p.first]->MoveToLine(p.second);
+    _currentLine = lineNo;
+}
+
+void MultiSourceTsvRawDataFile::MoveToNext() {
+    if (!IsEOF()) {
+        MoveToLine(_currentLine + 1);
+    }
+}
+
+int MultiSourceTsvRawDataFile::TotalLines() {
+    EnsureShuffleDataInitialized();
+    return _shuffleLines.size();
+}
+
+int MultiSourceTsvRawDataFile::ReadNextLine(vector<string> &base64codedImg, vector<string> &label) {
+	if (IsEOF()) {
+		return -1;
+    }
+    MoveToLine(_currentLine);
+    auto &p = _shuffleLines[_currentLine];
+    _dataFiles[p.first]->ReadNextLine(base64codedImg, label);
+	_currentLine++;
+    return 0;
 }
 
 }
