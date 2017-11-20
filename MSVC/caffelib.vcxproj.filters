@@ -600,6 +600,9 @@
     <ClCompile Include="..\src\caffe\layers\indexed_threshold_loss_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\caffe\tree_common.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\caffe\blob.hpp">
@@ -994,6 +997,9 @@
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\indexed_threshold_loss_layer.hpp">
       <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\tree_common.hpp">
+      <Filter>Head Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

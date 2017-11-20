@@ -240,6 +240,7 @@
     <ClCompile Include="..\src\caffe\solvers\rmsprop_solver.cpp" />
     <ClCompile Include="..\src\caffe\solvers\sgd_solver.cpp" />
     <ClCompile Include="..\src\caffe\syncedmem.cpp" />
+    <ClCompile Include="..\src\caffe\tree_common.cpp" />
     <ClCompile Include="..\src\caffe\util\base64.cpp" />
     <ClCompile Include="..\src\caffe\util\benchmark.cpp" />
     <ClCompile Include="..\src\caffe\util\blocking_queue.cpp" />
@@ -440,6 +441,7 @@
     <ClInclude Include="..\include\caffe\solver.hpp" />
     <ClInclude Include="..\include\caffe\solver_factory.hpp" />
     <ClInclude Include="..\include\caffe\syncedmem.hpp" />
+    <ClInclude Include="..\include\caffe\tree_common.hpp" />
     <ClInclude Include="..\include\caffe\util\base64.h" />
     <ClInclude Include="..\include\caffe\util\benchmark.hpp" />
     <ClInclude Include="..\include\caffe\util\blocking_queue.hpp" />
