@@ -53,7 +53,12 @@ class SoftmaxTreeWithLossLayer : public LossLayer<Dtype> {
   }
   virtual inline int ExactNumTopBlobs() const { return -1; }
   virtual inline int MinTopBlobs() const { return 1; }
-  virtual inline int MaxTopBlobs() const { return 2; }
+  virtual inline int MaxTopBlobs() const { 
+      if (this->layer_param_.softmaxtree_loss_param().with_objectness()) {
+          return 3;
+      }
+      return 2;
+  }
 
  protected:
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
@@ -100,7 +105,7 @@ class SoftmaxTreeWithLossLayer : public LossLayer<Dtype> {
   int softmax_axis_, outer_num_, inner_num_, objectness_label_stride_;
   /// Used to keep the hierarchical objectness probability
   Blob<double> label_prob_;
-  Blob<int> label_index_;
+  Blob<Dtype> label_index_;
   Blob<Dtype> loss_;
 };
 

@@ -38,7 +38,7 @@ template <typename Dtype>
 __global__ void SoftmaxTreeWithLossForwardGPUWithObjectness(
     const int num,
     const int* parent_data, const Dtype* prob_data,
-    const Dtype* label, const double* label_prob_data, int* label_index_data,
+    const Dtype* label, const double* label_prob_data, Dtype* label_index_data,
     const int dim, const int spatial_dim, const int label_stride,
     const bool has_ignore_label_, const int ignore_label_,
     Dtype* loss_data, Dtype* counts) {
@@ -122,7 +122,7 @@ template <typename Dtype>
 __global__ void SoftmaxTreeWithLossBackwardGPUWithObjectness(
     const int num,
     const int* parent_data, const int* group_offset_data, const int* group_size_data, const int* group_data,
-    const Dtype* label, const int* label_index_data, const Dtype* prob_data, Dtype* bottom_diff,
+    const Dtype* label, const Dtype* label_index_data, const Dtype* prob_data, Dtype* bottom_diff,
     const int dim, const int spatial_dim, const int label_stride,
     const bool has_ignore_label_, const int ignore_label_) {
 
@@ -132,7 +132,7 @@ __global__ void SoftmaxTreeWithLossBackwardGPUWithObjectness(
         if (has_ignore_label_ && label_value == ignore_label_)
             continue;
 
-        int label_spatial_idx = label_index_data[n];
+        int label_spatial_idx = static_cast<int>(label_index_data[n]);
         while (label_value >= 0) {
             int g = group_data[label_value];
             int offset = group_offset_data[g];
@@ -198,7 +198,15 @@ void SoftmaxTreeWithLossLayer<Dtype>::Forward_gpu(
     }
     top[0]->mutable_cpu_data()[0] = loss / get_normalizer(normalization_, valid_count);
     if (top.size() == 2) {
-        top[1]->ShareData(prob_);
+        if (with_objectness_)
+            top[1]->ShareData(label_index_);
+        else
+            top[1]->ShareData(prob_);
+    } else if (top.size() == 3) {
+        assert(with_objectness_);
+
+        top[1]->ShareData(label_index_);
+        top[2]->ShareData(prob_);
     }
 }
 
