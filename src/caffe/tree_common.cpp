@@ -1,8 +1,6 @@
 #include "caffe/blob.hpp"
 #include "caffe/tree_common.hpp"
 
-#include <vector>
-
 namespace {
 
 char *fgetl(FILE *fp) {
@@ -55,8 +53,8 @@ void Tree::read(const char *filename) {
         parent_cpu_ptr_ = (int *)realloc(parent_cpu_ptr_, (n + 1) * sizeof(int));
         parent_cpu_ptr_[n] = parent;
 
-        child_ = (int *)realloc(child_, (n + 1) * sizeof(int));
-        child_[n] = -1;
+        child_cpu_ptr_ = (int *)realloc(child_cpu_ptr_, (n + 1) * sizeof(int));
+        child_cpu_ptr_[n] = -1;
 
         name_ = (char **)realloc(name_, (n + 1) * sizeof(char *));
         name_[n] = id;
@@ -72,7 +70,7 @@ void Tree::read(const char *filename) {
         group_cpu_ptr_ = (int *)realloc(group_cpu_ptr_, (n + 1) * sizeof(int));
         group_cpu_ptr_[n] = groups;
         if (parent >= 0) {
-            child_[parent] = groups;
+            child_cpu_ptr_[parent] = groups;
         }
         ++n;
         ++group_size;
@@ -105,6 +103,29 @@ void Tree::read(const char *filename) {
     parent_.set_cpu_data(parent_cpu_ptr_);
     group_.Reshape(shape);
     group_.set_cpu_data(group_cpu_ptr_);
+    child_.Reshape(shape);
+    child_.set_cpu_data(child_cpu_ptr_);
+}
+
+void read_map(const char *filename, int max_label, Blob<int>& label_map) {
+    int* label_map_cpu_ptr_ = NULL;
+    char* str;
+    FILE* file = fopen(filename, "r");
+    CHECK(file) << "Cannot open the label map file: " << filename;
+    int n = 0;
+    while ((str = fgetl(file))) {
+        auto label = atoi(str);
+        CHECK_GE(label, 0) << "Invalid label: " << label << " in label map file:" << filename;
+        CHECK_LT(label, max_label) << "Invalid label: " << label << " in label map file:" << filename;
+
+        label_map_cpu_ptr_ = (int *)realloc(label_map_cpu_ptr_, (n + 1) * sizeof(int));
+        label_map_cpu_ptr_[n] = label;
+        n++;
+    }
+
+    CHECK_GE(n, 0) << "Label map file must be non-empty";
+    label_map.Reshape({ n });
+    label_map.set_cpu_data(label_map_cpu_ptr_);
 }
 
 
