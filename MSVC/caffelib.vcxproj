@@ -221,6 +221,7 @@
     <ClCompile Include="..\src\caffe\layers\tanh_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\threshold_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\tile_layer.cpp" />
+    <ClCompile Include="..\src\caffe\layers\tree_prediction_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\triplet_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\tsv_box_data_layer.cpp" />
     <ClCompile Include="..\src\caffe\layers\tsv_cpm_data_layer.cpp" />
@@ -320,6 +321,7 @@
     <CudaCompile Include="..\src\caffe\layers\tanh_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\threshold_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\tile_layer.cu" />
+    <CudaCompile Include="..\src\caffe\layers\tree_prediction_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\triplet_loss_layer.cu" />
     <CudaCompile Include="..\src\caffe\layers\xcov_loss_layer.cu" />
     <CudaCompile Include="..\src\caffe\solvers\adadelta_solver.cu" />
@@ -425,6 +427,7 @@
     <ClInclude Include="..\include\caffe\layers\tanh_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\threshold_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\tile_layer.hpp" />
+    <ClInclude Include="..\include\caffe\layers\tree_prediction_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\triplet_loss_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\tsv_box_data_layer.hpp" />
     <ClInclude Include="..\include\caffe\layers\tsv_cpm_data_layer.hpp" />
