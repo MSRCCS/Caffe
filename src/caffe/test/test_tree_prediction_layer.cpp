@@ -27,7 +27,8 @@ protected:
         label_map_{ 0, 1, 4, 6, 8, 9, 10 },
         blob_bottom_(new Blob<Dtype>(2, 11, 2, 3)),
         blob_top_argmax_(new Blob<Dtype>(2, 1, 2, 3)), 
-        blob_top_prob_(new Blob<Dtype>(2, 11, 2, 3)) {
+        blob_top_prob_(new Blob<Dtype>(2, 1, 2, 3)),
+        blob_top_prob_map_(new Blob<Dtype>(2, label_map_.size(), 2, 3)){
         // fill the values
         FillerParameter filler_param;
         filler_param.set_min(0);
@@ -36,12 +37,12 @@ protected:
         filler.Fill(this->blob_bottom_);
         blob_bottom_vec_.push_back(blob_bottom_);
         blob_top_vec_.push_back(blob_top_argmax_);
-        blob_top_vec_.push_back(blob_top_prob_);
     }
     virtual ~TreePredictionLayerTest() {
         delete blob_bottom_; 
         delete blob_top_argmax_;
         delete blob_top_prob_;
+        delete blob_top_prob_map_;
     }
     string tree_file_name_;
     string map_file_name_;
@@ -53,6 +54,7 @@ protected:
     Blob<Dtype>* const blob_bottom_;
     Blob<Dtype>* const blob_top_argmax_;
     Blob<Dtype>* const blob_top_prob_;
+    Blob<Dtype>* const blob_top_prob_map_;
     vector<Blob<Dtype>*> blob_bottom_vec_;
     vector<Blob<Dtype>*> blob_top_vec_;
 };
@@ -68,6 +70,7 @@ TYPED_TEST(TreePredictionLayerTest, TestForward) {
     layer_param.mutable_treeprediction_param()->set_tree(this->tree_file_name_);
     layer_param.mutable_treeprediction_param()->set_threshold(kThreshold);
     TreePredictionLayer<Dtype> layer(layer_param);
+    this->blob_top_vec_.push_back(this->blob_top_prob_);
     layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
     layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
     for (int i = 0; i < this->blob_bottom_->num(); ++i) {
@@ -103,7 +106,7 @@ TYPED_TEST(TreePredictionLayerTest, TestForward) {
                 } while (g > 0);
 
                 EXPECT_EQ(argmax, this->blob_top_argmax_->data_at(i, 0, k, l));
-                EXPECT_NEAR(p, this->blob_top_prob_->data_at(i, argmax, k, l), 1e-4);
+                EXPECT_NEAR(p, this->blob_top_prob_->data_at(i, 0, k, l), 1e-4);
             }
         }
     }
@@ -115,6 +118,7 @@ TYPED_TEST(TreePredictionLayerTest, TestForwardWithMap) {
     layer_param.mutable_treeprediction_param()->set_tree(this->tree_file_name_);
     layer_param.mutable_treeprediction_param()->set_map(this->map_file_name_);
     TreePredictionLayer<Dtype> layer(layer_param);
+    this->blob_top_vec_.push_back(this->blob_top_prob_map_);
     layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
     layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
     for (int i = 0; i < this->blob_bottom_->num(); ++i) {
@@ -135,7 +139,7 @@ TYPED_TEST(TreePredictionLayerTest, TestForwardWithMap) {
                         label_value = this->parent_[label_value];
                     }
 
-                    EXPECT_NEAR(p, this->blob_top_prob_->data_at(i, this->label_map_[j], k, l), 1e-4);
+                    EXPECT_NEAR(p, this->blob_top_prob_map_->data_at(i, j, k, l), 1e-4);
 
                     if (p > maxval) {
                         argmax = this->label_map_[j];

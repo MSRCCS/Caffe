@@ -26,13 +26,13 @@ __global__ void kernel_hierarchical_prob(
             p *= prob_data[(n * channels + label_value) * inner_num + s];
             label_value = parent_data[label_value];
         }
-        top_data[(n * channels + label_data[i]) * inner_num + s] = static_cast<Dtype>(p);
+        top_data[(n * label_count + i) * inner_num + s] = static_cast<Dtype>(p);
     }
 }
 
 template <typename Dtype>
 __global__ void kernel_argmax(
-    const int outer_num, const int channels, const int inner_num,
+    const int outer_num, const int inner_num,
     const int label_count, const int* label_data,
     const Dtype* top_data,
     Dtype* argmax_data) {
@@ -45,7 +45,7 @@ __global__ void kernel_argmax(
         Dtype maxval = -FLT_MAX;
         for (int i = 0; i < label_count; ++i) {
             const int label_value = label_data[i];
-            Dtype prob = top_data[(n * channels + label_value) * inner_num + s];
+            Dtype prob = top_data[(n * label_count + i) * inner_num + s];
             if (prob > maxval) {
                 argmax = label_value;
                 maxval = prob;
@@ -95,7 +95,7 @@ __global__ void kernel_top_prediction(
             parent_argmax = argmax;
         } while (g > 0);
 
-        top_data[(n * channels + argmax) * inner_num + s] = static_cast<Dtype>(p);
+        top_data[n * inner_num + s] = static_cast<Dtype>(p);
         argmax_data[n * inner_num + s] = argmax;
     }
 }
@@ -108,7 +108,6 @@ void TreePredictionLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
     auto prob_data = bottom[0]->gpu_data();
     int channels = bottom[0]->shape(axis_);
 
-    caffe_gpu_set(top[1]->count(), Dtype(0), top_data);
     if (has_map_) {
         auto parent_data = tree_.parent_.gpu_data();
         auto label_count = label_map_.count();
@@ -122,7 +121,7 @@ void TreePredictionLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
                                         top_data);
         // Find the argmax
         kernel_argmax<Dtype> << <CAFFE_GET_BLOCKS(outer_num_ * inner_num_),
-            CAFFE_CUDA_NUM_THREADS >> >(outer_num_, channels, inner_num_,
+            CAFFE_CUDA_NUM_THREADS >> >(outer_num_, inner_num_,
                                         label_count, label_data,
                                         top_data,
                                         argmax_data);

@@ -42,16 +42,19 @@ void TreePredictionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
 
   // This may requires a reshape layer to reshape to CxA before tree_prediction
   CHECK(channels == tree_.nodes()) << "Channel count: " << channels << " must match tree node count: " << tree_.nodes();
+  outer_num_ = bottom[0]->count(0, axis_);
+  inner_num_ = bottom[0]->count(axis_ + 1);
 
   auto shape = bottom[0]->shape();
   shape[axis_] = 1;
   top[0]->Reshape(shape); // argmax among hierarchical probabilities
-  top[1]->ReshapeLike(*bottom[0]); // hierarchical class probability
-  outer_num_ = bottom[0]->count(0, axis_);
-  inner_num_ = bottom[0]->count(axis_ + 1);
   if (has_map_) {
       CHECK_EQ(axis_, 1)
           << "Axis must be 1 (other axes are not yet supported with map)";
+      shape[axis_] = label_map_.count();
+      top[1]->Reshape(shape); // hierarchical class probability
+  } else {
+      top[1]->Reshape(shape); // hierarchical class probability
   }
 }
 
@@ -63,7 +66,6 @@ void TreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   auto prob_data = bottom[0]->cpu_data();
   int channels = bottom[0]->shape(axis_);
 
-  caffe_set(top[1]->count(), Dtype(0), top_data);
   if (has_map_) {
       auto parent_data = tree_.parent_.cpu_data();
       auto label_count = label_map_.count();
@@ -82,7 +84,7 @@ void TreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
               p *= prob_data[(n * channels + label_value) * inner_num_ + s];
               label_value = parent_data[label_value];
           }
-          top_data[(n * channels + label_data[i]) * inner_num_ + s] = static_cast<Dtype>(p);
+          top_data[(n * label_count + i) * inner_num_ + s] = static_cast<Dtype>(p);
       }
 
       // Find the argmax
@@ -96,7 +98,7 @@ void TreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           Dtype maxval = -FLT_MAX;
           for (int i = 0; i < label_count; ++i) {
               const int label_value = label_data[i];
-              Dtype prob = top_data[(n * channels + label_value) * inner_num_ + s];
+              Dtype prob = top_data[(n * label_count + i) * inner_num_ + s];
               if (prob > maxval) {
                   argmax = label_value;
                   maxval = prob;
@@ -150,7 +152,7 @@ void TreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           parent_argmax = argmax;
       } while (g > 0);
 
-      top_data[(n * channels + argmax) * inner_num_ + s] = static_cast<Dtype>(p);
+      top_data[n * inner_num_ + s] = static_cast<Dtype>(p);
       argmax_data[n * inner_num_ + s] = argmax;
   }
 }

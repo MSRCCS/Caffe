@@ -23,8 +23,10 @@ namespace caffe {
 *   -# @f$ (N \times 1 \times H \times W) @f$
 *      the index with highest hierarchical probability (argmax indices)
 *      if a map, only labels in the map is considered
-*   -# @f$ (N \times C \times H \times W) @f$
-*      the hierarchical probability for each of the C classes
+*   -# @f$ (N \times M \times H \times W) @f$
+*      the hierarchical probability for each of the M classes
+*      M is 1 if no label is specified
+*      M is the size of the map, if a map is provided
 *      if a map is provided, only the probability of the labels in the map is calculated
 *      otherwise, only the top probability is calculated (for which the idnex is also found)
 */
