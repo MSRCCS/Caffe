@@ -398,9 +398,14 @@ void MultiSourceTsvRawDataFile::MoveToFirst() {
 }
 
 void MultiSourceTsvRawDataFile::MoveToLine(int lineNo) {
-    EnsureShuffleDataInitialized();
-    auto &p = _shuffleLines[lineNo];
-    _dataFiles[p.first]->MoveToLine(p.second);
+    if (lineNo < TotalLines()) {
+        CHECK_GE(lineNo, 0);
+        CHECK_LT(lineNo, _shuffleLines.size());
+        auto &p = _shuffleLines[lineNo];
+        CHECK_GE(p.first, 0);
+        CHECK_LT(p.first, _dataFiles.size());
+        _dataFiles[p.first]->MoveToLine(p.second);
+    }
     _currentLine = lineNo;
 }
 
@@ -419,8 +424,12 @@ int MultiSourceTsvRawDataFile::ReadNextLine(vector<string> &base64codedImg, vect
 	if (IsEOF()) {
 		return -1;
     }
+    CHECK_GE(_currentLine, 0);
+    CHECK_LT(_currentLine, _shuffleLines.size());
     MoveToLine(_currentLine);
     auto &p = _shuffleLines[_currentLine];
+    CHECK_GE(p.first, 0);
+    CHECK_LT(p.first, _dataFiles.size());
     _dataFiles[p.first]->ReadNextLine(base64codedImg, label);
 	_currentLine++;
     return 0;
