@@ -155,7 +155,6 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
   // open TSV file
-  string tsv_data = tsv_param.source();
   bool has_shuffle_file = tsv_param.has_source_shuffle();
   string tsv_shuffle;
   if (has_shuffle_file)
@@ -163,35 +162,23 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   int col_data = tsv_param.col_data();
   int col_label = tsv_param.col_label();
   //int col_crop = tsv_param.col_crop();
-  bool has_separate_label_file = tsv_param.has_source_label() ||
-    tsv_param.source_labels_size() > 0;
+  bool has_separate_label_file = tsv_param.source_label_size() > 0;
   
-  if (tsv_param.sources_size() > 0) {
-      vector<string> sources(tsv_param.sources_size());
-      for (int i = 0; i < tsv_param.sources_size(); i++) {
-          sources[i] = tsv_param.sources(i);
-      }
-      tsv_.reset(ITsvDataFile::make_tsv(sources, tsv_param.cache_all(), col_data, has_separate_label_file? -1: col_label));
-  } else {
-      CHECK(tsv_param.has_source());
-      tsv_.reset(ITsvDataFile::make_tsv(tsv_data.c_str(), tsv_param.cache_all(), col_data, has_separate_label_file ? -1 : col_label));
+  vector<string> sources(tsv_param.source_size());
+  for (int i = 0; i < tsv_param.source_size(); i++) {
+      sources[i] = tsv_param.source(i);
   }
+  tsv_.reset(ITsvDataFile::make_tsv(sources, tsv_param.cache_all(), col_data, has_separate_label_file? -1: col_label));
+
   if (has_shuffle_file)
     tsv_->ShuffleData(tsv_shuffle);
   if (has_separate_label_file)
   {
-      if (tsv_param.source_labels_size() > 0) {
-        CHECK(!tsv_param.has_source_label());
-        vector<string> source_labels(tsv_param.source_labels_size());
-        for (int i = 0; i < tsv_param.source_labels_size(); i++) {
-            source_labels[i] = tsv_param.source_labels(i);
-        }
-        tsv_label_.reset(ITsvDataFile::make_tsv(source_labels, true, -1, col_label));
-      } else {
-        CHECK(tsv_param.has_source_label());
-	    string tsv_label = tsv_param.source_label();
-	    tsv_label_.reset(ITsvDataFile::make_tsv(tsv_label.c_str(), true, -1, col_label));
+      vector<string> source_labels(tsv_param.source_label_size());
+      for (int i = 0; i < tsv_param.source_label_size(); i++) {
+          source_labels[i] = tsv_param.source_label(i);
       }
+      tsv_label_.reset(ITsvDataFile::make_tsv(source_labels, true, -1, col_label));
 	  if (has_shuffle_file)
         tsv_label_->ShuffleData(tsv_shuffle);
 	  CHECK_EQ(tsv_->TotalLines(), tsv_label_->TotalLines())
@@ -535,7 +522,7 @@ bool TsvDataLayer<Dtype>::Skip() {
 
 template<typename Dtype>
 void TsvDataLayer<Dtype>::Next() {
-    bool has_separate_label_file = this->layer_param().tsv_data_param().has_source_label();
+    bool has_separate_label_file = tsv_label_ != nullptr;
     if (tsv_->IsEOF()) {
         LOG_IF(INFO, Caffe::root_solver())
             << "Restarting data prefetching from start.";

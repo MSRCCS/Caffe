@@ -336,9 +336,17 @@ ITsvDataFile* ITsvDataFile::make_tsv(const vector<string> &fileNames,
             const vector<bool> &cache_all,
             const vector<int> &colData,
             const vector<int> &colLabel) {
-    auto result = new MultiSourceTsvRawDataFile();
-    result->Open(fileNames, cache_all, colData, colLabel);
-    return result;
+    CHECK_EQ(fileNames.size(), cache_all.size());
+    CHECK_EQ(fileNames.size(), colData.size());
+    CHECK_EQ(fileNames.size(), colLabel.size());
+    if (fileNames.size() == 1) {
+        return make_tsv(fileNames[0].c_str(), 
+                cache_all[0], colData[0], colLabel[0]);
+    } else {
+        auto result = new MultiSourceTsvRawDataFile();
+        result->Open(fileNames, cache_all, colData, colLabel);
+        return result;
+    }
 }
 
 ITsvDataFile* ITsvDataFile::make_tsv(const vector<string> &fileNames, 

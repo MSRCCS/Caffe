@@ -1374,11 +1374,9 @@ message TsvDataParameter{
     }
 
     // Specify the data source.
-    optional string source = 1;
-    repeated string sources = 19;
+    repeated string source = 1;
     // Specify if a separate label file is used. In this case, col_label and col_crop are referred to this label file.
-    optional string source_label = 2;
-    repeated string source_labels = 20;
+    repeated string source_label = 2;
     // Specify the shuffle file for access sequence for both the data file and the label file.
     optional string source_shuffle = 3;
     // Specify data format
