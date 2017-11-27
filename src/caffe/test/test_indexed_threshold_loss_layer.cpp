@@ -67,7 +67,6 @@ TYPED_TEST(IndexedThresholdLossLayerTest, TestForward) {
     layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
     const Dtype loss_weight = layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
     Dtype loss = 0;
-    int count = 0;
     auto channels = this->blob_bottom_data_->channels();
     auto height = this->blob_bottom_data_->height();
     auto width = this->blob_bottom_data_->width();

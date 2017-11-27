@@ -51,7 +51,6 @@ void SoftmaxTreeLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   auto group_offset_data = softmax_tree_.group_offset_.cpu_data();
   auto group_size_data = softmax_tree_.group_size_.cpu_data();
   auto groups = softmax_tree_.groups();
-  int channels = bottom[0]->shape(softmax_axis_);
   int dim = bottom[0]->count() / outer_num_; // == channels * inner_num_
   caffe_copy(bottom[0]->count(), bottom[0]->cpu_data(), top_data);
 
@@ -106,7 +105,6 @@ void SoftmaxTreeLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
   auto group_offset_data = softmax_tree_.group_offset_.cpu_data();
   auto group_size_data = softmax_tree_.group_size_.cpu_data();
   auto groups = softmax_tree_.groups();
-  int channels = top[0]->shape(softmax_axis_);
   int dim = top[0]->count() / outer_num_; // == channels * inner_num_
   caffe_copy(top[0]->count(), top_diff, bottom_diff);
 

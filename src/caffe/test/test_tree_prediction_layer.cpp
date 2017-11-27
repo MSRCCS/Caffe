@@ -1,5 +1,6 @@
 #include <cmath>
 #include <vector>
+#include <cfloat>
 
 #include "gtest/gtest.h"
 
@@ -34,7 +35,7 @@ protected:
         filler_param.set_min(0);
         filler_param.set_max(1);
         UniformFiller<Dtype> filler(filler_param);
-        filler.Fill(this->blob_bottom_);
+        filler.Fill(blob_bottom_);
         blob_bottom_vec_.push_back(blob_bottom_);
         blob_top_vec_.push_back(blob_top_argmax_);
     }
@@ -87,10 +88,10 @@ TYPED_TEST(TreePredictionLayerTest, TestForward) {
                     auto size = this->group_size_[g];
                     Dtype maxval = -FLT_MAX;
                     for (int j = 0; j < size; ++j) {
-                        Dtype prob = blob_bottom_->data_at(i, offset + j, k, l);
+                        Dtype prob = this->blob_bottom_->data_at(i, offset + j, k, l);
                         if (prob > maxval) {
                             argmax = offset + j;
-                            EXPECT_LT(argmax, blob_bottom_->shape(1));
+                            EXPECT_LT(argmax, this->blob_bottom_->shape(1));
                             maxval = prob;
                         }
                     }
@@ -131,7 +132,7 @@ TYPED_TEST(TreePredictionLayerTest, TestForwardWithMap) {
                 for (int j = 0; j < this->label_map_.size(); ++j) {
                     int label_value = this->label_map_[j];
                     EXPECT_GE(label_value, 0);
-                    EXPECT_LT(label_value, blob_bottom_->shape(1));
+                    EXPECT_LT(label_value, this->blob_bottom_->shape(1));
 
                     double p = 1;
                     while (label_value >= 0) {

@@ -123,7 +123,7 @@ void read_map(const char *filename, int max_label, Blob<int>& label_map) {
         n++;
     }
 
-    CHECK_GE(n, 0) << "Label map file must be non-empty";
+    CHECK_GT(n, 0) << "Label map file must be non-empty";
     label_map.Reshape({ n });
     label_map.set_cpu_data(label_map_cpu_ptr_);
 }
