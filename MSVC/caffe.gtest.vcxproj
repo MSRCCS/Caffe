@@ -352,6 +352,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="..\src\caffe\test\test_tree_prediction_layer.cpp" />
     <ClCompile Include="..\src\caffe\test\test_triplet_loss_layer.cpp" />
     <ClCompile Include="..\src\caffe\test\test_tsv_data_io.cpp" />
     <ClCompile Include="..\src\caffe\test\test_upgrade_proto.cpp">

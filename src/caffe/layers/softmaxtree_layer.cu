@@ -14,9 +14,8 @@ __global__ void kernel_subtract_max(const int num, const int channels, const int
                                     const int* group_offset_data, const int* group_size_data, Dtype* data) {
     CUDA_KERNEL_LOOP(index, num * groups * spatial_dim) {
         int s = index % spatial_dim;
-        index /= spatial_dim;
-        int g = index % groups;
-        int n = index / groups;
+        int g = (index / spatial_dim) % groups;
+        int n = (index / spatial_dim) / groups;
         auto offset = group_offset_data[g];
         auto size = group_size_data[g];
         Dtype maxval = -FLT_MAX;
@@ -36,9 +35,8 @@ __global__ void kernel_div_sum(const int num, const int channels, const int spat
                                const int* group_offset_data, const int* group_size_data, Dtype* data) {
     CUDA_KERNEL_LOOP(index, num * groups * spatial_dim) {
         int s = index % spatial_dim;
-        index /= spatial_dim;
-        int g = index % groups;
-        int n = index / groups;
+        int g = (index / spatial_dim) % groups;
+        int n = (index / spatial_dim) / groups;
         auto offset = group_offset_data[g];
         auto size = group_size_data[g];
         Dtype sum = 0;
@@ -57,9 +55,8 @@ __global__ void kernel_subtract_dot(const int num, const int channels, const int
                                     const Dtype* data_1, const Dtype* data_2, Dtype* out) {
     CUDA_KERNEL_LOOP(index, num * groups * spatial_dim) {
         int s = index % spatial_dim;
-        index /= spatial_dim;
-        int g = index % groups;
-        int n = index / groups;
+        int g = (index / spatial_dim) % groups;
+        int n = (index / spatial_dim) / groups;
         auto offset = group_offset_data[g];
         auto size = group_size_data[g];
         Dtype dot = 0;
