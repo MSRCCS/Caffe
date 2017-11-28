@@ -155,7 +155,6 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
   // open TSV file
-  string tsv_data = tsv_param.source();
   bool has_shuffle_file = tsv_param.has_source_shuffle();
   string tsv_shuffle;
   if (has_shuffle_file)
@@ -163,23 +162,31 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   int col_data = tsv_param.col_data();
   int col_label = tsv_param.col_label();
   //int col_crop = tsv_param.col_crop();
-  bool has_separate_label_file = tsv_param.has_source_label();
+  bool has_separate_label_file = tsv_param.source_label_size() > 0;
+  
+  vector<string> sources(tsv_param.source_size());
+  for (int i = 0; i < tsv_param.source_size(); i++) {
+      sources[i] = tsv_param.source(i);
+  }
+  tsv_.reset(ITsvDataFile::make_tsv(sources, tsv_param.cache_all(), col_data, has_separate_label_file? -1: col_label));
 
-  tsv_.Open(tsv_data.c_str(), tsv_param.cache_all(), col_data, has_separate_label_file ? -1 : col_label);
   if (has_shuffle_file)
-    tsv_.ShuffleData(tsv_shuffle);
+    tsv_->ShuffleData(tsv_shuffle);
   if (has_separate_label_file)
   {
-	  string tsv_label = tsv_param.source_label();
-	  tsv_label_.Open(tsv_label.c_str(), true, -1, col_label);
+      vector<string> source_labels(tsv_param.source_label_size());
+      for (int i = 0; i < tsv_param.source_label_size(); i++) {
+          source_labels[i] = tsv_param.source_label(i);
+      }
+      tsv_label_.reset(ITsvDataFile::make_tsv(source_labels, true, -1, col_label));
 	  if (has_shuffle_file)
-        tsv_label_.ShuffleData(tsv_shuffle);
-	  CHECK_EQ(tsv_.TotalLines(), tsv_label_.TotalLines())
+        tsv_label_->ShuffleData(tsv_shuffle);
+	  CHECK_EQ(tsv_->TotalLines(), tsv_label_->TotalLines())
 		  << "Data and label files must have the same line number: " 
-		  << tsv_.TotalLines() << " vs. " << tsv_label_.TotalLines();
+		  << tsv_->TotalLines() << " vs. " << tsv_label_->TotalLines();
   }
   int batch_size = tsv_param.batch_size();
-  LOG(INFO) << "Total data: " << tsv_.TotalLines() << ", Batch size: " << batch_size << ", Epoch iterations: " << (float)tsv_.TotalLines() / batch_size;
+  LOG(INFO) << "Total data: " << tsv_->TotalLines() << ", Batch size: " << batch_size << ", Epoch iterations: " << (float)tsv_->TotalLines() / batch_size;
 
   // initialize the prefetch and top blobs.
   // For detection data, new_width, new_height, channels, crop_size can all be ignored.
@@ -515,21 +522,21 @@ bool TsvDataLayer<Dtype>::Skip() {
 
 template<typename Dtype>
 void TsvDataLayer<Dtype>::Next() {
-    bool has_separate_label_file = this->layer_param().tsv_data_param().has_source_label();
-    if (tsv_.IsEOF()) {
+    bool has_separate_label_file = tsv_label_ != nullptr;
+    if (tsv_->IsEOF()) {
         LOG_IF(INFO, Caffe::root_solver())
             << "Restarting data prefetching from start.";
-        tsv_.MoveToFirst();
+        tsv_->MoveToFirst();
     }
-    tsv_.MoveToNext();
+    tsv_->MoveToNext();
     if (has_separate_label_file)
     {
-        if (tsv_label_.IsEOF()) {
+        if (tsv_label_->IsEOF()) {
             LOG_IF(INFO, Caffe::root_solver())
                 << "Restarting label prefetching from start.";
-            tsv_label_.MoveToFirst();
+            tsv_label_->MoveToFirst();
         }
-        tsv_label_.MoveToNext();
+        tsv_label_->MoveToNext();
     }
 }
 
@@ -566,7 +573,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 
     vector<string> base64coded_data;
     vector<string> label;
-    bool has_separate_label_file = tsv_param.has_source_label();
+    bool has_separate_label_file = tsv_label_ != nullptr; 
     timer.Start();
 	for (int item_id = 0; item_id < batch_size; ++item_id)
 	{
@@ -574,21 +581,21 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
             Next();
             offset_++;
         }
-        if (tsv_.IsEOF())
+        if (tsv_->IsEOF())
         {
             LOG_IF(INFO, Caffe::root_solver()) << "Restarting data prefetching from start.";
-            tsv_.MoveToFirst();
+            tsv_->MoveToFirst();
         }
-        int result = tsv_.ReadNextLine(base64coded_data, label);
+        int result = tsv_->ReadNextLine(base64coded_data, label);
         CHECK(result == 0) << "Data: empty line or unexpected EOF.";
 		if (has_separate_label_file)
 		{
-			if (tsv_label_.IsEOF())
+			if (tsv_label_->IsEOF())
 			{
                 LOG_IF(INFO, Caffe::root_solver()) << "Restarting label prefetching from start.";
-				tsv_label_.MoveToFirst();
+				tsv_label_->MoveToFirst();
             }
-            int result_label = tsv_label_.ReadNextLine(base64coded_data, label);
+            int result_label = tsv_label_->ReadNextLine(base64coded_data, label);
             CHECK(result_label == 0) << "Label: empty line or unexpected EOF.";
         }
         // TsvRawDataFile allows sequential read. After calling ReadNextLine, the so-called cursor is 
@@ -600,6 +607,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	timer.Start();
     Dtype *batch_data = batch->data_.mutable_cpu_data();
     Dtype *label_data = batch->label_.mutable_cpu_data();
+    CHECK_EQ(base64coded_data.size(), label.size());
 #ifdef _MSC_VER
     parallel_for((size_t)0, base64coded_data.size(), [&](size_t i) {
 #else

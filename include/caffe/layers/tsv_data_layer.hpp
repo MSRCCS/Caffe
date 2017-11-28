@@ -40,8 +40,8 @@ protected:
     virtual void load_batch(Batch<Dtype>* batch);
     virtual void on_load_batch(Batch<Dtype>* batch);
 
-    TsvRawDataFile tsv_;
-	TsvRawDataFile tsv_label_;
+    shared_ptr<ITsvDataFile> tsv_;
+	shared_ptr<ITsvDataFile> tsv_label_;
     uint64_t offset_;
 
     // mean values for pixel value subtraction
