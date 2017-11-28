@@ -249,13 +249,13 @@ namespace TsvTool
         {
             [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
             public string inTsv = null;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output folder")]
             public string outFolder = null;
             [Argument(ArgumentType.Required, HelpText = "Column index for base64 encoded image")]
             public int colImage = -1;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for sub folder name (default: use subfolder name in TSV)")]
             public int colSubFolder = -1;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for file name (e.g. 0,2,4,7 default: use GUID as filename)")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for file name (e.g. 0,2,4,7 default: use GUID as filename), corresponded file names will be saved to filelist.txt in output folder")]
             public string colFileName = "-1";
         }
 
@@ -265,12 +265,17 @@ namespace TsvTool
 
             if (cmd.outFolder == null)
                 cmd.outFolder = Path.GetFileNameWithoutExtension(cmd.inTsv);
+
+            var outFileList = Path.Combine(cmd.outFolder, "fileslist.txt");
+            TextWriter textWriter = new StreamWriter(outFileList);
+
             var lines = File.ReadLines(cmd.inTsv)
                 .Select(line => line.Split('\t'));
             int count = 0;
+            var invalids = System.IO.Path.GetInvalidFileNameChars();
             foreach (var cols in lines)
             {
-                string subfolder = null, filename;
+                string subfolder = string.Empty, filename;
                 if (colFileName_indices[0] >= 0)
                 {
                     filename = String.Join("-", colFileName_indices.Select(idx => cols[idx]));
@@ -279,7 +284,6 @@ namespace TsvTool
                     subfolder = Path.GetDirectoryName(filename);
                     if (string.IsNullOrEmpty(subfolder) && cmd.colSubFolder >= 0)
                         subfolder = cols[cmd.colSubFolder];
-                    var invalids = System.IO.Path.GetInvalidFileNameChars();
                     subfolder = String.Join("_", subfolder.Split(invalids, StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
                     filename = Path.GetFileName(filename);
                 }
@@ -287,15 +291,24 @@ namespace TsvTool
                 {
                     filename = Guid.NewGuid().ToString() + ".jpg";
                     if (cmd.colSubFolder >= 0)
+                    {
                         subfolder = cols[cmd.colSubFolder];
+                        subfolder = String.Join("_", subfolder.Split(invalids, StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
+                    }
+
                 }
                 string image_file_name = Path.Combine(cmd.outFolder, subfolder, filename);
                 if (!Directory.Exists(Path.GetDirectoryName(image_file_name)))
                     Directory.CreateDirectory(Path.GetDirectoryName(image_file_name));
+                if (File.Exists(image_file_name))
+                    Console.WriteLine("Warning! overwrite existing file {0}", image_file_name);
                 File.WriteAllBytes(image_file_name, Convert.FromBase64String(cols[cmd.colImage]));
+                textWriter.WriteLine(image_file_name);
                 Console.Write("Images saved: {0}\r", ++count);
             }
+            textWriter.Close();
             Console.WriteLine("\nDone!");
+            Console.WriteLine("Corresponding file list saved to {0}", outFileList);
         }
 
         class ArgsTsv2CNTKImageReader
