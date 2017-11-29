@@ -10,6 +10,12 @@ namespace caffe {
 template <typename Dtype>
 void SoftmaxTreeWithLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
     LossLayer<Dtype>::LayerSetUp(bottom, top);
+    if (this->layer_param_.loss_weight_size() == 1 && top.size() > 1) {
+        // only the first top is loss
+        auto ignored_tops = std::min((int)top.size(), MaxTopBlobs());
+        for (int i = 1; i < ignored_tops; ++i)
+            this->layer_param_.add_loss_weight(Dtype(0));
+    }
     LayerParameter softmaxtree_param(this->layer_param_);
     softmaxtree_param.clear_loss_weight(); // Ignore loss_wight if set
     softmaxtree_param.set_type("SoftmaxTree");

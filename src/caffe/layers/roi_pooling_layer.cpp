@@ -127,7 +127,11 @@ void ROIPoolingLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 template <typename Dtype>
 void ROIPoolingLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
-  NOT_IMPLEMENTED;
+    for (int i = 0; i < propagate_down.size(); ++i) {
+        if (propagate_down[i]) {
+            NOT_IMPLEMENTED;
+        }
+    }
 }
 
 

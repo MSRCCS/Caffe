@@ -392,10 +392,9 @@ bool MultiSourceTsvRawDataFile::IsEOF() {
 
 void MultiSourceTsvRawDataFile::EnsureShuffleDataInitialized() {
     if (_shuffleLines.size() == 0) {
-        for (size_t i = 0; i < _dataFiles.size(); i++) {
-            for (size_t j = 0; j < _dataFiles[i]->TotalLines(); j++) {
-                _shuffleLines.push_back(std::make_pair<int64_t, int64_t>(
-                            i, j));
+        for (int64_t i = 0; i < _dataFiles.size(); i++) {
+            for (int64_t j = 0; j < _dataFiles[i]->TotalLines(); j++) {
+                _shuffleLines.emplace_back(i, j);
             }
         }
     }
