@@ -89,6 +89,7 @@ namespace caffe {
   FUNC(RegionLoss); \
   FUNC(RegionOutput); \
   FUNC(RegionPrediction); \
+  FUNC(YoloBBs); \
   FUNC(RegionTarget); \
   FUNC(ReLU); \
   FUNC(Reorg); \
