@@ -431,6 +431,7 @@ message LayerParameter {
   optional CPMTransformationParameter cpm_transform_param = 0x0043504D; // "CPM"
   optional RegionTargetParameter region_target_param = 0x00524554; // "RET"
   optional RegionPredictionParameter region_prediction_param = 0x00524550; // "REP"
+  optional YoloBBsParameter yolobbs_param = 0x00594242; // "YBB"
   optional SoftmaxTreeParameter softmaxtree_param = 0x00534D54; // "SMT"
   optional SoftmaxTreeLossParameter softmaxtree_loss_param = 0x0053544C; // "STL"
   optional TreePredictionParameter treeprediction_param = 0x00535450; // "STP"
@@ -1485,6 +1486,15 @@ message RegionPredictionParameter {
 	repeated float biases = 4;
 	optional uint32 feat_stride = 5 [default = 32]; // the feature stride for all the previous layers
     optional bool class_specific_nms = 6 [default = true];
+}
+
+message YoloBBsParameter {
+    repeated float biases = 1;
+    optional uint32 feat_stride = 2 [default = 32]; // the feature stride for all the previous layers
+    // specify the threshold for removing low confidence detections. 
+    // The confidence score is defined as objectness * class_probability
+    // if threshold is specified, objectness and class_probability must also be provided
+    optional float thresh = 3 [default = 0.24];
 }
 
 message RegionTargetParameter {
