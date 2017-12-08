@@ -17,13 +17,13 @@ void RegionPredictionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom
     nms_ = region_param.nms();
     feat_stride_ = region_param.feat_stride();
 
-    this->biases_.Reshape(region_param.biases_size() * 2, 1, 1, 1);
+    biases_.Reshape(region_param.biases_size(), 1, 1, 1);
     for (int i = 0; i < region_param.biases_size(); ++i) {
-        *(this->biases_.mutable_cpu_data() + i) = region_param.biases(i);
+        *(biases_.mutable_cpu_data() + i) = region_param.biases(i);
     }
 
     CHECK(biases_.count() % 2 == 0) << "the number of biases must be even: " << biases_.count();
-    this->class_specific_nms_ = region_param.class_specific_nms();
+    class_specific_nms_ = region_param.class_specific_nms();
 }
 
 template <typename Dtype>
@@ -48,6 +48,7 @@ void RegionPredictionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, c
     CHECK_EQ(blob_conf->num(), num_anchor * num);
     CHECK_EQ(blob_conf->height(), height);
     CHECK_EQ(blob_conf->width(), width);
+    CHECK_EQ(biases_.count(), num_anchor * 2);
 
     vector<int> shape = {num, num_anchor, height, width, 4};
     bbs->Reshape(shape);
@@ -192,7 +193,7 @@ void RegionPredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& botto
     Dtype *bbs_data = bbs->mutable_cpu_data();
     Dtype *prob_data = prob->mutable_cpu_data();
     caffe_set(prob->count(), (Dtype)0, prob_data);
-    auto biases = this->biases_.cpu_data();
+    auto biases = biases_.cpu_data();
 
     for (int b = 0; b < batches; b++) {
         for (int n = 0; n < num_anchor; n++) {
@@ -220,7 +221,9 @@ void RegionPredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& botto
                     Dtype max = 0;
                     for (int c = 0; c < classes; ++c) {
                         auto p = scale * blob_conf->data_at({b * num_anchor + n, c, j, i});
-                        *(prob_data + prob->offset({b, n, j, i, c})) = (p > thresh_) ? p : 0;
+                        if (p <= thresh_)
+                            p = 0;
+                        *(prob_data + prob->offset({b, n, j, i, c})) = p;
                         if (p > max) {
                             max = p;
                         }
@@ -234,7 +237,7 @@ void RegionPredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& botto
     correct_region_boxes<Dtype>(bbs, im_w, im_h, width * feat_stride_, height * feat_stride_);
     
     if (nms_ > 0) {
-        if (this->class_specific_nms_) {
+        if (class_specific_nms_) {
             do_nms_sort(bbs, prob, nms_);
         } else {
             do_nms_obj(bbs, prob, nms_);//0.4);
