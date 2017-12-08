@@ -35,7 +35,8 @@ __global__ void kernel_argmax(
     const int outer_num, const int inner_num,
     const int label_count, const int* label_data,
     const Dtype* top_data,
-    Dtype* argmax_data) {
+    Dtype* argmax_data,
+    Dtype* max_data) {
     CUDA_KERNEL_LOOP(index, outer_num * inner_num) {
         // index == n * inner_num + s
         const int n = index / inner_num;
@@ -44,15 +45,16 @@ __global__ void kernel_argmax(
         int argmax = 0;
         Dtype maxval = -FLT_MAX;
         for (int i = 0; i < label_count; ++i) {
-            const int label_value = label_data[i];
             Dtype prob = top_data[(n * label_count + i) * inner_num + s];
             if (prob > maxval) {
-                argmax = label_value;
+                argmax = label_data[i];
                 maxval = prob;
             }
         }
 
         argmax_data[n * inner_num + s] = argmax;
+        if (max_data)
+            max_data[n * inner_num + s] = maxval;
     }
 }
 
@@ -109,6 +111,10 @@ void TreePredictionLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
     int channels = bottom[0]->shape(axis_);
 
     if (has_map_) {
+        Dtype* max_data = NULL;
+        if (top.size() == 3)
+            max_data = top[2]->mutable_cpu_data();
+
         auto parent_data = tree_.parent_.gpu_data();
         auto label_count = label_map_.count();
         auto label_data = label_map_.gpu_data();
@@ -124,7 +130,8 @@ void TreePredictionLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
             CAFFE_CUDA_NUM_THREADS >> >(outer_num_, inner_num_,
                                         label_count, label_data,
                                         top_data,
-                                        argmax_data);
+                                        argmax_data,
+                                        max_data);
 
         return;
     }

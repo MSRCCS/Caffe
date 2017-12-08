@@ -51,6 +51,8 @@ void TreePredictionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
   if (has_map_) {
       CHECK_EQ(axis_, 1)
           << "Axis must be 1 (other axes are not yet supported with map)";
+      if (top.size() == 3)
+          top[2]->Reshape(shape); // label index within the label map
       shape[axis_] = label_map_.count();
       top[1]->Reshape(shape); // hierarchical class probability
   } else {
@@ -67,6 +69,10 @@ void TreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   int channels = bottom[0]->shape(axis_);
 
   if (has_map_) {
+      Dtype* max_data = NULL;
+      if (top.size() == 3)
+          max_data = top[2]->mutable_cpu_data();
+
       auto parent_data = tree_.parent_.cpu_data();
       auto label_count = label_map_.count();
       auto label_data = label_map_.cpu_data();
@@ -97,15 +103,16 @@ void TreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           int argmax = 0;
           Dtype maxval = -FLT_MAX;
           for (int i = 0; i < label_count; ++i) {
-              const int label_value = label_data[i];
               Dtype prob = top_data[(n * label_count + i) * inner_num_ + s];
               if (prob > maxval) {
-                  argmax = label_value;
+                  argmax = label_data[i];
                   maxval = prob;
               }
           }
 
           argmax_data[n * inner_num_ + s] = argmax;
+          if (max_data)
+              max_data[n * inner_num_ + s] = maxval;
       }
 
       return;

@@ -2,6 +2,7 @@
 #include <vector>
 #include <cfloat>
 
+#include "boost/scoped_ptr.hpp"
 #include "gtest/gtest.h"
 
 #include "caffe/blob.hpp"
@@ -27,9 +28,10 @@ protected:
         parent_{ -1, -1, -1, -1, 0, 0, 4, 4, 4, 8, 8 },
         label_map_{ 0, 1, 4, 6, 8, 9, 10 },
         blob_bottom_(new Blob<Dtype>(2, 11, 2, 3)),
-        blob_top_argmax_(new Blob<Dtype>(2, 1, 2, 3)), 
-        blob_top_prob_(new Blob<Dtype>(2, 1, 2, 3)),
-        blob_top_prob_map_(new Blob<Dtype>(2, label_map_.size(), 2, 3)){
+        blob_top_argmax_(new Blob<Dtype>()), 
+        blob_top_prob_(new Blob<Dtype>()),
+        blob_top_prob_map_(new Blob<Dtype>()),
+        blob_top_max_(new Blob<Dtype>()) {
         // fill the values
         FillerParameter filler_param;
         filler_param.set_min(0);
@@ -39,11 +41,46 @@ protected:
         blob_bottom_vec_.push_back(blob_bottom_);
         blob_top_vec_.push_back(blob_top_argmax_);
     }
+    void MapForward(bool with_max = false) {
+        for (int i = 0; i < blob_bottom_->num(); ++i) {
+            for (int k = 0; k < blob_bottom_->height(); ++k) {
+                for (int l = 0; l < blob_bottom_->width(); ++l) {
+                    int argmax = 0;
+                    Dtype maxval = -FLT_MAX;
+
+                    // Check hierarchical probabilities
+                    for (int j = 0; j < label_map_.size(); ++j) {
+                        int label_value = label_map_[j];
+                        EXPECT_GE(label_value, 0);
+                        EXPECT_LT(label_value, blob_bottom_->shape(1));
+
+                        double p = 1;
+                        while (label_value >= 0) {
+                            p *= blob_bottom_->data_at(i, label_value, k, l);
+                            label_value = parent_[label_value];
+                        }
+
+                        EXPECT_NEAR(p, blob_top_prob_map_->data_at(i, j, k, l), 1e-4);
+
+                        if (p > maxval) {
+                            argmax = label_map_[j];
+                            maxval = p;
+                        }
+                    }
+                    // Check argmax
+                    EXPECT_EQ(argmax, blob_top_argmax_->data_at(i, 0, k, l));
+                    if(with_max)
+                        EXPECT_FLOAT_EQ(maxval, blob_top_max_->data_at(i, 0, k, l));
+                }
+            }
+        }
+    }
     virtual ~TreePredictionLayerTest() {
         delete blob_bottom_; 
         delete blob_top_argmax_;
         delete blob_top_prob_;
         delete blob_top_prob_map_;
+        delete blob_top_max_;
     }
     string tree_file_name_;
     string map_file_name_;
@@ -56,6 +93,7 @@ protected:
     Blob<Dtype>* const blob_top_argmax_;
     Blob<Dtype>* const blob_top_prob_;
     Blob<Dtype>* const blob_top_prob_map_;
+    Blob<Dtype>* const blob_top_max_;
     vector<Blob<Dtype>*> blob_bottom_vec_;
     vector<Blob<Dtype>*> blob_top_vec_;
 };
@@ -118,41 +156,17 @@ TYPED_TEST(TreePredictionLayerTest, TestForwardWithMap) {
     LayerParameter layer_param;
     layer_param.mutable_treeprediction_param()->set_tree(this->tree_file_name_);
     layer_param.mutable_treeprediction_param()->set_map(this->map_file_name_);
+
     TreePredictionLayer<Dtype> layer(layer_param);
     this->blob_top_vec_.push_back(this->blob_top_prob_map_);
     layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
     layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
-    for (int i = 0; i < this->blob_bottom_->num(); ++i) {
-        for (int k = 0; k < this->blob_bottom_->height(); ++k) {
-            for (int l = 0; l < this->blob_bottom_->width(); ++l) {
-                int argmax = 0;
-                Dtype maxval = -FLT_MAX;
+    this->MapForward();
 
-                // Check hierarchical probabilities
-                for (int j = 0; j < this->label_map_.size(); ++j) {
-                    int label_value = this->label_map_[j];
-                    EXPECT_GE(label_value, 0);
-                    EXPECT_LT(label_value, this->blob_bottom_->shape(1));
-
-                    double p = 1;
-                    while (label_value >= 0) {
-                        p *= this->blob_bottom_->data_at(i, label_value, k, l);
-                        label_value = this->parent_[label_value];
-                    }
-
-                    EXPECT_NEAR(p, this->blob_top_prob_map_->data_at(i, j, k, l), 1e-4);
-
-                    if (p > maxval) {
-                        argmax = this->label_map_[j];
-                        maxval = p;
-                    }
-                }
-                // Check argmax
-                EXPECT_EQ(argmax, this->blob_top_argmax_->data_at(i, 0, k, l));
-            }
-        }
-    }
+    this->blob_top_vec_.push_back(this->blob_top_max_);
+    layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    this->MapForward(true);
 }
-
 
 }  // namespace caffe
