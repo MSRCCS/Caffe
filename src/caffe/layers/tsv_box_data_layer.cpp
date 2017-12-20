@@ -698,11 +698,14 @@ void fill_truth_detection(const string &input_label_data, float *truth, int num_
         int nw, int nh, int network_w, int network_h, float odx, float ody)
 {
     vector<box_label> boxes = read_boxes(input_label_data, labelmap, orig_img_w, orig_img_h);
-    randomize_boxes(&boxes[0], boxes.size());
-    correct_boxes(&boxes[0], boxes.size(), dx, dy, sx, sy, flip, rad, 
+    auto count = boxes.size();
+    if (!count)
+        return;
+    randomize_boxes(&boxes[0], count);
+    correct_boxes(&boxes[0], count, dx, dy, sx, sy, flip, rad,
             orig_img_w, orig_img_h, nw, nh, network_w, network_h, odx, ody);
-    int count = boxes.size();
-    if (count > num_boxes) count = num_boxes;
+    if (count > num_boxes) 
+        count = num_boxes;
     float x, y, w, h;
     int id;
     int i;
