@@ -153,7 +153,7 @@ void NMSFilterLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, cons
         int* idx_data = idx_.mutable_gpu_data();
         int* idx_tmp = idx_.mutable_gpu_diff();
         // Start swapped if loop runs for an odd number
-        bool is_swapped = ((int)ceil(log2(inner_num_))) % 2 != 0;
+        bool is_swapped = ((int)ceil(log2((double)inner_num_))) % 2 != 0;
         // TODO: Use dynamic parallelism for devices with 3.5 compute capability
         for (int width = 2; width < inner_num_ * 2; width *= 2) {
             int chunks = (inner_num_ + width - 1) / width;

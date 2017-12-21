@@ -87,8 +87,8 @@ TYPED_TEST(YoloBBsLayerTest, TestForward) {
 
   const int kImageWidth = 315;
   const int kImageHeight = 416;
-  blob_imageinfo_->mutable_cpu_data()[0] = kImageHeight;
-  blob_imageinfo_->mutable_cpu_data()[1] = kImageWidth;
+  this->blob_imageinfo_->mutable_cpu_data()[0] = kImageHeight;
+  this->blob_imageinfo_->mutable_cpu_data()[1] = kImageWidth;
 
   vector<float> biases = { 0.77871f, 1.14074f, 3.00525f, 4.31277f, 9.22725f, 9.61974f };
   LayerParameter layer_param;
