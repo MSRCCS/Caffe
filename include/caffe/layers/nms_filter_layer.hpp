@@ -77,7 +77,6 @@ private:
     int outer_num_;
     int inner_num_;
     Blob<int> idx_;
-    Blob<unsigned int> mask_;
 };
 
 }  // namespace caffe

@@ -48,10 +48,10 @@ void NMSFilterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const ve
 
 #ifndef CPU_ONLY
     if (Caffe::mode() == Caffe::GPU) {
-        idx_.Reshape({ outer_num_, inner_num_ });
-        int block_size = sizeof(unsigned int) * 8;
-        int count = outer_num_ * inner_num_ * (inner_num_ - 1) / 2;
-        mask_.Reshape({ (count + block_size - 1) / block_size });
+        int actual_classes = classes_;
+        if (actual_classes <= 0)
+            actual_classes = channels_;
+        idx_.Reshape({ outer_num_, actual_classes, inner_num_ });
     }
 #endif
 }
@@ -59,13 +59,11 @@ void NMSFilterLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const ve
 // sort the values in p in descending order and keep the index in result
 template <typename Dtype>
 void sort_nms_idx(const Dtype* p,
-                  int inner_num,
-                  int c,
                   vector<int>& result) {
     std::iota(result.begin(), result.end(), 0);
     std::sort(result.begin(), result.end(),
-              [p, inner_num, c](int i, int j) {
-        return p[c * inner_num + i] > p[c * inner_num + j];
+              [p](int i, int j) {
+        return p[i] > p[j];
     });
 }
 
@@ -80,24 +78,25 @@ void nms_filter(const Dtype* bbs_data,
         int c = index % classes;
         int n = index / classes;
 
-        int dim = n * channels * inner_num;
+        const int dim = (n * channels + c) * inner_num;
         vector<int> idx(inner_num);
-        sort_nms_idx<Dtype>(top_conf_data + dim,
-                            inner_num, 
-                            c,
-                            idx);
+        sort_nms_idx<Dtype>(top_conf_data + dim, idx);
 
         // TODO: profile the performance and try vectorizing with BLAS
-        for (int i = 0; i < inner_num; ++i) {
-            if (top_conf_data[dim + c * inner_num + idx[i]] == 0)
+        for (int i_idx = 0; i_idx < inner_num; ++i_idx) {
+            int i = idx[i_idx];
+            if (top_conf_data[dim + i] == 0)
                 continue;
-            auto i_bb = bbs_data + (n * inner_num + idx[i]) * 4;
-            for (int j = i + 1; j < inner_num; ++j) {
-                auto j_bb = bbs_data + (n * inner_num + idx[j]) * 4;
+            auto i_bb = bbs_data + (n * inner_num + i) * 4;
+            for (int j_idx = i_idx + 1; j_idx < inner_num; ++j_idx) {
+                int j = idx[j_idx];
+                if (top_conf_data[dim + j] == 0)
+                    continue;
+                auto j_bb = bbs_data + (n * inner_num + j) * 4;
                 Dtype curr_iou = TBoxIou<Dtype>(i_bb[0], i_bb[1], i_bb[2], i_bb[3],
                                                 j_bb[0], j_bb[1], j_bb[2], j_bb[3]);
                 if (curr_iou > thresh)
-                    top_conf_data[dim + c * inner_num + idx[j]] = 0;
+                    top_conf_data[dim + j] = 0;
             }
         }
     }
