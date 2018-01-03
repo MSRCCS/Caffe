@@ -105,29 +105,25 @@ void NMSFilterLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, cons
         actual_classes = channels_;
 
     int* idx_data = idx_.mutable_gpu_data();
-    {
-        Blob<int> tmp;
-        tmp.ReshapeLike(idx_);
-        int* idx_tmp = tmp.mutable_gpu_data();
-        // Start swapped if loop runs for an odd number
-        bool is_swapped = ((int)ceil(log2((double)inner_num_))) % 2 != 0;
-        // TODO: Use dynamic parallelism for devices with 3.5 compute capability, and implement top_down
-        for (int width = 2; width < inner_num_ * 2; width *= 2) {
-            int chunks = (inner_num_ + width - 1) / width;
-            int* src_idx = is_swapped ? idx_tmp : idx_data;
-            int* dst_idx = is_swapped ? idx_data : idx_tmp;
-            kernel_channel_argmergesort << <CAFFE_GET_BLOCKS(outer_num_ * actual_classes * chunks),
-                CAFFE_CUDA_NUM_THREADS >> > (outer_num_, channels_, inner_num_, actual_classes,
-                                             width, chunks,
-                                             conf_data,
-                                             src_idx, dst_idx);
-            CUDA_POST_KERNEL_CHECK;
-            is_swapped = !is_swapped;
-        }
-
-        // This could be large memory, release early
-        tmp.Release_mem();
+    // This memory is safe to release afterwards but we keep it in GPU memory, 
+    //  if there is a shortage of memory we can revisit this logic
+    int* idx_tmp = idx_.mutable_gpu_diff();
+    // Start swapped if loop runs for an odd number
+    bool is_swapped = ((int)ceil(log2((double)inner_num_))) % 2 != 0;
+    // TODO: Use dynamic parallelism for devices with 3.5 compute capability, and implement top_down
+    for (int width = 2; width < inner_num_ * 2; width *= 2) {
+        int chunks = (inner_num_ + width - 1) / width;
+        int* src_idx = is_swapped ? idx_tmp : idx_data;
+        int* dst_idx = is_swapped ? idx_data : idx_tmp;
+        kernel_channel_argmergesort << <CAFFE_GET_BLOCKS(outer_num_ * actual_classes * chunks),
+            CAFFE_CUDA_NUM_THREADS >> > (outer_num_, channels_, inner_num_, actual_classes,
+                                            width, chunks,
+                                            conf_data,
+                                            src_idx, dst_idx);
+        CUDA_POST_KERNEL_CHECK;
+        is_swapped = !is_swapped;
     }
+
     auto top_conf = top[0];
     auto top_conf_data = top_conf->mutable_gpu_data();
     caffe_copy(blob_conf->count(), conf_data, top_conf_data);

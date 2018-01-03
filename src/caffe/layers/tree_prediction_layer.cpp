@@ -52,9 +52,9 @@ void TreePredictionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       CHECK_EQ(axis_, 1)
           << "Axis must be 1 (other axes are not yet supported with map)";
       if (top.size() == 3)
-          top[2]->Reshape(shape); // label index within the label map
+          top[2]->Reshape(shape); // the max values associated with the argmax in top[0]
       shape[axis_] = label_map_.count();
-      top[1]->Reshape(shape); // hierarchical class probability
+      top[1]->Reshape(shape); // hierarchical class probability (for each label in the map)
   } else {
       top[1]->Reshape(shape); // hierarchical class probability
   }

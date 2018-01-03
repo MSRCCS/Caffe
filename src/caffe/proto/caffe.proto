@@ -1550,7 +1550,7 @@ message NMSFilterParameter {
 	optional float threshold = 1 [default = 0.45];
 	// How many of the classes we should apply class-specific nms
 	// -1: class-specific NMS for all the classes (same as M if there are M channels)
-	//  N: class-epcific NMS for the first N classes (use M==N==1 with max values for global NMS)
+	//  N: class-specific NMS for the first N classes (use M==N==1 with max values for class-independent NMS)
 	optional int32 classes = 2 [default = 1];
 }
 
