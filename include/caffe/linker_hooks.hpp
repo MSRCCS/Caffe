@@ -99,6 +99,7 @@ namespace caffe {
   FUNC(RPNProposal); \
   FUNC(Scale); \
   FUNC(SgmLoss); \
+  FUNC(Resize); \
   FUNC(Sigmoid); \
   FUNC(Silence); \
   FUNC(Slice); \

@@ -16,6 +16,9 @@
     <CudaCompile Include="..\src\caffe\layers\contrastive_loss_layer.cu">
       <Filter>Source Files\layers</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\resize_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
     <CudaCompile Include="..\src\caffe\layers\conv_layer.cu">
       <Filter>Source Files\layers</Filter>
     </CudaCompile>
@@ -289,6 +292,9 @@
       <Filter>Source Files\layers</Filter>
     </ClCompile>
     <ClCompile Include="..\src\caffe\layers\cudnn_sigmoid_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\resize_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
     <ClCompile Include="..\src\caffe\layers\cudnn_softmax_layer.cpp">
