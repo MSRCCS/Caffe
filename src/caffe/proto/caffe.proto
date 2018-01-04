@@ -435,6 +435,7 @@ message LayerParameter {
   optional SoftmaxTreeParameter softmaxtree_param = 0x00534D54; // "SMT"
   optional SoftmaxTreeLossParameter softmaxtree_loss_param = 0x0053544C; // "STL"
   optional TreePredictionParameter treeprediction_param = 0x00535450; // "STP"
+  optional NMSFilterParameter nmsfilter_param = 0x00787783; // "NMS"
   optional IndexedThresholdLossParameter indexedthreshold_loss_param = 0x0049544C; // "ITL"
 }
 
@@ -1542,6 +1543,15 @@ message IndexedThresholdLossParameter {
   optional float positive_scale = 3 [default = 5.0];
   // The scale for null target (e.g. noobject)
   optional float null_scale = 4 [default = 1.0];
+}
+
+message NMSFilterParameter {
+	// Specify the nms threshold.
+	optional float threshold = 1 [default = 0.45];
+	// How many of the classes we should apply class-specific nms
+	// -1: class-specific NMS for all the classes (same as M if there are M channels)
+	//  N: class-specific NMS for the first N classes (use M==N==1 with max values for class-independent NMS)
+	optional int32 classes = 2 [default = 1];
 }
 
 message ReorgParameter {

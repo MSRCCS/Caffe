@@ -21,14 +21,16 @@ namespace caffe {
 *      the predictions @f$ \hat{y} \in [-\infty, +\infty]@f$
 * @param top output Blob vector (length 2)
 *   -# @f$ (N \times 1 \times H \times W) @f$
-*      the index with highest hierarchical probability (argmax indices)
+*      the label with highest hierarchical probability (argmax indices)
 *      if a map, only labels in the map is considered
 *   -# @f$ (N \times M \times H \times W) @f$
 *      the hierarchical probability for each of the M classes
-*      M is 1 if no label is specified
-*      M is the size of the map, if a map is provided
+*      M is 1 if no label map is specified
+*      M is the size of the map, if a label map is provided
 *      if a map is provided, only the probability of the labels in the map is calculated
-*      otherwise, only the top probability is calculated (for which the idnex is also found)
+*      otherwise, only the top probability is calculated (for which the index is also found)
+*   -# (optional) @f$ (N \times 1 \times H \times W) @f$
+*      the highest hierarchical probability within the map (for which the label is also found)
 */
 template <typename Dtype>
 class TreePredictionLayer : public Layer<Dtype> {
@@ -48,7 +50,22 @@ public:
         return 1;
     }
     virtual inline int ExactNumTopBlobs() const {
+        if (!this->layer_param_.treeprediction_param().has_map()) {
+            return 2;
+        }
+        return -1;
+    }
+    virtual inline int MinTopBlobs() const {
+        if (!this->layer_param_.treeprediction_param().has_map()) {
+            return 2;
+        }
         return 2;
+    }
+    virtual inline int MaxTopBlobs() const {
+        if (!this->layer_param_.treeprediction_param().has_map()) {
+            return 2;
+        }
+        return 3;
     }
 
 protected:

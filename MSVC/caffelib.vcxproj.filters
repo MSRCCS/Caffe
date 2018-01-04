@@ -220,6 +220,9 @@
     <CudaCompile Include="..\src\caffe\layers\yolo_bbs_layer.cu">
       <Filter>Source Files\layers</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\nms_filter_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\caffe\blob.cpp">
@@ -613,6 +616,9 @@
       <Filter>Source Files\layers</Filter>
     </ClCompile>
     <ClCompile Include="..\src\caffe\layers\yolo_bbs_layer.cpp">
+      <Filter>Source Files\layers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\nms_filter_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1017,6 +1023,9 @@
       <Filter>Head Files\layers</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\yolo_bbs_layer.hpp">
+      <Filter>Head Files\layers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\nms_filter_layer.hpp">
       <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>
