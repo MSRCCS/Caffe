@@ -1468,6 +1468,8 @@ message BoxDataParameter {
     optional float random_scale_max = 12 [default = 2];
     optional bool fix_offset = 13 [default = false];
     optional float rotate_max = 14 [default = 0.];
+    // specify if ssd label format is needed to output for training ssd.
+    optional bool output_ssd_label = 15 [default = false];
 }
 
 message RegionLossParameter {

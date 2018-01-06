@@ -38,7 +38,8 @@ protected:
     virtual void Next();
     virtual bool Skip();
     virtual void load_batch(Batch<Dtype>* batch);
-    virtual void on_load_batch(Batch<Dtype>* batch);
+    virtual void on_load_batch_start(Batch<Dtype>* batch);
+    virtual void on_load_batch_end(Batch<Dtype>* batch);
 
     shared_ptr<ITsvDataFile> tsv_;
 	shared_ptr<ITsvDataFile> tsv_label_;

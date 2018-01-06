@@ -541,7 +541,7 @@ void TsvDataLayer<Dtype>::Next() {
 }
 
 template <typename Dtype>
-void TsvDataLayer<Dtype>::on_load_batch(Batch<Dtype>* batch)
+void TsvDataLayer<Dtype>::on_load_batch_start(Batch<Dtype>* batch)
 {
     const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
     int crop_size = this->layer_param().transform_param().crop_size();
@@ -550,6 +550,11 @@ void TsvDataLayer<Dtype>::on_load_batch(Batch<Dtype>* batch)
     shape[2] = crop_size > 0 ? crop_size : tsv_param.new_height();
     shape[3] = crop_size > 0 ? crop_size : tsv_param.new_width();
     batch->data_.Reshape(shape);
+}
+
+template <typename Dtype>
+void TsvDataLayer<Dtype>::on_load_batch_end(Batch<Dtype>* batch)
+{
 }
 
 // This function is called on prefetch thread
@@ -562,7 +567,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	CPUTimer timer;
 	CHECK(batch->data_.count());
 
-    on_load_batch(batch);
+    on_load_batch_start(batch);
 
 	if (this->output_labels_) {
         memset(batch->label_.mutable_cpu_data(), 0, batch->label_.count() * sizeof(Dtype));
@@ -619,6 +624,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 #ifdef _MSC_VER
     );
 #endif
+    on_load_batch_end(batch);
     trans_time += timer.MicroSeconds();
     
     timer.Stop();

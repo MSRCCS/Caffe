@@ -757,7 +757,14 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
 
     float nw, nh;
 
-    if (new_ar < 1) {
+    if (random_scale_min == random_scale_max && box_param.output_ssd_label())
+    {
+        // for ssd in test mode (random_scale_min == random_scale_max)
+        // stretch image to 300x300 as specified by wxh
+        nw = w;
+        nh = h;
+    }
+    else if (new_ar < 1) {
         nh = scale * h;
         nw = nh * new_ar;
     }
@@ -854,7 +861,7 @@ void TsvBoxDataLayer<Dtype>::load_labelmap(const string &filename)
 }
 
 template <typename Dtype>
-void TsvBoxDataLayer<Dtype>::on_load_batch(Batch<Dtype>* batch)
+void TsvBoxDataLayer<Dtype>::on_load_batch_start(Batch<Dtype>* batch)
 {
     // change size
     if (iter_++ % this->iter_for_resize_ == 0)
@@ -878,6 +885,74 @@ void TsvBoxDataLayer<Dtype>::on_load_batch(Batch<Dtype>* batch)
     shape[2] = dim_;
     shape[3] = dim_;
     batch->data_.Reshape(shape);
+
+    // reshape label as it may be changed due to output_ssd_label
+    const BoxDataParameter &box_param = this->layer_param().box_data_param();
+    vector<int> label_shape(2);
+    label_shape[0] = shape[0];
+    label_shape[1] = box_param.max_boxes() * 5;
+    batch->label_.Reshape(label_shape);
+}
+
+template <typename Dtype>
+void TsvBoxDataLayer<Dtype>::on_load_batch_end(Batch<Dtype>* batch)
+{
+    const BoxDataParameter &box_param = this->layer_param().box_data_param();
+    if (!box_param.output_ssd_label())
+        return;
+
+    // count the number of bboxes
+    int num_boxes = 0;
+    int batch_size = batch->label_.shape(0);
+    const Dtype *label_data = batch->label_.cpu_data();
+    for (int n = 0; n < batch_size; n++)
+    {
+        for (int i = 0; i < box_param.max_boxes(); i++)
+        {
+            if (label_data[(n * box_param.max_boxes() + i) * 5] > 0)
+                num_boxes++;
+        }
+    }
+
+    Blob<Dtype> ssd_label;
+    vector<int> shape(4);
+    shape[0] = 1;
+    shape[1] = 1;
+    shape[2] = std::max(num_boxes, 1);
+    shape[3] = 8;
+    ssd_label.Reshape(shape);
+
+    Dtype *ssd_label_data = ssd_label.mutable_cpu_data();
+    if (num_boxes == 0)
+    {
+        // Store all -1 in the label.
+        caffe_set<Dtype>(8, -1, ssd_label_data);
+    }
+    else
+    {
+        int idx = 0;
+        for (int n = 0; n < batch_size; n++)
+        {
+            for (int i = 0; i < box_param.max_boxes(); i++)
+            {
+                const Dtype *truth = label_data + (n * box_param.max_boxes() + i) * 5;
+                if (truth[0] > 0)
+                {
+                    ssd_label_data[idx++] = n;
+                    ssd_label_data[idx++] = truth[4]; // class label
+                    ssd_label_data[idx++] = 0; // instance_id, not used for now
+                    ssd_label_data[idx++] = truth[0] - truth[2] / 2; // xmin
+                    ssd_label_data[idx++] = truth[1] - truth[3] / 2; // ymin
+                    ssd_label_data[idx++] = truth[0] + truth[2] / 2; // xmax
+                    ssd_label_data[idx++] = truth[1] + truth[3] / 2; // ymax
+                    ssd_label_data[idx++] = 0; // difficult flag
+                }
+            }
+        }
+    }
+
+    batch->label_.Reshape(shape);
+    caffe_copy(ssd_label.count(), ssd_label.cpu_data(), batch->label_.mutable_cpu_data());
 }
 
 template <typename Dtype>
