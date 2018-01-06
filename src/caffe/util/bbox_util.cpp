@@ -153,7 +153,7 @@ void ScaleBBox(const NormalizedBBox& bbox, const int height, const int width,
 }
 
 void OutputBBox(const NormalizedBBox& bbox, const pair<int, int>& img_size,
-                const bool has_resize, const ResizeParameter& resize_param,
+                const bool has_resize, const BBoxResizeParameter& resize_param,
                 NormalizedBBox* out_bbox) {
   const int height = img_size.first;
   const int width = img_size.second;
@@ -171,11 +171,11 @@ void OutputBBox(const NormalizedBBox& bbox, const pair<int, int>& img_size,
     float padding;
     NormalizedBBox source_bbox;
     switch (resize_param.resize_mode()) {
-      case ResizeParameter_Resize_mode_WARP:
+      case BBoxResizeParameter_Resize_mode_WARP:
         ClipBBox(temp_bbox, &temp_bbox);
         ScaleBBox(temp_bbox, height, width, out_bbox);
         break;
-      case ResizeParameter_Resize_mode_FIT_LARGE_SIZE_AND_PAD:
+      case BBoxResizeParameter_Resize_mode_FIT_LARGE_SIZE_AND_PAD:
         if (aspect > resize_aspect) {
           padding = (resize_height - resize_width / aspect) / 2;
           source_bbox.set_xmin(0.);
@@ -193,7 +193,7 @@ void OutputBBox(const NormalizedBBox& bbox, const pair<int, int>& img_size,
         ClipBBox(temp_bbox, &temp_bbox);
         ScaleBBox(temp_bbox, height, width, out_bbox);
         break;
-      case ResizeParameter_Resize_mode_FIT_SMALL_SIZE:
+      case BBoxResizeParameter_Resize_mode_FIT_SMALL_SIZE:
         if (height_scale == 0 || width_scale == 0) {
           ClipBBox(temp_bbox, &temp_bbox);
           ScaleBBox(temp_bbox, height, width, out_bbox);
@@ -245,12 +245,12 @@ bool ProjectBBox(const NormalizedBBox& src_bbox, const NormalizedBBox& bbox,
   }
 }
 
-void ExtrapolateBBox(const ResizeParameter& param, const int height,
+void ExtrapolateBBox(const BBoxResizeParameter& param, const int height,
     const int width, const NormalizedBBox& crop_bbox, NormalizedBBox* bbox) {
   float height_scale = param.height_scale();
   float width_scale = param.width_scale();
   if (height_scale > 0 && width_scale > 0 &&
-      param.resize_mode() == ResizeParameter_Resize_mode_FIT_SMALL_SIZE) {
+      param.resize_mode() == BBoxResizeParameter_Resize_mode_FIT_SMALL_SIZE) {
     float orig_aspect = static_cast<float>(width) / height;
     float resize_height = param.height();
     float resize_width = param.width();

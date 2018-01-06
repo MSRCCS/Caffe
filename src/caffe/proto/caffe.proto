@@ -1777,7 +1777,7 @@ message NormalizedBBox {
 }
 
 // Message that stores parameters used by data transformer for resize policy
-message ResizeParameter {
+message BBoxResizeParameter {
   //Probability of using this resize policy
   optional float prob = 1 [default = 1];
 
@@ -1835,7 +1835,7 @@ message DetectionEvaluateParameter {
   // for evaluation.
   optional string name_size_file = 5;
   // The resize parameter used in converting NormalizedBBox to original image.
-  optional ResizeParameter resize_param = 6;
+  optional BBoxResizeParameter resize_param = 6;
 }
 
 message NonMaximumSuppressionParameter {
@@ -1870,7 +1870,7 @@ message SaveOutputParameter {
   // of the test images.
   optional uint32 num_test_image = 6;
   // The resize parameter used in saving the data.
-  optional ResizeParameter resize_param = 7;
+  optional BBoxResizeParameter resize_param = 7;
 }
 
 // Message that store parameters used by DetectionOutputLayer

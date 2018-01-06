@@ -100,7 +100,7 @@ class DetectionOutputLayer : public Layer<Dtype> {
   int num_test_image_;
   int name_count_;
   bool has_resize_;
-  ResizeParameter resize_param_;
+  BBoxResizeParameter resize_param_;
 
   ptree detections_;
 

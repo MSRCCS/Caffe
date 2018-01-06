@@ -78,7 +78,7 @@ void ScaleBBox(const NormalizedBBox& bbox, const int height, const int width,
 
 // Output predicted bbox on the actual image.
 void OutputBBox(const NormalizedBBox& bbox, const pair<int, int>& img_size,
-                const bool has_resize, const ResizeParameter& resize_param,
+                const bool has_resize, const BBoxResizeParameter& resize_param,
                 NormalizedBBox* out_bbox);
 
 // Locate bbox in the coordinate system that src_bbox sits.
@@ -91,7 +91,7 @@ bool ProjectBBox(const NormalizedBBox& src_bbox, const NormalizedBBox& bbox,
 
 // Extrapolate the transformed bbox if height_scale and width_scale is
 // explicitly provided, and it is only effective for FIT_SMALL_SIZE case.
-void ExtrapolateBBox(const ResizeParameter& param, const int height,
+void ExtrapolateBBox(const BBoxResizeParameter& param, const int height,
     const int width, const NormalizedBBox& crop_bbox, NormalizedBBox* bbox);
 
 // Compute the jaccard (intersection over union IoU) overlap between two bboxes.
