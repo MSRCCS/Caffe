@@ -3,11 +3,11 @@
 #include <map>
 #include <vector>
 
-#include "thrust/functional.h"
-#include "thrust/sort.h"
-
 #include "caffe/common.hpp"
 #include "caffe/util/bbox_util.hpp"
+
+#include "thrust/functional.h"
+#include "thrust/sort.h"
 
 namespace caffe {
 

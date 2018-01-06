@@ -3,7 +3,7 @@
 
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/regex.hpp>
+//#include <boost/regex.hpp>
 
 #include <map>
 #include <string>
@@ -15,6 +15,7 @@
 #include "caffe/layer.hpp"
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/util/bbox_util.hpp"
+#include "caffe/util/io.hpp"
 
 using namespace boost::property_tree;  // NOLINT(build/namespaces)
 
