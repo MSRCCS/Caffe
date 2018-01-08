@@ -15,8 +15,16 @@ void TreePredictionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, 
         LOG(WARNING) << "With only a single group in the tree, it is more efficient to use ArgmaxLayer instead of TreePredictionLayer";
     threshold_ = this->layer_param().treeprediction_param().threshold();
     has_map_ = this->layer_param_.treeprediction_param().has_map();
-    if (has_map_)
+    if (has_map_) {
+        CHECK(!this->layer_param_.treeprediction_param().full_map()) << 
+            "Must not specify both map and full_map";
         read_map(this->layer_param().treeprediction_param().map().c_str(), tree_.nodes(), label_map_);
+    } else if (this->layer_param_.treeprediction_param().full_map()) {
+        label_map_.Reshape({ tree_.nodes() });
+        has_map_ = true;
+        for (int i = 0; i < label_map_.count(); ++i)
+            label_map_.mutable_cpu_data()[i] = i;
+    }
 
 #ifndef CPU_ONLY
     // Pre-fetch data
