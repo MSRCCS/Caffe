@@ -31,7 +31,8 @@ public:
 
 protected:
     virtual void process_one_image_and_label(const string &input_b64coded_data, const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_image_data, Dtype *output_label_data);
-    virtual void on_load_batch(Batch<Dtype>* batch);
+    virtual void on_load_batch_start(Batch<Dtype>* batch);
+    virtual void on_load_batch_end(Batch<Dtype>* batch);
 
 private:
     int dim_;
