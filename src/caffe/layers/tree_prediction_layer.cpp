@@ -54,17 +54,17 @@ void TreePredictionLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom,
       if (top.size() == 3)
           top[2]->Reshape(shape); // the max values associated with the argmax in top[0]
       shape[axis_] = label_map_.count();
-      top[1]->Reshape(shape); // hierarchical class probability (for each label in the map)
-  } else {
-      top[1]->Reshape(shape); // hierarchical class probability
   }
+  if (top.size() >= 2)
+      top[1]->Reshape(shape);
+  prob_.Reshape(shape); // hierarchical class probability
 }
 
 template <typename Dtype>
 void TreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     const vector<Blob<Dtype>*>& top) {
   auto argmax_data = top[0]->mutable_cpu_data();
-  auto top_data = top[1]->mutable_cpu_data();
+  auto top_data = prob_.mutable_cpu_data();
   auto prob_data = bottom[0]->cpu_data();
   int channels = bottom[0]->shape(axis_);
 
@@ -114,7 +114,8 @@ void TreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
           if (max_data)
               max_data[n * inner_num_ + s] = maxval;
       }
-
+      if (top.size() >= 2)
+          top[1]->ShareData(prob_);
       return;
   }
 
@@ -162,6 +163,8 @@ void TreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       top_data[n * inner_num_ + s] = static_cast<Dtype>(p);
       argmax_data[n * inner_num_ + s] = argmax;
   }
+  if (top.size() >= 2)
+      top[1]->ShareData(prob_);
 }
 
 #ifdef CPU_ONLY
