@@ -1545,9 +1545,9 @@ message YoloBBsParameter {
 }
 
 message YoloEvalCompatParameter {
-    required uint32 classes = 1;
-    // specify the threshold for removing low confidence detections. 
-    optional float thresh = 3 [default = 0.24];
+    optional uint32 classes = 1 [default = 1];
+    optional bool move_axis = 2 [default = true];
+    optional bool append_max = 3 [default = true];
 }
 
 message RegionTargetParameter {

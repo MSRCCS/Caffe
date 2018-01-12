@@ -10,8 +10,7 @@
 namespace caffe {
 
 /**
-* @brief Convert probability shape to old Yolo format
-*        Also apply a threshold if provided.
+* @brief Convert probability shape to old Yolo format by moving axis and appending max column
 *
 * @param bottom input Blob vector (length 3 or 5 if with objectness)
 *   -# @f$ (N \times M \times \prod\limits_{d=1}^{D}S_d) @f$
@@ -21,7 +20,8 @@ namespace caffe {
 *   -# (optional) @f$ (N \times \times 1 \times \prod\limits_{d=1}^{D}S_d) @f$
 *      The argmax indices
 * @param top output Blob vector (length 1 or 2 if with objectness)
-*   -# @f$ (N \times \prod\limits_{d=1}^{D}S_d \times (C + 1)) @f$
+*   -# When both append_max and move_axis are required:
+*          @f$ (N \times \prod\limits_{d=1}^{D}S_d \times (C + 1)) @f$
 *      The converted probabilities compatible with Yolo.
 *      C is the number classes provided as a parameter.
 */
@@ -83,7 +83,8 @@ private:
     int outer_num_;
     int inner_num_;
     int classes_;
-    float threshold_;
+    bool move_axis_;
+    bool append_max_;
 };
 
 }  // namespace caffe
