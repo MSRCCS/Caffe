@@ -58,6 +58,21 @@ __global__ void kernel_channel_argmergesort(
 }
 
 template <typename Dtype>
+__global__ void kernel_pre_filter(
+    int outer_num, int channels, int inner_num, int classes,
+    float thresh,
+    Dtype* top_conf_data) {
+    CUDA_KERNEL_LOOP(index, outer_num * classes * inner_num) {
+        const int s = index % inner_num;
+        const int c = (index / inner_num) % classes;
+        const int n = (index / inner_num) / classes;
+        int dim = (n * channels + c) * inner_num + s;
+        if (top_conf_data[dim] <= thresh)
+            top_conf_data[dim] = 0;
+    }
+}
+
+template <typename Dtype>
 __global__ void kernel_nms_filter(
     int outer_num, int channels, int inner_num, int classes,
     const int* idx,
@@ -97,12 +112,23 @@ void NMSFilterLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, cons
 
     auto bbs_data = blob_bbs->gpu_data();
 
-    if (nms_ <= 0 || inner_num_ == 1)
-        return;
+    auto top_conf = top[0];
+    auto top_conf_data = top_conf->mutable_gpu_data();
+    caffe_copy(blob_conf->count(), conf_data, top_conf_data);
 
     int actual_classes = classes_;
     if (actual_classes <= 0)
         actual_classes = channels_;
+    if (thresh_ >= 0) {
+        kernel_pre_filter << <CAFFE_GET_BLOCKS(outer_num_ * actual_classes * inner_num_),
+            CAFFE_CUDA_NUM_THREADS >> > (outer_num_, channels_, inner_num_, actual_classes,
+                                         thresh_,
+                                         top_conf_data
+                                         );
+    }
+
+    if (nms_ <= 0 || inner_num_ == 1)
+        return;
 
     int* idx_data = idx_.mutable_gpu_data();
     // This memory is safe to release afterwards but we keep it in GPU memory, 
@@ -124,9 +150,6 @@ void NMSFilterLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, cons
         is_swapped = !is_swapped;
     }
 
-    auto top_conf = top[0];
-    auto top_conf_data = top_conf->mutable_gpu_data();
-    caffe_copy(blob_conf->count(), conf_data, top_conf_data);
     kernel_nms_filter << <CAFFE_GET_BLOCKS(outer_num_ * actual_classes),
         CAFFE_CUDA_NUM_THREADS >> > (outer_num_, channels_, inner_num_, actual_classes,
                                      idx_.gpu_data(),
