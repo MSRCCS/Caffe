@@ -12,9 +12,6 @@
 #include "caffe/util/math_functions.hpp"
 #include "caffe/layers/resize_layer.hpp"
 
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-
 namespace caffe {
 
 template <typename Dtype>
@@ -97,9 +94,9 @@ void ResizeLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
 				//w = std::min(w, this->input_size_);
 				int top_idx = rh * this->output_size_ + rw;
 				top_data[top_idx] = 0;		// DO NOT forget to reset before accumulation
-				for (int n = MAX(static_cast<int>(h-1) + 1, 0); n < MIN(h + 1, this->input_size_); n++) {
-				    for (int m = MAX(static_cast<int>(w-1) + 1, 0); m < MIN(w + 1, this->input_size_); m++) {
-					top_data[top_idx] += bottom_data[n * this->input_size_ + m] * (1 - std::abs(w-m)) * (1 - std::abs(h-n));
+				for (int n = std::max(static_cast<int>(h-1) + 1, 0); n < std::min(static_cast<int>(h + 1), this->input_size_); n++) {
+				    for (int m = std::max(static_cast<int>(w-1) + 1, 0); m < std::min(static_cast<int>(w + 1), this->input_size_); m++) {
+					    top_data[top_idx] += bottom_data[n * this->input_size_ + m] * (1 - std::abs(w-m)) * (1 - std::abs(h-n));
 				    }
 				}
 			    }
