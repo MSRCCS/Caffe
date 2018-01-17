@@ -1,7 +1,9 @@
 #ifndef CAFFE_DETECTION_OUTPUT_LAYER_HPP_
 #define CAFFE_DETECTION_OUTPUT_LAYER_HPP_
 
+#if !defined(__GNUC__) || __GNUC__ > 4
 #include <boost/property_tree/json_parser.hpp>
+#endif
 #include <boost/property_tree/ptree.hpp>
 //#include <boost/regex.hpp>
 
