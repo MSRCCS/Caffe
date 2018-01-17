@@ -72,6 +72,7 @@ protected:
 
 private:
     float nms_;
+    float thresh_;
     int classes_;
     int channels_;
     int outer_num_;

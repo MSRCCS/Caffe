@@ -238,6 +238,9 @@
     <CudaCompile Include="..\src\caffe\util\bbox_util.cu">
       <Filter>Source Files\util</Filter>
     </CudaCompile>
+    <CudaCompile Include="..\src\caffe\layers\yolo_eval_compat_layer.cu">
+      <Filter>Source Files\layers</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\caffe\blob.cpp">
@@ -659,6 +662,9 @@
     </ClCompile>
     <ClCompile Include="..\src\caffe\util\bbox_util.cpp">
       <Filter>Source Files\util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\caffe\layers\yolo_eval_compat_layer.cpp">
+      <Filter>Source Files\layers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1087,6 +1093,9 @@
     </ClInclude>
     <ClInclude Include="..\include\caffe\util\bbox_util.hpp">
       <Filter>Head Files\util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\caffe\layers\yolo_eval_compat_layer.hpp">
+      <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

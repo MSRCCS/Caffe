@@ -96,6 +96,7 @@ namespace caffe {
   FUNC(RegionOutput); \
   FUNC(RegionPrediction); \
   FUNC(YoloBBs); \
+  FUNC(YoloEvalCompat); \
   FUNC(RegionTarget); \
   FUNC(ReLU); \
   FUNC(Reorg); \

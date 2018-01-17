@@ -444,6 +444,7 @@ message LayerParameter {
   optional RegionTargetParameter region_target_param = 0x00524554; // "RET"
   optional RegionPredictionParameter region_prediction_param = 0x00524550; // "REP"
   optional YoloBBsParameter yolobbs_param = 0x00594242; // "YBB"
+  optional YoloEvalCompatParameter yoloevalcompat_param = 0x0059454D; // "YEC"
   optional SoftmaxTreeParameter softmaxtree_param = 0x00534D54; // "SMT"
   optional SoftmaxTreeLossParameter softmaxtree_loss_param = 0x0053544C; // "STL"
   optional TreePredictionParameter treeprediction_param = 0x00535450; // "STP"
@@ -1543,6 +1544,12 @@ message YoloBBsParameter {
     optional float thresh = 3 [default = 0.24];
 }
 
+message YoloEvalCompatParameter {
+    optional uint32 classes = 1 [default = 1];
+    optional bool move_axis = 2 [default = true];
+    optional bool append_max = 3 [default = true];
+}
+
 message RegionTargetParameter {
 	optional float coord_scale = 1 [default = 1.0];
 	optional bool rescore = 2 [default = true];
@@ -1591,12 +1598,15 @@ message IndexedThresholdLossParameter {
 }
 
 message NMSFilterParameter {
-	// Specify the nms threshold.
-	optional float threshold = 1 [default = 0.45];
-	// How many of the classes we should apply class-specific nms
-	// -1: class-specific NMS for all the classes (same as M if there are M channels)
-	//  N: class-specific NMS for the first N classes (use M==N==1 with max values for class-independent NMS)
+    // Specify the nms threshold.
+    optional float threshold = 1 [default = 0.45];
+    // How many of the classes we should apply class-specific nms
+    // -1: class-specific NMS for all the classes (same as M if there are M channels)
+    //  N: class-specific NMS for the first N classes (use M==N==1 with max values for class-independent NMS)
 	optional int32 classes = 2 [default = 1];
+    // Specify the threshold for removing low confidence detections (before NMS is applied). 
+    //  Use negative threshold to avoid this preprocessing
+    optional float pre_threshold = 3 [default = -1.0];
 }
 
 message ReorgParameter {

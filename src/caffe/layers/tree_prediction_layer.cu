@@ -106,7 +106,7 @@ template <typename Dtype>
 void TreePredictionLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
                                              const vector<Blob<Dtype>*>& top) {
     auto argmax_data = top[0]->mutable_gpu_data();
-    auto top_data = top[1]->mutable_gpu_data();
+    auto top_data = prob_.mutable_gpu_data();
     auto prob_data = bottom[0]->gpu_data();
     int channels = bottom[0]->shape(axis_);
 
@@ -133,6 +133,8 @@ void TreePredictionLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
                                         argmax_data,
                                         max_data);
 
+        if (top.size() >= 2)
+            top[1]->ShareData(prob_);
         return;
     }
 
@@ -149,6 +151,8 @@ void TreePredictionLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
                                      threshold_,
                                      top_data, argmax_data);
 
+    if (top.size() >= 2)
+        top[1]->ShareData(prob_);
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS(TreePredictionLayer);

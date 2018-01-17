@@ -12,6 +12,7 @@ template <typename Dtype>
 void NMSFilterLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
     const NMSFilterParameter &nmsfilter_param = this->layer_param().nmsfilter_param();
     nms_ = nmsfilter_param.threshold();
+    thresh_ = nmsfilter_param.pre_threshold();
     classes_ = nmsfilter_param.classes();
 }
 
@@ -66,6 +67,20 @@ void sort_nms_idx(const Dtype* p,
         return p[i] > p[j];
     });
 }
+template <typename Dtype>
+void pre_filter(int outer_num, int channels, int inner_num, int classes,
+                float thresh,
+                Dtype* top_conf_data) {
+#pragma omp parallel for
+    for (int index = 0; index < outer_num * classes * inner_num; ++index) {
+        const int s = index % inner_num;
+        const int c = (index / inner_num) % classes;
+        const int n = (index / inner_num) / classes;
+        int dim = (n * channels + c) * inner_num + s;
+        if (top_conf_data[dim] <= thresh)
+            top_conf_data[dim] = 0;
+    }
+}
 
 template <typename Dtype>
 void nms_filter(const Dtype* bbs_data,
@@ -112,15 +127,19 @@ void NMSFilterLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, cons
     auto top_conf_data = top_conf->mutable_cpu_data();
     caffe_copy(blob_conf->count(), blob_conf->cpu_data(), top_conf_data);
 
-    auto bbs_data = blob_bbs->cpu_data();
+    int actual_classes = classes_;
+    if (actual_classes <= 0)
+        actual_classes = channels_;
+    if (thresh_ >= 0) {
+        pre_filter(outer_num_, channels_, inner_num_, actual_classes, 
+                   thresh_,
+                   top_conf_data);
+    }
 
     if (nms_ <= 0 || inner_num_ == 1)
         return;
 
-    int actual_classes = classes_;
-    if (actual_classes <= 0)
-        actual_classes = channels_;
-    nms_filter(bbs_data,
+    nms_filter(blob_bbs->cpu_data(),
                outer_num_, channels_, inner_num_, actual_classes,
                nms_,
                top_conf_data);
