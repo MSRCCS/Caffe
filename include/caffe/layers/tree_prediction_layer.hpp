@@ -23,7 +23,7 @@ namespace caffe {
 *   -# @f$ (N \times 1 \times H \times W) @f$
 *      the label with highest hierarchical probability (argmax indices)
 *      if a map, only labels in the map is considered
-*   -# @f$ (N \times M \times H \times W) @f$
+*   -# (optional) @f$ (N \times M \times H \times W) @f$
 *      the hierarchical probability for each of the M classes
 *      M is 1 if no label map is specified
 *      M is the size of the map, if a label map is provided
@@ -50,16 +50,10 @@ public:
         return 1;
     }
     virtual inline int ExactNumTopBlobs() const {
-        if (!HasMap()) {
-            return 2;
-        }
         return -1;
     }
     virtual inline int MinTopBlobs() const {
-        if (!HasMap()) {
-            return 2;
-        }
-        return 2;
+        return 1;
     }
     virtual inline int MaxTopBlobs() const {
         if (!HasMap()) {
@@ -103,6 +97,7 @@ protected:
     float threshold_; // Hierarchical probability threshold
     bool has_map_;
     Blob<int> label_map_;
+    Blob<Dtype> prob_;
 };
 
 }  // namespace caffe

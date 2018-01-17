@@ -216,4 +216,45 @@ TYPED_TEST(NMSFilterLayerTest, TestForwardPerClass) {
     }
 }
 
+TYPED_TEST(NMSFilterLayerTest, TestForwardPreThreshold) {
+    typedef typename TypeParam::Dtype Dtype;
+
+    const float kNMSThreshold = -1;
+    const float kPreThreshold = .6;
+    int outer_num = this->blob_bbs_->shape(0);
+    int inner_num = this->blob_bbs_->count(1, 3);
+    int channels = this->blob_conf_->shape(1);
+    EXPECT_GT(channels, 1);
+    const int kClasses = 3; // filter only the first few classes
+    CHECK_LT(kClasses, channels);
+    FillerParameter filler_param;
+    filler_param.set_min(0);
+    filler_param.set_max(1);
+    UniformFiller<Dtype> filler(filler_param);
+    filler.Fill(this->blob_conf_);
+
+    LayerParameter layer_param;
+    layer_param.mutable_nmsfilter_param()->set_classes(kClasses);
+    layer_param.mutable_nmsfilter_param()->set_threshold(kNMSThreshold);
+    layer_param.mutable_nmsfilter_param()->set_pre_threshold(kPreThreshold);
+    this->blob_bottom_vec_.push_back(this->blob_conf_);
+    NMSFilterLayer<Dtype> layer(layer_param);
+    layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+
+    for (int n = 0; n < outer_num; ++n) {
+        for (int c = 0; c < channels; ++c) {
+            for (int s = 0; s < inner_num; ++s) {
+                auto index = (n * channels + c) * inner_num + s;
+                auto p = this->blob_conf_->cpu_data()[index];
+                if (c < kClasses && p <= kPreThreshold)
+                    EXPECT_FLOAT_EQ(this->blob_top_conf_->cpu_data()[index], 0);
+                else
+                    EXPECT_FLOAT_EQ(this->blob_conf_->cpu_data()[index],
+                                    this->blob_top_conf_->cpu_data()[index]);
+            }
+        }
+    }
+}
+
 }

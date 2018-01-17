@@ -50,6 +50,8 @@ namespace caffe {
   FUNC(CrossEntropyLoss); \
   FUNC(Deconvolution); \
   FUNC(DenseLoss); \
+  FUNC(DetectionEvaluate); \
+  FUNC(DetectionOutput); \
   FUNC(Dropout); \
   FUNC(DummyData); \
   FUNC(Eltwise); \
@@ -79,17 +81,22 @@ namespace caffe {
   FUNC(MILData); \
   FUNC(MultinomialLogisticLoss); \
   FUNC(MultiAccuracy); \
+  FUNC(MultiBoxLoss); \
   FUNC(MVN); \
+  FUNC(Normalize); \
   FUNC(Parameter); \
+  FUNC(Permute); \
   FUNC(Pooling); \
   FUNC(Power); \
   FUNC(PReLU); \
+  FUNC(PriorBox); \
   FUNC(Python); \
   FUNC(Reduction); \
   FUNC(RegionLoss); \
   FUNC(RegionOutput); \
   FUNC(RegionPrediction); \
   FUNC(YoloBBs); \
+  FUNC(YoloEvalCompat); \
   FUNC(RegionTarget); \
   FUNC(ReLU); \
   FUNC(Reorg); \
