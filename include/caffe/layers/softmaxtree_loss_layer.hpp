@@ -59,6 +59,10 @@ class SoftmaxTreeWithLossLayer : public LossLayer<Dtype> {
       }
       return 2;
   }
+  virtual inline bool AllowForceBackward(const int bottom_index) const {
+      // This is a loss layer with potentially 3 bottoms, only the first one can ever have backward
+      return bottom_index == 0;
+  }
 
  protected:
   virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
