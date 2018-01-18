@@ -626,7 +626,10 @@ void ComputeConfLossGPU(const Blob<Dtype>& conf_blob, const int num,
   all_conf_loss->clear();
   const Dtype* loss_data = conf_loss_blob.cpu_data();
   for (int i = 0; i < num; ++i) {
-    vector<float> conf_loss(loss_data, loss_data + num_preds_per_class);
+    vector<float> conf_loss; 
+    std::transform(loss_data, loss_data + num_preds_per_class,
+                   std::back_inserter(conf_loss),
+                   [](Dtype val) -> float { return (float)val; });
     all_conf_loss->push_back(conf_loss);
     loss_data += num_preds_per_class;
   }

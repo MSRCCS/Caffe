@@ -88,7 +88,7 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
       }
       // Keep top k results per image.
       std::sort(score_index_pairs.begin(), score_index_pairs.end(),
-                SortScorePairDescend<pair<int, int> >);
+                SortScorePairDescend<pair<int, int>, float>);
       score_index_pairs.resize(keep_top_k_);
       // Store the new indices.
       map<int, vector<int> > new_indices;
@@ -246,6 +246,9 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
             delete outfiles[label_name];
           }
         } else if (output_format_ == "COCO") {
+#if defined(__GNUC__) && __GNUC__ < 5
+          LOG(ERROR) << "json is not supported with gcc4";
+#else
           boost::filesystem::path output_directory(output_directory_);
           boost::filesystem::path file(output_name_prefix_ + ".json");
           boost::filesystem::path out_file = output_directory / file;
@@ -260,6 +263,7 @@ void DetectionOutputLayer<Dtype>::Forward_gpu(
           //std::string rv = boost::regex_replace(ss.str(), exp, "$1");
           //outfile << rv.substr(rv.find("["), rv.rfind("]") - rv.find("["))
           //    << std::endl << "]" << std::endl;
+#endif
         } else if (output_format_ == "ILSVRC") {
           boost::filesystem::path output_directory(output_directory_);
           boost::filesystem::path file(output_name_prefix_ + ".txt");

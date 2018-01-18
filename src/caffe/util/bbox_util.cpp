@@ -22,9 +22,9 @@ bool SortBBoxDescend(const NormalizedBBox& bbox1, const NormalizedBBox& bbox2) {
   return bbox1.score() > bbox2.score();
 }
 
-template <typename T>
-bool SortScorePairAscend(const pair<float, T>& pair1,
-                         const pair<float, T>& pair2) {
+template <typename T, typename T2>
+bool SortScorePairAscend(const pair<T2, T>& pair1,
+                         const pair<T2, T>& pair2) {
   return pair1.first < pair2.first;
 }
 
@@ -33,10 +33,14 @@ template bool SortScorePairAscend(const pair<float, int>& pair1,
                                   const pair<float, int>& pair2);
 template bool SortScorePairAscend(const pair<float, pair<int, int> >& pair1,
                                   const pair<float, pair<int, int> >& pair2);
+template bool SortScorePairAscend(const pair<double, int>& pair1,
+                                  const pair<double, int>& pair2);
+template bool SortScorePairAscend(const pair<double, pair<int, int> >& pair1,
+                                  const pair<double, pair<int, int> >& pair2);
 
-template <typename T>
-bool SortScorePairDescend(const pair<float, T>& pair1,
-                          const pair<float, T>& pair2) {
+template <typename T, typename T2>
+bool SortScorePairDescend(const pair<T2, T>& pair1,
+                          const pair<T2, T>& pair2) {
   return pair1.first > pair2.first;
 }
 
@@ -45,6 +49,10 @@ template bool SortScorePairDescend(const pair<float, int>& pair1,
                                    const pair<float, int>& pair2);
 template bool SortScorePairDescend(const pair<float, pair<int, int> >& pair1,
                                    const pair<float, pair<int, int> >& pair2);
+template bool SortScorePairDescend(const pair<double, int>& pair1,
+                                   const pair<double, int>& pair2);
+template bool SortScorePairDescend(const pair<double, pair<int, int> >& pair1,
+                                   const pair<double, pair<int, int> >& pair2);
 
 NormalizedBBox UnitBBox() {
   NormalizedBBox unit_bbox;
@@ -1004,7 +1012,7 @@ void MineHardExamples(const Blob<Dtype>& conf_blob,
       } else {
         // Pick top example indices based on loss.
         std::sort(loss_indices.begin(), loss_indices.end(),
-                  SortScorePairDescend<int>);
+                  SortScorePairDescend<int, float>);
         for (int n = 0; n < num_sel; ++n) {
           sel_indices.insert(loss_indices[n].second);
         }
@@ -1368,7 +1376,10 @@ void GetConfidenceScores(const Dtype* conf_data, const int num,
     map<int, vector<float> >& label_scores = (*conf_preds)[i];
     if (class_major) {
       for (int c = 0; c < num_classes; ++c) {
-        label_scores[c].assign(conf_data, conf_data + num_preds_per_class);
+        auto& conf_loss = label_scores[c];
+        std::transform(conf_data, conf_data + num_preds_per_class,
+                       std::back_inserter(conf_loss),
+                       [](Dtype val) -> float { return (float)val; });
         conf_data += num_preds_per_class;
       }
     } else {
@@ -1732,7 +1743,7 @@ void GetTopKScoreIndex(const vector<float>& scores, const vector<int>& indices,
 
   // Sort the score pair according to the scores in descending order
   std::stable_sort(score_index_vec->begin(), score_index_vec->end(),
-                   SortScorePairDescend<int>);
+                   SortScorePairDescend<int, float>);
 
   // Keep top_k scores if needed.
   if (top_k > -1 && top_k < score_index_vec->size()) {
@@ -1751,12 +1762,31 @@ void GetMaxScoreIndex(const vector<float>& scores, const float threshold,
 
   // Sort the score pair according to the scores in descending order
   std::stable_sort(score_index_vec->begin(), score_index_vec->end(),
-                   SortScorePairDescend<int>);
+                   SortScorePairDescend<int, float>);
 
   // Keep top_k scores if needed.
   if (top_k > -1 && top_k < score_index_vec->size()) {
     score_index_vec->resize(top_k);
   }
+}
+
+void GetMaxScoreIndex(const vector<double>& scores, const float threshold,
+                      const int top_k, vector<pair<double, int> >* score_index_vec) {
+    // Generate index score pairs.
+    for (int i = 0; i < scores.size(); ++i) {
+        if (scores[i] > threshold) {
+            score_index_vec->push_back(std::make_pair(scores[i], i));
+        }
+    }
+
+    // Sort the score pair according to the scores in descending order
+    std::stable_sort(score_index_vec->begin(), score_index_vec->end(),
+                     SortScorePairDescend<int, double>);
+
+    // Keep top_k scores if needed.
+    if (top_k > -1 && top_k < score_index_vec->size()) {
+        score_index_vec->resize(top_k);
+    }
 }
 
 template <typename Dtype>
@@ -1771,7 +1801,7 @@ void GetMaxScoreIndex(const Dtype* scores, const int num, const float threshold,
 
   // Sort the score pair according to the scores in descending order
   std::sort(score_index_vec->begin(), score_index_vec->end(),
-            SortScorePairDescend<int>);
+            SortScorePairDescend<int, Dtype>);
 
   // Keep top_k scores if needed.
   if (top_k > -1 && top_k < score_index_vec->size()) {
@@ -1981,7 +2011,7 @@ void CumSum(const vector<pair<float, int> >& pairs, vector<int>* cumsum) {
   // Sort the pairs based on first item of the pair.
   vector<pair<float, int> > sort_pairs = pairs;
   std::stable_sort(sort_pairs.begin(), sort_pairs.end(),
-                   SortScorePairDescend<int>);
+                   SortScorePairDescend<int, float>);
 
   cumsum->clear();
   for (int i = 0; i < sort_pairs.size(); ++i) {

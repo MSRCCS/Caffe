@@ -12,9 +12,6 @@
 #include "caffe/util/math_functions.hpp"
 #include "caffe/layers/resize_layer.hpp"
 
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-
 namespace caffe {
 
 template <typename Dtype>
@@ -56,9 +53,9 @@ __global__  void bilinearForwardGPU(const int nthreads,
 		//w = min(w, float(input_size));
 		const Dtype* bottom_data_channel = bottom_data + (num * input_channels + c) * input_size * input_size;
 		top_data[index] = 0;		// DO NOT forget to reset before accumulation
-		for (int n = MAX(floor(h-1) + 1, 0); n < MIN(h + 1, input_size); n++) {
-		    for (int m = MAX(floor(w-1) + 1, 0); m < MIN(w + 1, input_size); m++) {
-			top_data[index] += bottom_data_channel[n * input_size + m] * (1 - abs(w - m)) * (1 - abs(h - n));
+		for (int n = max(static_cast<int>(floor(h-1)) + 1, 0); n < min(static_cast<int>(h + 1), input_size); n++) {
+		    for (int m = max(static_cast<int>(floor(w-1)) + 1, 0); m < min(static_cast<int>(w + 1), input_size); m++) {
+			    top_data[index] += bottom_data_channel[n * input_size + m] * (1 - abs(w - m)) * (1 - abs(h - n));
 		    }
 		}
 	}
