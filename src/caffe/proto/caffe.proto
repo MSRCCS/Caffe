@@ -456,7 +456,13 @@ message LayerParameter {
   optional MultiBoxLossParameter multibox_loss_param = 0x004D5442; // "MTB"
   optional DetectionEvaluateParameter detection_evaluate_param = 0x00445445; // "DTE"
   optional DetectionOutputParameter detection_output_param = 0x0044544F; // "DTO"
+  optional ShuffleChannelParameter shuffle_channel_param = 0x00534846; // "SHF"
 }
+
+message ShuffleChannelParameter {
+  optional uint32 group = 1[default = 1]; // The number of group
+}
+
 // used for Resize Layer - 2017-06-11
 message ResizeParameter {
   // function type: the layer resize features by 
