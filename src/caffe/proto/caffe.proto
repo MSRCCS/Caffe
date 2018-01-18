@@ -1585,11 +1585,13 @@ message SoftmaxTreeLossParameter {
 message TreePredictionParameter {
   // Path to the tree file
   required string tree = 1;
-  // Path to the label map file (all the labels to be evaluated)
-  //  objectness predictions must be provided by bottom layer
+  // Path to the label map index file (all the label indices to be evaluated against)
   optional string map = 2;
   // Hierarcical threshold
   optional float threshold = 3 [default = 0.5];
+  // Either this or the label map file index should be specified (not both)
+  //  with full map, all the label indices are evaluated.
+  optional bool full_map = 4;
 }
 
 message IndexedThresholdLossParameter {

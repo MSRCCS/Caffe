@@ -56,13 +56,17 @@ public:
         return 1;
     }
     virtual inline int MaxTopBlobs() const {
-        if (!this->layer_param_.treeprediction_param().has_map()) {
+        if (!HasMap()) {
             return 2;
         }
         return 3;
     }
 
 protected:
+    bool HasMap() const {
+        return this->layer_param_.treeprediction_param().has_map() ||
+            this->layer_param_.treeprediction_param().full_map();
+    }
     virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
                              const vector<Blob<Dtype>*>& top);
     virtual void Forward_gpu(const vector<Blob<Dtype>*>& bottom,
