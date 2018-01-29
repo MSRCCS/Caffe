@@ -170,6 +170,14 @@ void RegionPredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& botto
     auto blob_obj = bottom[blob_idx++];
     auto blob_conf = bottom[blob_idx++];
     auto blob_imageinfo = bottom[blob_idx++];
+    if (bottom.size() > 5) {
+        auto blob_data = bottom[blob_idx++];
+        auto s = blob_data->height() / blob_xy->height();
+        CHECK_EQ(blob_xy->height() * s, blob_data->height());
+        CHECK_EQ(blob_xy->width() * s, blob_data->width());
+        LOG_IF(INFO, feat_stride_ != s) << "Feat stride will be overwritten.";
+        feat_stride_ = s;
+    }
     
     blob_idx = 0;
     auto bbs = top[blob_idx++];
