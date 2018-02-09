@@ -603,16 +603,16 @@ float constrain(float min, float max, float a)
     return a;
 }
 
-void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float sy, int flip,
+int correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float sy, int flip,
         float rad,
         int orig_img_w, int orig_img_h, 
         int nw, int nh,
         int network_w, int network_h, float odx, float ody)
 {
-    int i;
+    int valid_boxes = 0;
     float cos_rad = cos(rad);
     float sin_rad = sin(rad);
-    for (i = 0; i < n; ++i) {
+    for (int i = 0; i < n; ++i) {
         if (boxes[i].x == 0 && boxes[i].y == 0) {
             boxes[i].x = 999999;
             boxes[i].y = 999999;
@@ -677,6 +677,8 @@ void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float 
             boxes[i].right = 1. - swap;
         }
 
+        float area_old = (boxes[i].right - boxes[i].left) * (boxes[i].bottom - boxes[i].top);
+
         boxes[i].left = constrain(0, 1, boxes[i].left);
         boxes[i].right = constrain(0, 1, boxes[i].right);
         boxes[i].top = constrain(0, 1, boxes[i].top);
@@ -689,10 +691,17 @@ void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float 
 
         boxes[i].w = constrain(0, 1, boxes[i].w);
         boxes[i].h = constrain(0, 1, boxes[i].h);
+
+        float area_new = boxes[i].w * boxes[i].h;
+
+        if (area_old > 1e-6 && area_new / area_old > 0.5)
+            valid_boxes++;
     }
+
+    return valid_boxes;
 }
 
-void fill_truth_detection(const string &input_label_data, float *truth, int num_boxes, map<string, int> &labelmap, 
+int fill_truth_detection(const string &input_label_data, float *truth, int num_boxes, map<string, int> &labelmap, 
         int orig_img_w, int orig_img_h, int flip, float dx, float dy, float sx, float sy,
         float rad,
         int nw, int nh, int network_w, int network_h, float odx, float ody)
@@ -700,9 +709,9 @@ void fill_truth_detection(const string &input_label_data, float *truth, int num_
     vector<box_label> boxes = read_boxes(input_label_data, labelmap, orig_img_w, orig_img_h);
     auto count = boxes.size();
     if (!count)
-        return;
+        return 0;
     randomize_boxes(&boxes[0], count);
-    correct_boxes(&boxes[0], count, dx, dy, sx, sy, flip, rad,
+    int valid_boxes = correct_boxes(&boxes[0], count, dx, dy, sx, sy, flip, rad,
             orig_img_w, orig_img_h, nw, nh, network_w, network_h, odx, ody);
     if (count > num_boxes) 
         count = num_boxes;
@@ -725,6 +734,8 @@ void fill_truth_detection(const string &input_label_data, float *truth, int num_
         truth[i * 5 + 3] = h;
         truth[i * 5 + 4] = id;
     }
+
+    return valid_boxes;
 }
 
 void load_data_detection(const string &input_b64coded_data, const string &input_label_data, float *output_image_data, float *output_label_data,
@@ -750,47 +761,60 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
     float dw = jitter * orig.w;
     float dh = jitter * orig.h;
 
-    float new_ar = (orig.w + rand_uniform(-dw, dw)) / (orig.h + rand_uniform(-dh, dh));
-    float random_scale_min = box_param.random_scale_min();
-    float random_scale_max = box_param.random_scale_max();
-    float scale = rand_uniform(random_scale_min, random_scale_max);
-
-    float nw, nh;
-
-    if (random_scale_min == random_scale_max && box_param.output_ssd_label())
+    float nw, nh, dx, dy, rad;
+    int flip;
+    for (int tries = 0; tries < box_param.max_samples(); tries++)
     {
-        // for ssd in test mode (random_scale_min == random_scale_max)
-        // stretch image to 300x300 as specified by wxh
-        nw = w;
-        nh = h;
-    }
-    else if (new_ar < 1) {
-        nh = scale * h;
-        nw = nh * new_ar;
-    }
-    else {
-        nw = scale * w;
-        nh = nw / new_ar;
-    }
+        float new_ar = (orig.w + rand_uniform(-dw, dw)) / (orig.h + rand_uniform(-dh, dh));
+        float random_scale_min = box_param.random_scale_min();
+        float random_scale_max = box_param.random_scale_max();
+        float scale = rand_uniform(random_scale_min, random_scale_max);
 
-    float dx;
-    float dy;
-    if (box_param.fix_offset()) {
-        dx = (w - nw) / 2;
-        dy = (h - nh) / 2;
-    } else {
-        dx = rand_uniform(0, w - nw);
-        dy = rand_uniform(0, h - nh);
-    }
+        // float nw, nh;
 
-    float rad = rand_uniform(-box_param.rotate_max(),
-            box_param.rotate_max());
-    rad *= M_PI / 180.;
+        if (random_scale_min == random_scale_max && box_param.output_ssd_label())
+        {
+            // for ssd in test mode (random_scale_min == random_scale_max)
+            // stretch image to 300x300 as specified by wxh
+            nw = w;
+            nh = h;
+        }
+        else if (new_ar < 1) {
+            nh = scale * h;
+            nw = nh * new_ar;
+        }
+        else {
+            nw = scale * w;
+            nh = nw / new_ar;
+        }
+
+        // float dx, dy;
+        if (box_param.fix_offset()) {
+            dx = (w - nw) / 2;
+            dy = (h - nh) / 2;
+        } else {
+            dx = rand_uniform(0, w - nw);
+            dy = rand_uniform(0, h - nh);
+        }
+
+        rad = rand_uniform(-box_param.rotate_max(),
+                box_param.rotate_max());
+        rad *= M_PI / 180.;
+
+        flip = random_helper::uniform_int(0, 1) && !box_param.fix_offset();
+
+        int valid_boxes = fill_truth_detection(input_label_data, output_label_data, boxes, labelmap, orig.w, orig.h, flip, 
+                -dx / w, -dy / h, nw / w, nh / h,
+                rad,
+                nw, nh, sized.w, sized.h, dx, dy);
+        
+        if (valid_boxes > 0)
+            break;
+    }
 
     place_image(orig, nw, nh, dx, dy, sized, rad);
 
     random_distort_image(sized, hue, saturation, exposure);
-    int flip = random_helper::uniform_int(0, 1) && !box_param.fix_offset();
     if (flip) flip_image(sized);
 
     // scale values back to [0,255]
@@ -800,12 +824,9 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
     image_subtract_mean(sized, mean_r, mean_g, mean_b);
 
     memcpy(output_image_data, sized.data, sizeof(float) * h * w * orig.c);
+    
     free_image(sized);
 
-    fill_truth_detection(input_label_data, output_label_data, boxes, labelmap, orig.w, orig.h, flip, 
-            -dx / w, -dy / h, nw / w, nh / h,
-            rad,
-            nw, nh, sized.w, sized.h, dx, dy);
     free_image(orig);
 }
 

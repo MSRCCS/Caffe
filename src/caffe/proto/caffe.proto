@@ -1494,6 +1494,8 @@ message BoxDataParameter {
     optional float rotate_max = 14 [default = 0.];
     // specify if ssd label format is needed to output for training ssd.
     optional bool output_ssd_label = 15 [default = false];
+    // specify how many times to random sample a crop to ensure min IOU >= 0.5
+    optional float max_samples = 16 [default = 1];
 }
 
 message RegionLossParameter {
