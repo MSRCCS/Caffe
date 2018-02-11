@@ -436,7 +436,7 @@ message LayerParameter {
   optional WSgmParameter wsgm_param = 0x00575347; //"WSG"
   optional XCovParameter xcov_param = 0x00584356; //"XCV"
   optional RPNProposalParameter rpn_proposal_param = 0x00525052; // "RPR"
-  optional BoxDataParameter box_data_param = 0x00424F58; // "BOX"
+  repeated BoxDataParameter box_data_param = 0x00424F58; // "BOX"
   optional RegionLossParameter region_loss_param = 0x00524547; // "REG"
   optional RegionOutputParameter region_output_param = 0x0052474F; // "RGO"
   optional ReorgParameter reorg_param = 0x0052454F; // "REO"
@@ -1496,6 +1496,7 @@ message BoxDataParameter {
     optional bool output_ssd_label = 15 [default = false];
     // specify how many times to random sample a crop to ensure min IOU >= 0.5
     optional float max_samples = 16 [default = 1];
+    optional float weight = 21 [default = 1];
 }
 
 message RegionLossParameter {
