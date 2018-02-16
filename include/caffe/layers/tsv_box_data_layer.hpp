@@ -31,10 +31,14 @@ public:
 
 protected:
     virtual void process_one_image_and_label(const string &input_b64coded_data, const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_image_data, Dtype *output_label_data);
+    virtual void update_curr_box_data_param_idx();
     virtual void on_load_batch_start(Batch<Dtype>* batch);
     virtual void on_load_batch_end(Batch<Dtype>* batch);
 
-private:
+protected:
+    size_t box_data_param_idx_;
+    std::vector<Dtype> cum_tsv_box_weights_;
+
     int dim_;
     map<string, int> labelmap_;
     uint64_t iter_;

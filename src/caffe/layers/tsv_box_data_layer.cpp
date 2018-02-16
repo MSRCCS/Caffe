@@ -834,8 +834,10 @@ template <typename Dtype>
 void TsvBoxDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
     TsvDataLayer<Dtype>::DataLayerSetUp(bottom, top);
+    box_data_param_idx_ = 0;
 
-    const BoxDataParameter &box_param = this->layer_param().box_data_param();
+    const BoxDataParameter &box_param = this->layer_param().box_data_param(
+            box_data_param_idx_);
 
     iter_ = 0;
     dim_ = box_param.random_min();
@@ -849,6 +851,26 @@ void TsvBoxDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     top[1]->Reshape(shape);
     for (int i = 0; i < this->prefetch_.size(); ++i) {
         this->prefetch_[i]->label_.Reshape(shape);
+    }
+    
+    cum_tsv_box_weights_.clear();
+    for (int i = 0; i < this->layer_param().box_data_param_size(); i++) {
+        auto &box_data_param = this->layer_param().box_data_param(i);
+        cum_tsv_box_weights_.push_back(box_data_param.weight());
+    }
+    
+    for (size_t s = 0; s < cum_tsv_box_weights_.size(); s++) {
+        CHECK_GT(cum_tsv_box_weights_[s], 0);
+    }
+    
+    for (size_t s = 1; s < cum_tsv_box_weights_.size(); s++) {
+        cum_tsv_box_weights_[s] += cum_tsv_box_weights_[s - 1];
+    }
+    
+    CHECK_GT(cum_tsv_box_weights_.size(), 0);
+    Dtype norm_factor = cum_tsv_box_weights_[cum_tsv_box_weights_.size() - 1];
+    for (size_t s = 0; s < cum_tsv_box_weights_.size(); s++) {
+        cum_tsv_box_weights_[s] /= norm_factor;
     }
 }
 
@@ -882,12 +904,28 @@ void TsvBoxDataLayer<Dtype>::load_labelmap(const string &filename)
 }
 
 template <typename Dtype>
-void TsvBoxDataLayer<Dtype>::on_load_batch_start(Batch<Dtype>* batch)
-{
+void TsvBoxDataLayer<Dtype>::update_curr_box_data_param_idx() {
+    
+    Dtype prob = (Dtype)random_helper::uniform_real(0, 1);
+    size_t idx = 0;
+    for (; idx < cum_tsv_box_weights_.size(); idx++) {
+        if (prob <= cum_tsv_box_weights_[idx]) {
+            break;
+        }
+    }
+    
+    box_data_param_idx_ = idx;
+}
+
+template <typename Dtype>
+void TsvBoxDataLayer<Dtype>::on_load_batch_start(Batch<Dtype>* batch) {
+    update_curr_box_data_param_idx();
+
     // change size
     if (iter_++ % this->iter_for_resize_ == 0)
     {
-        const BoxDataParameter &box_param = this->layer_param().box_data_param();
+        const BoxDataParameter &box_param = this->layer_param().box_data_param(
+                box_data_param_idx_);
         int rand_step = box_param.random_step();
         int rand_min = box_param.random_min() / rand_step;
         int rand_max = box_param.random_max() / rand_step;
@@ -908,7 +946,8 @@ void TsvBoxDataLayer<Dtype>::on_load_batch_start(Batch<Dtype>* batch)
     batch->data_.Reshape(shape);
 
     // reshape label as it may be changed due to output_ssd_label
-    const BoxDataParameter &box_param = this->layer_param().box_data_param();
+    const BoxDataParameter &box_param = this->layer_param().box_data_param(
+            box_data_param_idx_);
     vector<int> label_shape(2);
     label_shape[0] = shape[0];
     label_shape[1] = box_param.max_boxes() * 5;
@@ -918,7 +957,8 @@ void TsvBoxDataLayer<Dtype>::on_load_batch_start(Batch<Dtype>* batch)
 template <typename Dtype>
 void TsvBoxDataLayer<Dtype>::on_load_batch_end(Batch<Dtype>* batch)
 {
-    const BoxDataParameter &box_param = this->layer_param().box_data_param();
+    const BoxDataParameter &box_param = this->layer_param().box_data_param(
+            box_data_param_idx_);
     if (!box_param.output_ssd_label())
         return;
 
@@ -979,7 +1019,8 @@ void TsvBoxDataLayer<Dtype>::on_load_batch_end(Batch<Dtype>* batch)
 template <typename Dtype>
 void TsvBoxDataLayer<Dtype>::process_one_image_and_label(const string &input_b64coded_data, const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_image_data, Dtype *output_label_data)
 {
-    const BoxDataParameter &box_param = this->layer_param().box_data_param();
+    const BoxDataParameter &box_param = this->layer_param().box_data_param(
+            box_data_param_idx_);
     float jitter = box_param.jitter();
     float exposure = box_param.exposure();
     float hue = box_param.hue();
