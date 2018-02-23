@@ -43,6 +43,7 @@ namespace caffe {
   FUNC(BatchReindex); \
   FUNC(Bias); \
   FUNC(BNLL); \
+  FUNC(CCALoss); \
   FUNC(Concat); \
   FUNC(ContrastiveLoss); \
   FUNC(Convolution); \
