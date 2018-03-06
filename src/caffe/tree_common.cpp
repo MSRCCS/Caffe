@@ -98,6 +98,8 @@ void Tree::read(const char *filename) {
             } else if (new_sub_group) {
                 child_size_cpu_ptr_[parent] = sub_groups;
             }
+        } else if (new_sub_group) {
+            root_size_ = sub_groups;
         }
         ++n;
         ++group_size;

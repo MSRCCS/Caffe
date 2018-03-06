@@ -118,6 +118,7 @@ namespace caffe {
   FUNC(SoftmaxTree); \
   FUNC(SoftmaxTreeWithLoss); \
   FUNC(TreePrediction); \
+  FUNC(SoftmaxTreePrediction); \
   FUNC(NMSFilter); \
   FUNC(Split); \
   FUNC(SPP); \
