@@ -52,6 +52,9 @@ public:
     virtual inline int ExactNumTopBlobs() const {
         return 1;
     }
+    int StackSize() const {
+        return stack_size_;
+    }
 
 protected:
     virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
@@ -84,6 +87,14 @@ protected:
     float threshold_; // Hierarchical probability threshold
     bool append_max_;
     bool with_objectness_;
+
+    Blob<double> stack_parent_p_;
+    Blob<int> stack_parent_argmax_;
+    Blob<int> stack_g_;
+
+private:
+    int find_max_stack_size(int g);
+    int stack_size_;
 };
 
 }  // namespace caffe
