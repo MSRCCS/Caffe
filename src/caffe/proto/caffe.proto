@@ -1613,11 +1613,13 @@ message NMSFilterParameter {
     optional float threshold = 1 [default = 0.45];
     // How many of the classes we should apply class-specific nms
     // -1: class-specific NMS for all the classes (same as M if there are M channels)
-    //  N: class-specific NMS for the first N classes (use M==N==1 with max values for class-independent NMS)
+    //  N: class-specific NMS for the N classes (use M==N==1 with max values for class-independent NMS)
 	optional int32 classes = 2 [default = 1];
     // Specify the threshold for removing low confidence detections (before NMS is applied). 
     //  Use negative threshold to avoid this preprocessing
     optional float pre_threshold = 3 [default = -1.0];
+	// Starting class to apply NMS on (the rest are specified by "classes")
+    optional uint32 first_class = 4 [default = 0];  
 }
 
 message ReorgParameter {

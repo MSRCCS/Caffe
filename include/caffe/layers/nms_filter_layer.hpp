@@ -74,6 +74,7 @@ private:
     float nms_;
     float thresh_;
     int classes_;
+    int first_class_;
     int channels_;
     int outer_num_;
     int inner_num_;
