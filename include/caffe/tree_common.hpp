@@ -17,18 +17,22 @@ private:
     char** name_;
 
     int groups_; // Number of groups in the tree
+    int root_size_; // Number of root subgroups
     int* group_size_cpu_ptr_;
     int* group_offset_cpu_ptr_;
 
 public:
     Tree() : leaf_(NULL), parent_cpu_ptr_(NULL), child_cpu_ptr_(NULL), child_size_cpu_ptr_(NULL),
-        group_cpu_ptr_(NULL), name_(NULL), groups_(0),
+        group_cpu_ptr_(NULL), name_(NULL), groups_(0), root_size_(0),
         group_size_cpu_ptr_(NULL), group_offset_cpu_ptr_(NULL),
         group_size_(), group_offset_(), parent_(), group_(), child_(), child_size_() {
     }
     void read(const char *filename);
     int groups() {
         return groups_;
+    }
+    int root_size() {
+        return root_size_;
     }
     int nodes() {
         return n_;

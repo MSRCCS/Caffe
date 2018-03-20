@@ -448,6 +448,7 @@ message LayerParameter {
   optional SoftmaxTreeParameter softmaxtree_param = 0x00534D54; // "SMT"
   optional SoftmaxTreeLossParameter softmaxtree_loss_param = 0x0053544C; // "STL"
   optional TreePredictionParameter treeprediction_param = 0x00535450; // "STP"
+  optional SoftmaxTreePredictionParameter softmaxtreeprediction_param = 0x00534D50; // "SMP"
   optional NMSFilterParameter nmsfilter_param = 0x00787783; // "NMS"
   optional IndexedThresholdLossParameter indexedthreshold_loss_param = 0x0049544C; // "ITL"
   optional NormalizeParameter norm_param = 0x004E524D; // "NRM"
@@ -1595,6 +1596,15 @@ message TreePredictionParameter {
   // Either this or the label map file index should be specified (not both)
   //  with full map, all the label indices are evaluated.
   optional bool full_map = 4;
+}
+
+message SoftmaxTreePredictionParameter {
+  // Path to the tree file
+  required string tree = 1;
+  // Hierarcical threshold
+  optional float threshold = 2 [default = 0.5];
+  // If should append the max to the channels
+  optional bool append_max = 3 [default = true];
 }
 
 message IndexedThresholdLossParameter {
