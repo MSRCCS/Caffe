@@ -30,13 +30,13 @@ __device__ void bottom_up_argmerge(const Dtype* p,
 
 template <typename Dtype>
 __global__ void kernel_channel_argmergesort(
-    int outer_num, int channels, int inner_num, int classes,
+    int outer_num, int channels, int inner_num, int classes, int first_class,
     int width, int chunks,
     const Dtype* data,
     int* src, int* dst) {
     CUDA_KERNEL_LOOP(index, outer_num * classes * chunks) {
         const int i = index % chunks;
-        const int c = (index / chunks) % classes;
+        const int c = (index / chunks) % classes + first_class;
         const int n = (index / chunks) / classes;
         const int dim = (n * channels + c) * inner_num;
         const int idx_dim = (n * classes + c) * inner_num;
@@ -59,12 +59,12 @@ __global__ void kernel_channel_argmergesort(
 
 template <typename Dtype>
 __global__ void kernel_pre_filter(
-    int outer_num, int channels, int inner_num, int classes,
+    int outer_num, int channels, int inner_num, int classes, int first_class,
     float thresh,
     Dtype* top_conf_data) {
     CUDA_KERNEL_LOOP(index, outer_num * classes * inner_num) {
         const int s = index % inner_num;
-        const int c = (index / inner_num) % classes;
+        const int c = (index / inner_num) % classes + first_class;
         const int n = (index / inner_num) / classes;
         int dim = (n * channels + c) * inner_num + s;
         if (top_conf_data[dim] <= thresh)
@@ -74,12 +74,12 @@ __global__ void kernel_pre_filter(
 
 template <typename Dtype>
 __global__ void kernel_nms_filter(
-    int outer_num, int channels, int inner_num, int classes,
+    int outer_num, int channels, int inner_num, int classes, int first_class,
     const int* idx,
     const Dtype* bbs_data, float thresh,
     Dtype* top_conf_data) {
     CUDA_KERNEL_LOOP(index, outer_num * classes) {
-        const int c = index % classes;
+        const int c = index % classes + first_class;
         const int n = index / classes;
         const int dim = (n * channels + c) * inner_num;
         const int idx_dim = (n * classes + c) * inner_num;
@@ -121,7 +121,7 @@ void NMSFilterLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, cons
         actual_classes = channels_;
     if (thresh_ >= 0) {
         kernel_pre_filter << <CAFFE_GET_BLOCKS(outer_num_ * actual_classes * inner_num_),
-            CAFFE_CUDA_NUM_THREADS >> > (outer_num_, channels_, inner_num_, actual_classes,
+            CAFFE_CUDA_NUM_THREADS >> > (outer_num_, channels_, inner_num_, actual_classes, first_class_,
                                          thresh_,
                                          top_conf_data
                                          );
@@ -142,7 +142,7 @@ void NMSFilterLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, cons
         int* src_idx = is_swapped ? idx_tmp : idx_data;
         int* dst_idx = is_swapped ? idx_data : idx_tmp;
         kernel_channel_argmergesort << <CAFFE_GET_BLOCKS(outer_num_ * actual_classes * chunks),
-            CAFFE_CUDA_NUM_THREADS >> > (outer_num_, channels_, inner_num_, actual_classes,
+            CAFFE_CUDA_NUM_THREADS >> > (outer_num_, channels_, inner_num_, actual_classes, first_class_,
                                             width, chunks,
                                             conf_data,
                                             src_idx, dst_idx);
@@ -151,7 +151,7 @@ void NMSFilterLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, cons
     }
 
     kernel_nms_filter << <CAFFE_GET_BLOCKS(outer_num_ * actual_classes),
-        CAFFE_CUDA_NUM_THREADS >> > (outer_num_, channels_, inner_num_, actual_classes,
+        CAFFE_CUDA_NUM_THREADS >> > (outer_num_, channels_, inner_num_, actual_classes, first_class_,
                                      idx_.gpu_data(),
                                      bbs_data, nms_,
                                      top_conf_data
