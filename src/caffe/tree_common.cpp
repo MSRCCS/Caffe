@@ -72,10 +72,9 @@ void Tree::read(const char *filename) {
         if (parent != last_parent) {
             new_group = true;
             last_parent = parent;
-            last_sub_group = -1;
+            last_sub_group = sub_group;
             sub_groups = 0;
-        }
-        if (sub_group != last_sub_group) {
+        } else if (sub_group != last_sub_group) {
             CHECK_GT(sub_group, last_sub_group) << "node: " << n << " out of order sub-groups in tree:" << filename;
             new_sub_group = true;
             last_sub_group = sub_group;
