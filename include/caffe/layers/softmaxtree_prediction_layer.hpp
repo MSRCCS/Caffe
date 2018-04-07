@@ -87,6 +87,7 @@ protected:
     float threshold_; // Hierarchical probability threshold
     bool append_max_;
     bool with_objectness_;
+    bool output_tree_path_;
 
     Blob<double> stack_parent_p_;
     Blob<int> stack_parent_argmax_;

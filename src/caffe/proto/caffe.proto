@@ -1605,6 +1605,7 @@ message SoftmaxTreePredictionParameter {
   optional float threshold = 2 [default = 0.5];
   // If should append the max to the channels
   optional bool append_max = 3 [default = true];
+  optional bool output_tree_path = 4 [default = false];
 }
 
 message IndexedThresholdLossParameter {

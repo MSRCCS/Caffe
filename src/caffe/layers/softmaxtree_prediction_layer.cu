@@ -36,12 +36,17 @@ __device__ void predict_tree_stack(
     double* parent_p_data, int* parent_argmax_data, int* g_data,
     const Dtype* obj_data, const Dtype* prob_data,
     int max_stack_size, int n, int s, int g,
-    Dtype* top_data) {
+    Dtype* top_data,
+    bool output_tree_path) {
 
     int stack_size = 0;
+    const int top_channels = append_max ? (channels + 1) : channels;
+    Dtype obj = obj_data[n * inner_num + s];
+    double root_p = output_tree_path ? obj : 1.0;
+    threshold = output_tree_path ? (threshold * obj) : threshold;
     stack_push(parent_p_data, parent_argmax_data, g_data,
                stack_size,
-               1.0, -1, g);
+               root_p, -1, g);
     while (stack_size) {
         assert(stack_size <= max_stack_size);
         double parent_p;
@@ -66,6 +71,9 @@ __device__ void predict_tree_stack(
             p *= maxval;
         }
         if (p > threshold) {
+            if (output_tree_path) {
+                top_data[(n * top_channels + argmax) * inner_num + s] = static_cast<Dtype>(p);
+            }
             g = child_data[argmax]; // initial child group
             if (g >= 0) {
                 // if there is any child, descend further
@@ -84,14 +92,27 @@ __device__ void predict_tree_stack(
                 continue;
             p = parent_p;
         }
-
-        const int top_channels = append_max ? channels + 1 : channels;
-        Dtype node_p = obj_data ? obj_data[n * inner_num + s] : static_cast<Dtype>(p);
-        top_data[(n * top_channels + argmax) * inner_num + s] = node_p;
+        
+        Dtype node_p = 0;
+        if (!output_tree_path) {
+            node_p = output_tree_path ? static_cast<Dtype>(p): (obj_data ? 
+                    obj : static_cast<Dtype>(p));
+            top_data[(n * top_channels + argmax) * inner_num + s] = node_p;
+        }
         if (append_max) {
             int max_idx = (n * top_channels + channels) * inner_num + s;
-            if (node_p > top_data[max_idx])
-                top_data[max_idx] = node_p;
+            if (output_tree_path) {
+                // in this case, we use the obj as the max value, which will be
+                // used as the indicator for class-independent NMS. or the
+                // maximum value will always be the ones in the root.
+                // gradually, we might remove the support of append_max since
+                // it is more like a legacy strategy
+                top_data[max_idx] = obj;
+            } else {
+                if (node_p > top_data[max_idx]) {
+                    top_data[max_idx] = node_p;
+                }
+            }
         }
     }
 }
@@ -105,7 +126,8 @@ __global__ void kernel_smt_prediction(
     double* parent_p_data, int* parent_argmax_data, int* g_data,
     const Dtype* obj_data, const Dtype* prob_data,
     int max_stack_size,
-    Dtype* top_data) {
+    Dtype* top_data,
+    bool output_tree_path) {
     CUDA_KERNEL_LOOP(index, outer_num * root_size * inner_num) {
         const int s = index % inner_num;
         const int g = (index / inner_num) % root_size;
@@ -118,7 +140,8 @@ __global__ void kernel_smt_prediction(
                            &parent_p_data[index * max_stack_size], &parent_argmax_data[index * max_stack_size], &g_data[index * max_stack_size],
                            obj_data, prob_data,
                            max_stack_size, n, s, g,
-                           top_data);
+                           top_data, 
+                           output_tree_path);
     }
 }
 
@@ -150,7 +173,8 @@ void SoftmaxTreePredictionLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& 
                                      parent_p_data, parent_argmax_data, g_data,
                                      obj_data, prob_data,
                                      stack_size_,
-                                     top_data);
+                                     top_data,
+                                     output_tree_path_);
     CUDA_POST_KERNEL_CHECK;
 }
 
