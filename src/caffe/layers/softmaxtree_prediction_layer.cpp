@@ -21,9 +21,17 @@ void predict_tree_stack(int outer_num, int channels, int inner_num,
                         const int* group_offset_data, const int* group_size_data, const int* child_data, const int* child_size_data,
                         const Dtype* obj_data, const Dtype* prob_data,
                         int max_stack_size, int n, int s, int g,
-                        Dtype* top_data) {
+                        Dtype* top_data, bool output_tree_path) {
     std::stack<Pred> preds;
-    preds.push({ 1.0, -1, g });
+    Dtype obj = obj_data[n * inner_num + s];
+    // TODO: if output_tree_path=true is always what we want, let's remove the
+    // support if it is false
+    double root_p = output_tree_path ? obj : 1.0;
+    // if it is output_tree_path, the score should be the obj * category_prob
+    // in the path
+    threshold = output_tree_path ? (threshold * obj) : threshold;
+    preds.push({ root_p, -1, g });
+    const int top_channels = append_max ? (channels + 1) : channels;
     while (!preds.empty()) {
         DCHECK_LE(preds.size(), max_stack_size);
         auto pred = preds.top();
@@ -46,6 +54,9 @@ void predict_tree_stack(int outer_num, int channels, int inner_num,
             p *= maxval;
         }
         if (p > threshold) {
+            if (output_tree_path) {
+                top_data[(n * top_channels + argmax) * inner_num + s] = static_cast<Dtype>(p);
+            }
             g = child_data[argmax]; // initial child group
             if (g >= 0) {
                 // if there is any child, descend further
@@ -60,14 +71,27 @@ void predict_tree_stack(int outer_num, int channels, int inner_num,
                 continue;
             p = pred.parent_p;
         }
-
-        const int top_channels = append_max ? channels + 1 : channels;
-        Dtype node_p = obj_data ? obj_data[n * inner_num + s] : static_cast<Dtype>(p);
-        top_data[(n * top_channels + argmax) * inner_num + s] = node_p;
+        Dtype node_p = 0;
+        if (!output_tree_path) {
+            node_p = output_tree_path ? static_cast<Dtype>(p): (obj_data ? 
+                    obj : static_cast<Dtype>(p));
+            top_data[(n * top_channels + argmax) * inner_num + s] = node_p;
+        }
         if (append_max) {
             int max_idx = (n * top_channels + channels) * inner_num + s;
-            if (node_p > top_data[max_idx])
-                top_data[max_idx] = node_p;
+            if (output_tree_path) {
+                // in this case, we use the obj as the max value, which will be
+                // used as the indicator for class-independent NMS. otherwise, the
+                // maximum value will always be the ones in the first
+                // child-level of the root node.
+                // TODO: we might remove the support of append_max since
+                // it is more like a legacy strategy
+                top_data[max_idx] = obj;
+            } else {
+                if (node_p > top_data[max_idx]) {
+                    top_data[max_idx] = node_p;
+                }
+            }
         }
     }
 }
@@ -79,6 +103,7 @@ void SoftmaxTreePredictionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& b
     threshold_ = this->layer_param().softmaxtreeprediction_param().threshold();
     append_max_ = this->layer_param().softmaxtreeprediction_param().append_max();
     with_objectness_ = bottom.size() == 2;
+    output_tree_path_ = this->layer_param().softmaxtreeprediction_param().output_tree_path();
 
     stack_size_ = 0;
     auto root_size = tree_.root_size() + 1;
@@ -148,7 +173,7 @@ void SoftmaxTreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& 
 
     caffe_set(top[0]->count(), Dtype(0), top_data);
 
-#pragma omp parallel for
+//#pragma omp parallel for
     for (int index = 0; index < outer_num_ * root_size * inner_num_; ++index) {
         const int s = index % inner_num_;
         const int g = (index / inner_num_) % root_size;
@@ -160,7 +185,8 @@ void SoftmaxTreePredictionLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& 
                            group_offset_data, group_size_data, child_data, child_size_data,
                            obj_data, prob_data,
                            stack_size_, n, s, g,
-                           top_data);
+                           top_data,
+                           output_tree_path_);
     }
 }
 
