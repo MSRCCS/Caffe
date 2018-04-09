@@ -246,7 +246,7 @@ TYPED_TEST(SoftmaxTreePredictionLayerTest, TestForwardNoThreshold) {
     layer_param.mutable_softmaxtreeprediction_param()->set_tree(this->tree_file_name_);
     layer.reset(new SoftmaxTreePredictionLayer<Dtype>(layer_param));
     layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
-    ASSERT_EQ(layer->StackSize(), 3);
+    ASSERT_EQ(layer->StackSize(), 2);
     layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
     ASSERT_EQ(this->blob_top_prob_->channels(), this->blob_bottom_->channels() + 1);
     this->TestForward(true, kThreshold);

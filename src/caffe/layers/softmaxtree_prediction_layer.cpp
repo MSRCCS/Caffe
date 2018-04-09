@@ -34,6 +34,7 @@ void predict_tree_stack(int outer_num, int channels, int inner_num,
             g = pred.g;
             Dtype maxval = -FLT_MAX;
             auto offset = group_offset_data[g];
+            argmax = offset;
             auto size = group_size_data[g];
             for (int j = 0; j < size; ++j) {
                 Dtype prob = prob_data[(n * channels + offset + j) * inner_num + s];
