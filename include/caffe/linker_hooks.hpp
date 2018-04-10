@@ -44,6 +44,7 @@ namespace caffe {
   FUNC(Bias); \
   FUNC(BNLL); \
   FUNC(CCALoss); \
+  FUNC(CenterLoss); \
   FUNC(Concat); \
   FUNC(ContrastiveLoss); \
   FUNC(Convolution); \

@@ -242,6 +242,7 @@
       <Filter>Source Files\layers</Filter>
     </CudaCompile>
     <CudaCompile Include="..\src\caffe\layers\softmaxtree_prediction_layer.cu">
+    <CudaCompile Include="..\src\caffe\layers\center_loss_layer.cu">
       <Filter>Source Files\layers</Filter>
     </CudaCompile>
   </ItemGroup>
@@ -673,6 +674,7 @@
       <Filter>Source Files\layers</Filter>
     </ClCompile>
     <ClCompile Include="..\src\caffe\layers\softmaxtree_prediction_layer.cpp">
+    <ClCompile Include="..\src\caffe\layers\center_loss_layer.cpp">
       <Filter>Source Files\layers</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1110,6 +1112,7 @@
       <Filter>Head Files\layers</Filter>
     </ClInclude>
     <ClInclude Include="..\include\caffe\layers\softmaxtree_prediction_layer.hpp">
+    <ClInclude Include="..\include\caffe\layers\center_loss_layer.hpp">
       <Filter>Head Files\layers</Filter>
     </ClInclude>
   </ItemGroup>
