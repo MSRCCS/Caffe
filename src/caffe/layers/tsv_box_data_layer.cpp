@@ -568,6 +568,13 @@ vector<box_label> read_boxes(const string &input_label_data, map<string, int> &l
         float w = (rect[2] - rect[0]) / orig_img_w;
         float h = (rect[3] - rect[1]) / orig_img_h;
 
+        if (x < 0 || y < 0 || x > 0.999 || y > 0.999 || w <= 0 || h <= 0) {
+            LOG(ERROR) << "invalid bounding box detected and will be skipped: " 
+                << rect[0] << ", " << rect[1] << ", " 
+                << rect[2] << ", " << rect[3];
+            continue;
+        }
+
         box_label box;
         box.id = labelmap[cls];
         // https://github.com/pjreddie/darknet/blob/master/src/data.c#L149
