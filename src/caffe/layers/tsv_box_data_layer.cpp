@@ -119,6 +119,7 @@ void add_pixel(image m, int x, int y, int c, float val)
 
 image resize_image(image im, int w, int h)
 {
+    assert(w > 1 && h > 1 && im.h > 1 && im.w > 1);
     image resized = make_image(w, h, im.c);
     image part = make_image(w, im.h, im.c);
     int r, c, k;
@@ -545,7 +546,12 @@ vector<box_label> read_boxes(const string &input_label_data, map<string, int> &l
     // Read json.
     ptree pt;
     std::istringstream is(input_label_data);
-    read_json(is, pt);
+    try {
+        read_json(is, pt);
+    } catch (std::exception &e) {
+        LOG(FATAL) << "invalid json string: " << input_label_data << " error: " << e.what();
+    }
+
 
     for (boost::property_tree::ptree::iterator it = pt.begin(); it != pt.end(); ++it)
     {
@@ -571,7 +577,7 @@ vector<box_label> read_boxes(const string &input_label_data, map<string, int> &l
         if (x < 0 || y < 0 || x > 0.999 || y > 0.999 || w <= 0 || h <= 0) {
             LOG(ERROR) << "invalid bounding box detected and will be skipped: " 
                 << rect[0] << ", " << rect[1] << ", " 
-                << rect[2] << ", " << rect[3];
+                << rect[2] << ", " << rect[3] << " string: " << input_label_data;
             continue;
         }
 
