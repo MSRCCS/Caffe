@@ -185,6 +185,7 @@ __global__ void AlignGroudTruth(int total, const int* gt_target_data, int max_gt
 
         *(target_xy_data + offset_double_bnji) = tx * width - target_i;
         *(target_xy_data + offset_double_bnji_next) = ty * height - target_j;
+        assert(tw > 0 && th > 0);
         *(target_wh_data + offset_double_bnji) = log(tw * width / biases[2 * target_n]);
         *(target_wh_data + offset_double_bnji_next) = log(th * height / biases[2 * target_n + 1]);
         *(target_xywh_weight_data + offset_double_bnji) = coord_scale * (2 - tw * th);
