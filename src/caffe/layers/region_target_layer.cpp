@@ -222,7 +222,7 @@ void RegionTargetLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
             int target_i = -1;
             int target_j = -1;
             int target_n = -1;
-            if (tx) {
+            if (tx >= 0 && ty >= 0 && tx < 1 && ty < 1) {
                 target_i = tx * width;
                 target_j = ty * height;
                 Dtype tw = blob_truth->data_at(b, t * 5 + 2, 0, 0);
@@ -261,6 +261,12 @@ void RegionTargetLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
             Dtype ty = blob_truth->data_at(b, t * 5 + 1, 0, 0);
             Dtype tw = blob_truth->data_at(b, t * 5 + 2, 0, 0);
             Dtype th = blob_truth->data_at(b, t * 5 + 3, 0, 0);
+
+            if (tw <= 0 || th <= 0) {
+                // we explicitly ignore this zero-length bounding boxes
+                // note: this layer is not designed to support image-level labels
+                continue;
+            }
 
             *(target_xy_data + target_xy->offset(b, target_n, target_j, target_i)) = tx * width - target_i;
             *(target_xy_data + target_xy->offset(b, target_n+ num_anchor, target_j, target_i)) = ty * height - target_j;
