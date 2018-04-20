@@ -88,7 +88,7 @@ __global__ void GroundTruthTarget(int total, int max_gt,
         int target_i = -1;
         int target_j = -1;
         int target_n = -1;
-        if (tx) {
+        if (tx >= 0 && ty >= 0 && tx < 1 && ty < 1) {
             target_i = tx * width;
             target_j = ty * height;
             Dtype tw = *(truth_data + b * max_gt * 5 + 5 * t + 2);
@@ -176,6 +176,12 @@ __global__ void AlignGroudTruth(int total, const int* gt_target_data, int max_gt
         Dtype ty = *(truth_data + offset_bt + 1);
         Dtype tw = *(truth_data + offset_bt + 2);
         Dtype th = *(truth_data + offset_bt + 3);
+
+        if (tw <= 0 || th <= 0) {
+            // we explicitly ignore this zero-length bounding boxes
+            // note: this layer is not designed to support image-level labels
+            continue;
+        }
 
         int offset_bnji = b * num_anchor * height * width + target_n * height * width + 
             target_j * width + target_i;
