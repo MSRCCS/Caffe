@@ -163,7 +163,15 @@ int TsvRawDataFile::LoadLineIndex(const char *fileName, vector<int64_t> &lineInd
 		if (line.length() == 0)
 			break;
 
-		lineIndex.push_back(atoll(line.c_str()));
+        vector<string> parts;
+        boost::split(parts, line, boost::is_any_of("\t"));
+        if (parts.size() == 1) {
+            lineIndex.push_back(atoll(parts[0].c_str()));
+        } else if (parts.size() == 2) {
+            // this is multi-source type but with only one 
+            CHECK_EQ(atoll(parts[0].c_str()), 0);
+            lineIndex.push_back(atoll(parts[1].c_str()));
+        }
 	}
 
 	index_file.close();
