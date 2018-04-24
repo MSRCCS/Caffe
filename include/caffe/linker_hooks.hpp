@@ -132,7 +132,8 @@ namespace caffe {
   FUNC(TsvData); \
   FUNC(WSgmLoss); \
   FUNC(WindowData); \
-  FUNC(XCovLoss)
+  FUNC(XCovLoss); \
+  FUNC(Axpy)
 
 #ifdef WITH_PYTHON_LAYER
 #define FOR_PYTHON_LAYER(FUNC) \
