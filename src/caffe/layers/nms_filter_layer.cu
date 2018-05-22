@@ -36,10 +36,11 @@ __global__ void kernel_channel_argmergesort(
     int* src, int* dst) {
     CUDA_KERNEL_LOOP(index, outer_num * classes * chunks) {
         const int i = index % chunks;
-        const int c = (index / chunks) % classes + first_class;
+        const int c_idx = (index / chunks) % classes;
+        const int c = c_idx + first_class;
         const int n = (index / chunks) / classes;
         const int dim = (n * channels + c) * inner_num;
-        const int idx_dim = (n * classes + c) * inner_num;
+        const int idx_dim = (n * classes + c_idx) * inner_num;
         int left = i * width;
         int right = min(left + width / 2, inner_num);
         int end = min(left + width, inner_num);
@@ -79,10 +80,11 @@ __global__ void kernel_nms_filter(
     const Dtype* bbs_data, float thresh,
     Dtype* top_conf_data) {
     CUDA_KERNEL_LOOP(index, outer_num * classes) {
-        const int c = index % classes + first_class;
+        const int c_idx = index % classes;
+        const int c = c_idx + first_class;
         const int n = index / classes;
         const int dim = (n * channels + c) * inner_num;
-        const int idx_dim = (n * classes + c) * inner_num;
+        const int idx_dim = (n * classes + c_idx) * inner_num;
         const int* src_idx = idx + idx_dim;
         for (int i_idx = 0; i_idx < inner_num; ++i_idx) {
             int i = src_idx[i_idx];
