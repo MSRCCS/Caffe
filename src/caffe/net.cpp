@@ -143,6 +143,8 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
 	
 	//if this is not a loss layer then a blob is deletable
 	bool is_deletable = layers_[layer_id]->layer_param().loss_weight_size() == 0;
+    //if this is not a Parameter layer then it is deletable
+    is_deletable &= layer_types_[layer_id] != "Parameter";
 	for (int ti = 0; ti < top_vecs_[layer_id].size(); ++ti)
 	{
 		const int blob_id = top_id_vecs_[layer_id][ti];
