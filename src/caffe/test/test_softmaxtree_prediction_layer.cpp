@@ -223,6 +223,34 @@ TYPED_TEST(SoftmaxTreePredictionLayerTest, TestForward) {
     this->TestForward(false, kThreshold);
 }
 
+TYPED_TEST(SoftmaxTreePredictionLayerTest, TestForwardSubgroupOne) {
+    typedef typename TypeParam::Dtype Dtype;
+    this->Initialize({ -1, -1, -1, -1, 0, 0, 4, 4, 4, 8, 8, 1, 1, 1, 1 },
+    { 2, 2, 2, 3, 2, 1, 3 },
+    { 2, 5, -1, -1, 3, -1, -1, -1, 4, -1, -1, -1, -1, -1, -1 },
+    { 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+                     1,
+                     CMAKE_SOURCE_DIR "caffe/test/test_data/15n_5g_7s_1.tree");
+
+    const Dtype kThreshold = 0.5;
+
+    LayerParameter layer_param;
+    layer_param.mutable_softmaxtreeprediction_param()->set_tree(this->tree_file_name_);
+    layer_param.mutable_softmaxtreeprediction_param()->set_threshold(kThreshold);
+    scoped_ptr<SoftmaxTreePredictionLayer<Dtype>> layer(new SoftmaxTreePredictionLayer<Dtype>(layer_param));
+    layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    ASSERT_EQ(this->blob_top_prob_->channels(), this->blob_bottom_->channels() + 1);
+    this->TestForward(true, kThreshold);
+
+    layer_param.mutable_softmaxtreeprediction_param()->set_append_max(false);
+    layer.reset(new SoftmaxTreePredictionLayer<Dtype>(layer_param));
+    layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    ASSERT_EQ(this->blob_top_prob_->count(), this->blob_bottom_->count());
+    this->TestForward(false, kThreshold);
+}
+
 TYPED_TEST(SoftmaxTreePredictionLayerTest, TestForwardNoThreshold) {
     typedef typename TypeParam::Dtype Dtype;
     const Dtype kThreshold = -1;
