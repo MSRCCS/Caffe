@@ -23,7 +23,7 @@ template <typename Dtype>
 class TsvDataLayer : public BasePrefetchingDataLayer<Dtype> {
 public:
 	explicit TsvDataLayer(const LayerParameter& param)
-		: BasePrefetchingDataLayer<Dtype>(param), offset_() {}
+		: BasePrefetchingDataLayer<Dtype>(param), offset_(), world_size_(1), world_rank_(0) {}
 	virtual ~TsvDataLayer();
 	virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 		const vector<Blob<Dtype>*>& top);
@@ -47,6 +47,10 @@ protected:
 
     // mean values for pixel value subtraction
     std::vector<Dtype> mean_values_;
+
+    // world size and rank override
+    uint32_t world_size_;
+    uint32_t world_rank_;
 
 private:
     void load_kl(const string &kl_filename);

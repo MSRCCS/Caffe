@@ -154,6 +154,13 @@ template <typename Dtype>
 void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
+
+  CHECK_EQ(tsv_param.has_world_size(), tsv_param.has_world_rank())
+      << "world_size and world_rank must be specified together";
+  world_size_ = tsv_param.world_size();
+  world_rank_ = tsv_param.world_rank();
+  CHECK_LT(world_rank_, world_size_);
+  CHECK_GT(world_size_, 0);
   // open TSV file
   bool has_shuffle_file = tsv_param.has_source_shuffle();
   string tsv_shuffle;
@@ -163,7 +170,7 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   int col_label = tsv_param.col_label();
   //int col_crop = tsv_param.col_crop();
   bool has_separate_label_file = tsv_param.source_label_size() > 0;
-  
+
   vector<string> sources(tsv_param.source_size());
   for (int i = 0; i < tsv_param.source_size(); i++) {
       sources[i] = tsv_param.source(i);
@@ -512,11 +519,12 @@ void TsvDataLayer<Dtype>::process_one_label(const string &input_label_data, cons
 
 template <typename Dtype>
 bool TsvDataLayer<Dtype>::Skip() {
-    int size = Caffe::solver_count();
-    int rank = Caffe::solver_rank();
-    bool keep = (offset_ % size) == rank ||
-        // In test mode, only rank 0 runs, so avoid skipping
-        this->layer_param_.phase() == TEST;
+    // In test mode, only rank 0 (of each node) runs, so avoid skipping within a node
+    if (this->layer_param_.phase() == TEST)
+        return offset_ % world_size_ != 0;  // for world_size == 1, this is always false
+    int size = Caffe::solver_count() * world_size_;
+    int rank = Caffe::solver_count() * world_rank_ + Caffe::solver_rank();
+    bool keep = (offset_ % size) == rank;
     return !keep;
 }
 

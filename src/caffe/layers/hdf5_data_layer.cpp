@@ -72,7 +72,16 @@ void HDF5DataLayer<Dtype>::LoadHDF5FileData(const char* filename) {
 template <typename Dtype>
 void HDF5DataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
-  // Refuse transformation parameters since HDF5 is totally generic.
+
+  const HDF5DataParameter &hdf5_param = this->layer_param().hdf5_data_param();
+  CHECK_EQ(hdf5_param.has_world_size(), hdf5_param.has_world_rank())
+      << "world_size and world_rank must be specified together";
+  world_size_ = hdf5_param.world_size();
+  world_rank_ = hdf5_param.world_rank();
+  CHECK_LT(world_rank_, world_size_);
+  CHECK_GT(world_size_, 0);
+
+    // Refuse transformation parameters since HDF5 is totally generic.
   CHECK(!this->layer_param_.has_transform_param()) <<
       this->type() << " does not transform data.";
   // Read the source to parse the filenames.
@@ -127,11 +136,12 @@ void HDF5DataLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
 template <typename Dtype>
 bool HDF5DataLayer<Dtype>::Skip() {
-  int size = Caffe::solver_count();
-  int rank = Caffe::solver_rank();
-  bool keep = (offset_ % size) == rank ||
-              // In test mode, only rank 0 runs, so avoid skipping
-              this->layer_param_.phase() == TEST;
+  // In test mode, only rank 0 (of each node) runs, so avoid skipping within a node
+  if (this->layer_param_.phase() == TEST)
+      return offset_ % world_size_ != 0;  // for world_size == 1, this is always false
+  int size = Caffe::solver_count() * world_size_;
+  int rank = Caffe::solver_count() * world_rank_ + Caffe::solver_rank();
+  bool keep = (offset_ % size) == rank;
   return !keep;
 }
 
