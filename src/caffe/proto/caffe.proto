@@ -797,6 +797,10 @@ message DataParameter {
   // Prefetch queue (Increase if data feeding bandwidth varies, within the
   // limit of device memory for GPU training)
   optional uint32 prefetch = 10 [default = 4];
+  // override size for data instrumentation
+  optional uint32 world_size = 190 [default = 1];
+  // override rank for data instrumentation
+  optional uint32 world_rank = 200 [default = 0];
 }
 
 message DenseLossParameter {
@@ -899,6 +903,11 @@ message HDF5DataParameter {
   // but data between different files are not interleaved; all of a file's
   // data are output (in a random order) before moving onto another file.
   optional bool shuffle = 3 [default = false];
+
+  // override size for data instrumentation
+  optional uint32 world_size = 190 [default = 1];
+  // override rank for data instrumentation
+  optional uint32 world_rank = 200 [default = 0];
 }
 
 message HDF5OutputParameter {
@@ -1469,6 +1478,10 @@ message TsvDataParameter{
     // specify the output pixel value scale. Default is 255, but it can be also set to 1 with mean value (0,0,0) to
     // limit the pixel value to be in [0,1].
     optional float pixel_value_scale = 18 [default = 255];
+	// override size for data instrumentation
+	optional uint32 world_size = 190 [default = 1];
+	// override rank for data instrumentation
+	optional uint32 world_rank = 200 [default = 0];
 }
 
 message BoxDataParameter {
