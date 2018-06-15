@@ -1,6 +1,9 @@
 ## Refer to http://caffe.berkeleyvision.org/installation.html
 # Contributions simplifying and improving our build system are welcome!
 
+# Uncomment for MPI
+# USE_MPI := 1
+
 # cuDNN acceleration switch (uncomment to build with cuDNN).
 # USE_CUDNN := 1
 
@@ -26,6 +29,7 @@
 # To customize your choice of compiler, uncomment and set the following.
 # N.B. the default for Linux is g++ and the default for OSX is clang++
 # CUSTOM_CXX := g++
+# CUSTOM_CXX := mpic++
 
 # CUDA directory contains bin/ and lib/ directories that we need.
 CUDA_DIR := /usr/local/cuda

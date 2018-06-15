@@ -302,6 +302,10 @@ endif
 # Custom compiler
 ifdef CUSTOM_CXX
 	CXX := $(CUSTOM_CXX)
+else
+ifeq ($(USE_MPI), 1)
+	CXX := mpic++
+endif
 endif
 
 # Static linking
@@ -348,6 +352,10 @@ ifeq ($(USE_LMDB), 1)
 ifeq ($(ALLOW_LMDB_NOLOCK), 1)
 	COMMON_FLAGS += -DALLOW_LMDB_NOLOCK
 endif
+endif
+
+ifeq ($(USE_MPI), 1)
+	COMMON_FLAGS += -DUSE_MPI
 endif
 
 # CPU-only configuration

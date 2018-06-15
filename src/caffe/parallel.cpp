@@ -9,6 +9,9 @@
 
 #include "caffe/caffe.hpp"
 #include "caffe/parallel.hpp"
+#ifdef USE_MPI
+#include "caffe/clusters.hpp"
+#endif
 #include "caffe/sgd_solvers.hpp"
 
 namespace caffe {
@@ -118,6 +121,7 @@ NCCL<Dtype>::NCCL(shared_ptr<Solver<Dtype> > solver)
   : GPUParams<Dtype>(solver, getDevice()),
     comm_(), solver_(solver), barrier_() {
   this->Configure(solver.get());
+
   Init();
 }
 
@@ -126,13 +130,9 @@ NCCL<Dtype>::NCCL(shared_ptr<Solver<Dtype> > solver, const string& uid)
   : GPUParams<Dtype>(solver, getDevice()),
     solver_(solver), barrier_() {
   this->Configure(solver.get());
-  Caffe::set_multiprocess(true);
-  ncclUniqueId nccl_uid;
-  memcpy(&nccl_uid, &uid[0], NCCL_UNIQUE_ID_BYTES);  // NOLINT(caffe/alt_fn)
-  NCCL_CHECK(ncclCommInitRank(&comm_,
-                              Caffe::solver_count(),
-                              nccl_uid,
-                              Caffe::solver_rank()));
+
+  memcpy(&nccl_id_, &uid[0], NCCL_UNIQUE_ID_BYTES);  // NOLINT(caffe/alt_fn)
+  init_rank();
   Init();
 }
 
@@ -181,8 +181,37 @@ string NCCL<Dtype>::new_uid() {
   uid.resize(NCCL_UNIQUE_ID_BYTES);
   ncclUniqueId nccl_uid;
   NCCL_CHECK(ncclGetUniqueId(&nccl_uid));
+  
   memcpy(&uid[0], &nccl_uid, NCCL_UNIQUE_ID_BYTES);  // NOLINT(caffe/alt_fn)
   return uid;
+}
+
+template<typename Dtype>
+void NCCL<Dtype>::init_rank() {
+#ifdef USE_MPI
+  auto nranks = Caffe::solver_count();
+  auto rank = Caffe::solver_rank();
+  auto total = nranks * Clusters::node_count();
+  auto nrank = Clusters::node_rank() * nranks + rank;
+  LOG(INFO) << "[" << nrank << " / " << total << "] NCCL";
+  if(Caffe::root_solver() && Clusters::node_count() > 1) {
+    MPI_Barrier(MPI_COMM_WORLD);
+  }
+  
+  NCCL_CHECK(ncclCommInitRank(&comm_, 
+                              total,
+                              nccl_id_, 
+                              nrank));
+  if(Caffe::root_solver() && Clusters::node_count() > 1) {
+    MPI_Barrier(MPI_COMM_WORLD);
+  } 
+#else
+  Caffe::set_multiprocess(true);
+  NCCL_CHECK(ncclCommInitRank(&comm_,
+                              Caffe::solver_count(),
+                              nccl_id_,
+                              Caffe::solver_rank()));
+#endif
 }
 
 template<typename Dtype>
@@ -190,6 +219,16 @@ void NCCL<Dtype>::Broadcast() {
   if (barrier_) {  // NULL in multi process case
     barrier_->wait();
   }
+  
+  auto nranks = Caffe::solver_count();
+  int count = 0;
+  NCCL_CHECK(ncclCommCount(comm_, &count));
+#ifdef USE_MPI
+  CHECK_EQ(count, nranks * Clusters::node_count());
+#else
+  CHECK_EQ(count, nranks);
+#endif
+  
   NCCL_CHECK(ncclBcast(data_, static_cast<int>(size_),
                        nccl::dataType<Dtype>::type, 0,
                        comm_, cudaStreamDefault));
@@ -260,14 +299,15 @@ class Worker : public InternalThread {
  public:
   explicit Worker(shared_ptr<Solver<Dtype> > rank0, int device,
                   boost::barrier* barrier, vector<NCCL<Dtype>*>* nccls,
-                  const char* restore)
+                  const char* restore, ncclUniqueId nccl_id)
     : rank0_(rank0), device_(device), barrier_(barrier),
-      nccls_(nccls), restore_(restore) {
+      nccls_(nccls), restore_(restore), nccl_id_(nccl_id) {
   }
   virtual ~Worker() {}
 
  protected:
   void InternalThreadEntry() {
+  
     // Create solver and install callbacks
     SolverParameter param(rank0_->param());
     param.set_device_id(device_);
@@ -285,7 +325,14 @@ class Worker : public InternalThread {
       // restore all solvers from file.
       s->Restore(restore_);
     }
+#ifdef USE_MPI
+    string uid;
+    uid.resize(NCCL_UNIQUE_ID_BYTES);
+    memcpy(&uid[0], &nccl_id_, NCCL_UNIQUE_ID_BYTES);  // NOLINT(caffe/alt_fn)
+    NCCL<Dtype> nccl(s, uid);
+#else    
     NCCL<Dtype> nccl(s);
+#endif
     nccl.set_barrier(barrier_);
     s->add_callback(&nccl);
     if (s->param().layer_wise_reduce()) {
@@ -322,19 +369,35 @@ class Worker : public InternalThread {
   boost::barrier* barrier_;
   vector<NCCL<Dtype>*>* nccls_;
   const char* restore_;
+  ncclUniqueId nccl_id_;
 };
 
 template<typename Dtype>
 void NCCL<Dtype>::Run(const vector<int>& gpus, const char* restore) {
   boost::barrier barrier(static_cast<int>(gpus.size()));
   vector<NCCL<Dtype>*> nccls(gpus.size());
+
+#ifdef USE_MPI
+  Caffe::set_solver_rank(0);
+  auto nranks = Caffe::solver_count();
+  auto rank = Caffe::solver_rank();
+  auto total = nranks * Clusters::node_count();
+  auto nrank = Clusters::node_rank() * nranks + rank;
+
+  if(Clusters::node_rank() == 0) {
+    NCCL_CHECK(ncclGetUniqueId(&nccl_id_));
+  }  
+  if (Clusters::node_count() > 1)
+    MPI_Bcast((void*) &nccl_id_, sizeof(nccl_id_), MPI_BYTE, 0, MPI_COMM_WORLD);
+#endif
+
   // Create workers
   vector<shared_ptr<Worker<Dtype> > > workers(gpus.size());
   for (int i = 1; i < gpus.size(); ++i) {
     CUDA_CHECK(cudaSetDevice(gpus[i]));
     Caffe::set_solver_rank(i);
     Worker<Dtype>* w = new Worker<Dtype>(solver_, gpus[i], &barrier,
-                                         &nccls, restore);
+                                         &nccls, restore, nccl_id_);
     w->StartInternalThread();
     workers[i].reset(w);
   }
@@ -346,10 +409,17 @@ void NCCL<Dtype>::Run(const vector<int>& gpus, const char* restore) {
     solver_->net()->add_after_backward(this);
   }
   nccls[0] = this;
+#ifdef USE_MPI
+  // Init MPI NCCL
+  init_rank();
+#endif
   // Wait for workers
   barrier.wait();
+#ifndef USE_MPI
   // Init NCCL
   InitSingleProcess(&nccls);
+  // Wait for NCCL init
+#endif
   barrier.wait();
   // Run first solver on current thread
   Broadcast();

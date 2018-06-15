@@ -16,6 +16,9 @@
 #include "caffe/layers/memory_data_layer.hpp"
 #include "caffe/layers/python_layer.hpp"
 #include "caffe/sgd_solvers.hpp"
+#ifdef USE_MPI
+#include "caffe/clusters.hpp"
+#endif
 
 // Temporary solution for numpy < 1.7 versions: old macro, no promises.
 // You're strongly advised to upgrade to >= 1.7.
@@ -82,6 +85,12 @@ const int NPY_DTYPE = NPY_FLOAT32;
 // Selecting mode.
 void set_mode_cpu() { Caffe::set_mode(Caffe::CPU); }
 void set_mode_gpu() { Caffe::set_mode(Caffe::GPU); }
+
+#ifdef USE_MPI
+void InitMPI() {
+  Clusters::Init();
+}
+#endif
 
 void InitLog(int level) {
   FLAGS_logtostderr = 1;
@@ -396,6 +405,9 @@ BOOST_PYTHON_MODULE(_caffe) {
   bp::scope().attr("__version__") = AS_STRING(CAFFE_VERSION);
 
   // Caffe utility functions
+#ifdef USE_MPI
+  bp::def("init_mpi", &InitMPI);
+#endif  
   bp::def("init_log", &InitLog);
   bp::def("init_log", &InitLogInfo);
   bp::def("log", &Log);

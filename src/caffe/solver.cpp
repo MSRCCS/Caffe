@@ -9,6 +9,11 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/upgrade_proto.hpp"
 
+#ifdef USE_MPI
+#include "caffe/clusters.hpp"
+#else
+int node_rank = 0;
+#endif
 namespace caffe {
 
 template<typename Dtype>
@@ -283,9 +288,12 @@ void Solver<Dtype>::Step(int iters) {
     SolverAction::Enum request = GetRequestedAction();
 
     // Save a snapshot if needed.
+#ifdef USE_MPI
+    auto node_rank = Clusters::node_rank();
+#endif
     if ((param_.snapshot()
          && iter_ % param_.snapshot() == 0
-         && Caffe::root_solver()) ||
+         && Caffe::root_solver() && node_rank == 0) ||
          (request == SolverAction::SNAPSHOT)) {
       Snapshot();
     }
@@ -578,7 +586,10 @@ void Solver<Dtype>::Snapshot() {
 
 template <typename Dtype>
 void Solver<Dtype>::CheckSnapshotWritePermissions() {
-  if (Caffe::root_solver() && param_.snapshot()) {
+#ifdef USE_MPI
+    auto node_rank = Clusters::node_rank();
+#endif
+  if (Caffe::root_solver() && param_.snapshot() && node_rank == 0) {
     CHECK(param_.has_snapshot_prefix())
         << "In solver params, snapshot is specified but snapshot_prefix is not";
     string probe_filename = SnapshotFilename(".tempfile");
