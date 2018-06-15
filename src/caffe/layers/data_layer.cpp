@@ -39,8 +39,8 @@ void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   world_rank_ = data_param.world_rank();
 #ifdef USE_MPI
   if (!data_param.has_world_size()) {
-    world_size_ = Clusters::node_count();
-    world_rank_ = Clusters::node_rank();
+    world_size_ = Clusters::proc_count();
+    world_rank_ = Clusters::proc_rank();
   }
 #endif
   CHECK_LT(world_rank_, world_size_);

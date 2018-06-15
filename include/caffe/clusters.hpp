@@ -7,12 +7,12 @@ namespace Clusters{
   
   void Finalize();
 
-  int node_rank();
+  int proc_rank();
 
-  int node_count();
+  int proc_count();
 
-  int node_local_rank();
+  int proc_local_rank();
 
-  int node_local_count();
+  int proc_local_count();
 
 }

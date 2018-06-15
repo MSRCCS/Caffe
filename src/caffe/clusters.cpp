@@ -5,44 +5,44 @@
 
 namespace Clusters{
 	
-  int node_rank_ = -1;
-  int node_count_ = -1;  
-  int node_local_rank_ = -1;
-  int node_local_count_ = -1;  
+  int proc_rank_ = -1;   // The rank of this process in the world
+  int proc_count_ = -1;  // The number of processes in the world
+  int proc_local_rank_ = -1;   // The rank of the process in this node (if 1 process/node this is equal Caffe:solver_rank())
+  int proc_local_count_ = -1;  // The number of processes in this node (if 1 process/node this is equal Caffe:solver_count())
 
   void Init() {
     MPI_Init(NULL, NULL);
-    MPI_Comm_rank(MPI_COMM_WORLD, &node_rank_);
-    MPI_Comm_size(MPI_COMM_WORLD, &node_count_);
+    MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank_);
+    MPI_Comm_size(MPI_COMM_WORLD, &proc_count_);
     MPI_Comm shmcomm;
     MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, 0,
                         MPI_INFO_NULL, &shmcomm);
-    MPI_Comm_rank(shmcomm, &node_local_rank_);
-    MPI_Comm_size(shmcomm, &node_local_count_);
-    LOG(INFO) << "MPI world: ("<< Clusters::node_rank() << "/" << Clusters::node_count() << ") local:(" << Clusters::node_local_rank() <<"/" << Clusters::node_local_count() << ")";
+    MPI_Comm_rank(shmcomm, &proc_local_rank_);
+    MPI_Comm_size(shmcomm, &proc_local_count_);
+    LOG(INFO) << "MPI world: ("<< Clusters::proc_rank() << "/" << Clusters::proc_count() << ") local:(" << Clusters::proc_local_rank() <<"/" << Clusters::proc_local_count() << ")";
   }
   
   void Finalize() {
     MPI_Finalize();	
   }
-  int node_rank() {
-    CHECK_GT(node_rank_, -1);
-    return node_rank_;
+  int proc_rank() {
+    CHECK_GT(proc_rank_, -1);
+    return proc_rank_;
   }
 
-  int node_count() {
-    CHECK_GT(node_count_, -1);
-    return node_count_;
+  int proc_count() {
+    CHECK_GT(proc_count_, -1);
+    return proc_count_;
   }
   
-  int node_local_rank() {
-    CHECK_GT(node_local_rank_, -1);
-    return node_local_rank_;
+  int proc_local_rank() {
+    CHECK_GT(proc_local_rank_, -1);
+    return proc_local_rank_;
   }
 
-  int node_local_count() {
-    CHECK_GT(node_local_count_, -1);
-    return node_local_count_;
+  int proc_local_count() {
+    CHECK_GT(proc_local_count_, -1);
+    return proc_local_count_;
   }
 
 }

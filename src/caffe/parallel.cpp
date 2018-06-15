@@ -191,10 +191,10 @@ void NCCL<Dtype>::init_rank() {
 #ifdef USE_MPI
   auto nranks = Caffe::solver_count();
   auto rank = Caffe::solver_rank();
-  auto total = nranks * Clusters::node_count();
-  auto nrank = Clusters::node_rank() * nranks + rank;
+  auto total = nranks * Clusters::proc_count();
+  auto nrank = Clusters::proc_rank() * nranks + rank;
   LOG(INFO) << "[" << nrank << " / " << total << "] NCCL";
-  if(Caffe::root_solver() && Clusters::node_count() > 1) {
+  if(Caffe::root_solver() && Clusters::proc_count() > 1) {
     MPI_Barrier(MPI_COMM_WORLD);
   }
   
@@ -202,7 +202,7 @@ void NCCL<Dtype>::init_rank() {
                               total,
                               nccl_id_, 
                               nrank));
-  if(Caffe::root_solver() && Clusters::node_count() > 1) {
+  if(Caffe::root_solver() && Clusters::proc_count() > 1) {
     MPI_Barrier(MPI_COMM_WORLD);
   } 
 #else
@@ -224,7 +224,7 @@ void NCCL<Dtype>::Broadcast() {
   int count = 0;
   NCCL_CHECK(ncclCommCount(comm_, &count));
 #ifdef USE_MPI
-  CHECK_EQ(count, nranks * Clusters::node_count());
+  CHECK_EQ(count, nranks * Clusters::proc_count());
 #else
   CHECK_EQ(count, nranks);
 #endif
@@ -381,13 +381,13 @@ void NCCL<Dtype>::Run(const vector<int>& gpus, const char* restore) {
   Caffe::set_solver_rank(0);
   auto nranks = Caffe::solver_count();
   auto rank = Caffe::solver_rank();
-  auto total = nranks * Clusters::node_count();
-  auto nrank = Clusters::node_rank() * nranks + rank;
+  auto total = nranks * Clusters::proc_count();
+  auto nrank = Clusters::proc_rank() * nranks + rank;
 
-  if(Clusters::node_rank() == 0) {
+  if(Clusters::proc_rank() == 0) {
     NCCL_CHECK(ncclGetUniqueId(&nccl_id_));
   }  
-  if (Clusters::node_count() > 1)
+  if (Clusters::proc_count() > 1)
     MPI_Bcast((void*) &nccl_id_, sizeof(nccl_id_), MPI_BYTE, 0, MPI_COMM_WORLD);
 #endif
 
