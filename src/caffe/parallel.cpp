@@ -268,7 +268,11 @@ void NCCL<Dtype>::run(int layer) {
                              size,
                              nccl::dataType<Dtype>::type,
                              ncclSum, comm_, stream_));
-    caffe_gpu_scal(size, (Dtype) 1.0 / Caffe::solver_count(),
+  auto nranks = Caffe::solver_count();
+#ifdef USE_MPI
+  nranks *= Clusters::proc_count();
+#endif							 
+    caffe_gpu_scal(size, (Dtype) 1.0 / nranks,
                    blobs[0]->mutable_gpu_diff(), stream_);
   }
 }
@@ -289,8 +293,12 @@ void NCCL<Dtype>::on_gradients_ready() {
     NCCL_CHECK(ncclAllReduce(diff_, diff_, static_cast<int>(size_),
                              nccl::dataType<Dtype>::type, ncclSum, comm_,
                              cudaStreamDefault));
+  auto nranks = Caffe::solver_count();
+#ifdef USE_MPI
+  nranks *= Clusters::proc_count();
+#endif							 
     caffe_gpu_scal(static_cast<int>(size_),
-                   (Dtype) 1.0 / Caffe::solver_count(), diff_);
+                   (Dtype) 1.0 / nranks, diff_);
   }
 }
 
