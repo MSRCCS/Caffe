@@ -14,6 +14,9 @@ namespace bp = boost::python;
 #include "boost/algorithm/string.hpp"
 #include "caffe/caffe.hpp"
 #include "caffe/util/signal_handler.h"
+#ifdef USE_MPI
+#include "caffe/clusters.hpp"
+#endif
 
 using caffe::Blob;
 using caffe::Caffe;
@@ -209,6 +212,11 @@ int train() {
       }
   }
 
+  bool force_p2p = false;
+#ifdef USE_MPI
+  Clusters::Init();
+  force_p2p = true;
+#endif
   vector<int> gpus;
   get_gpus(&gpus);
   if (gpus.size() == 0) {
@@ -242,6 +250,7 @@ int train() {
 
   solver->SetActionFunction(signal_handler.GetActionFunction());
 
+
   if (FLAGS_snapshot.size()) {
     LOG(INFO) << "Resuming from " << FLAGS_snapshot;
     solver->Restore(FLAGS_snapshot.c_str());
@@ -249,8 +258,9 @@ int train() {
     CopyLayers(solver.get(), FLAGS_weights, FLAGS_ignore_shape_mismatch);
   }
 
+
   LOG(INFO) << "Starting Optimization";
-  if (gpus.size() > 1) {
+  if (gpus.size() > 1 || force_p2p) {
 #ifdef USE_NCCL
     caffe::NCCL<float> nccl(solver);
     nccl.Run(gpus, FLAGS_snapshot.size() > 0 ? FLAGS_snapshot.c_str() : NULL);
@@ -260,6 +270,9 @@ int train() {
   } else {
     solver->Solve();
   }
+#ifdef USE_MPI
+  Clusters::Finalize();  
+#endif
   LOG(INFO) << "Optimization Done.";
   return 0;
 }

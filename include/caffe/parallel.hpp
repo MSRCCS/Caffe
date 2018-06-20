@@ -99,6 +99,8 @@ class NCCL : public GPUParams<Dtype>,
    * Single process multi-GPU.
    */
   void Run(const vector<int>& gpus, const char* restore);
+  
+  void init_rank();
 
  protected:
   void Init();
@@ -106,6 +108,7 @@ class NCCL : public GPUParams<Dtype>,
   void run(int layer);  // Net callback
   void on_gradients_ready();
 
+  ncclUniqueId nccl_id_;
   ncclComm_t comm_;
   cudaStream_t stream_;
 

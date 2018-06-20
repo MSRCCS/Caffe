@@ -9,6 +9,10 @@
 #include "caffe/layers/data_layer.hpp"
 #include "caffe/util/benchmark.hpp"
 
+#ifdef USE_MPI
+#include "caffe/clusters.hpp"
+#endif
+
 namespace caffe {
 
 template <typename Dtype>
@@ -33,6 +37,12 @@ void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       << "world_size and world_rank must be specified together";
   world_size_ = data_param.world_size();
   world_rank_ = data_param.world_rank();
+#ifdef USE_MPI
+  if (!data_param.has_world_size()) {
+    world_size_ = Clusters::proc_count();
+    world_rank_ = Clusters::proc_rank();
+  }
+#endif
   CHECK_LT(world_rank_, world_size_);
   CHECK_GT(world_size_, 0);
 
