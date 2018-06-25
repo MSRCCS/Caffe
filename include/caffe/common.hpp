@@ -165,7 +165,13 @@ class Caffe {
   inline static void set_solver_rank(int val) { Get().solver_rank_ = val; }
   inline static bool multiprocess() { return Get().multiprocess_; }
   inline static void set_multiprocess(bool val) { Get().multiprocess_ = val; }
+#ifdef USE_MPI
+  inline static bool local_root_solver() { return Get().solver_rank_ == 0; }
+  static bool root_solver();
+#else
+  inline static bool local_root_solver() { return root_solver(); }
   inline static bool root_solver() { return Get().solver_rank_ == 0; }
+#endif
 
  protected:
 #ifndef CPU_ONLY
