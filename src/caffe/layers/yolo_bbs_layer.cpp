@@ -40,12 +40,13 @@ void YoloBBsLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const vect
     CHECK_EQ(blob_xy->count(), blob_wh->count());
 
     int num_anchor = blob_xy->channels() / 2;
-    CHECK_EQ(num_anchor, biases_.count() / 2);
+    CHECK_EQ(num_anchor * 2, biases_.count());
+    CHECK_EQ(num_anchor * 2, blob_xy->channels());
     auto height = blob_xy->height();
     auto width = blob_xy->width();
     CHECK_EQ(blob_wh->height(), height);
     CHECK_EQ(blob_wh->width(), width);
-    CHECK_EQ(blob_wh->channels() / 2, num_anchor);
+    CHECK_EQ(blob_wh->channels(), 2 * num_anchor);
 
     auto blob_imageinfo = bottom[blob_idx++];
     CHECK_EQ(blob_imageinfo->count(), 2);

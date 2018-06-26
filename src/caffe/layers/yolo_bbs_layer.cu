@@ -91,6 +91,7 @@ void YoloBBsLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, const 
         blob_xy->gpu_data(), blob_wh->gpu_data(), 
         biases_.gpu_data(),
         bbs->mutable_gpu_data());
+    CUDA_POST_KERNEL_CHECK;
 
     int net_h = feat_stride_ * height;
     int net_w = feat_stride_ * width;
@@ -114,11 +115,12 @@ void YoloBBsLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, const 
         new_w = (im_w * net_h) / im_h;
     }
 
-    kernel_correct_bbs<Dtype> << <CAFFE_GET_BLOCKS(bbs->count()), CAFFE_CUDA_NUM_THREADS >> > (
-        bbs->count(),
+    kernel_correct_bbs<Dtype> << <CAFFE_GET_BLOCKS(bbs->count() / 4), CAFFE_CUDA_NUM_THREADS >> > (
+        bbs->count() / 4,
         im_w, im_h, net_w, net_h,
         new_w, new_h,
         bbs->mutable_gpu_data());
+    CUDA_POST_KERNEL_CHECK;
 
     if (with_objectness_) {
         auto blob_objectness = bottom[blob_idx++];
@@ -138,6 +140,7 @@ void YoloBBsLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, const 
             blob_objectness->gpu_data(),
             blob_conf->gpu_data(),
             blob_top_conf->mutable_gpu_data());
+        CUDA_POST_KERNEL_CHECK;
     }
 }
 
