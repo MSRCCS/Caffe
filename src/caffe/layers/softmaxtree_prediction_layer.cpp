@@ -23,7 +23,7 @@ void predict_tree_stack(int outer_num, int channels, int inner_num,
                         int max_stack_size, int n, int s, int g,
                         Dtype* top_data, bool output_tree_path) {
     std::stack<Pred> preds;
-    Dtype obj = obj_data[n * inner_num + s];
+    Dtype obj = obj_data ? obj_data[n * inner_num + s] : 1;
     // TODO: if output_tree_path=true is always what we want, let's remove the
     // support if it is false
     double root_p = output_tree_path ? obj : 1.0;
@@ -71,10 +71,10 @@ void predict_tree_stack(int outer_num, int channels, int inner_num,
                 continue;
             p = pred.parent_p;
         }
+
         Dtype node_p = 0;
         if (!output_tree_path) {
-            node_p = output_tree_path ? static_cast<Dtype>(p): (obj_data ? 
-                    obj : static_cast<Dtype>(p));
+            node_p = obj_data ? obj : static_cast<Dtype>(p);
             top_data[(n * top_channels + argmax) * inner_num + s] = node_p;
         }
         if (append_max) {
@@ -104,6 +104,8 @@ void SoftmaxTreePredictionLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& b
     append_max_ = this->layer_param().softmaxtreeprediction_param().append_max();
     with_objectness_ = bottom.size() == 2;
     output_tree_path_ = this->layer_param().softmaxtreeprediction_param().output_tree_path();
+    if (output_tree_path_)
+        CHECK(with_objectness_) << "output_tree_path requires objectness bottom";
 
     stack_size_ = 0;
     auto root_size = tree_.root_size() + 1;

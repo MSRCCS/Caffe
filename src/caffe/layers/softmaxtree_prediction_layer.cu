@@ -41,7 +41,7 @@ __device__ void predict_tree_stack(
 
     int stack_size = 0;
     const int top_channels = append_max ? (channels + 1) : channels;
-    Dtype obj = obj_data[n * inner_num + s];
+    Dtype obj = obj_data ? obj_data[n * inner_num + s] : 1;
     double root_p = output_tree_path ? obj : 1.0;
     threshold = output_tree_path ? (threshold * obj) : threshold;
     stack_push(parent_p_data, parent_argmax_data, g_data,
@@ -96,8 +96,7 @@ __device__ void predict_tree_stack(
         
         Dtype node_p = 0;
         if (!output_tree_path) {
-            node_p = output_tree_path ? static_cast<Dtype>(p): (obj_data ? 
-                    obj : static_cast<Dtype>(p));
+            node_p = obj_data ? obj : static_cast<Dtype>(p);
             top_data[(n * top_channels + argmax) * inner_num + s] = node_p;
         }
         if (append_max) {
