@@ -88,7 +88,7 @@ __global__ void GroundTruthTarget(int total, int max_gt,
         int target_i = -1;
         int target_j = -1;
         int target_n = -1;
-        if (tx >= 0 && ty >= 0 && tx < 1 && ty < 1) {
+        if (tx > 0 && ty > 0 && tx < 1 && ty < 1) {
             target_i = tx * width;
             target_j = ty * height;
             Dtype tw = *(truth_data + b * max_gt * 5 + 5 * t + 2);

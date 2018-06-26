@@ -222,7 +222,7 @@ void RegionTargetLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
             int target_i = -1;
             int target_j = -1;
             int target_n = -1;
-            if (tx >= 0 && ty >= 0 && tx < 1 && ty < 1) {
+            if (tx > 0 && ty > 0 && tx < 1 && ty < 1) {
                 target_i = tx * width;
                 target_j = ty * height;
                 Dtype tw = blob_truth->data_at(b, t * 5 + 2, 0, 0);
