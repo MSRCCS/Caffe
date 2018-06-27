@@ -9,11 +9,6 @@
 #include "caffe/util/io.hpp"
 #include "caffe/util/upgrade_proto.hpp"
 
-#ifdef USE_MPI
-#include "caffe/clusters.hpp"
-#else
-int proc_rank = 0;
-#endif
 namespace caffe {
 
 template<typename Dtype>
@@ -56,7 +51,7 @@ void Solver<Dtype>::Init(const SolverParameter& param) {
   }
   // Scaffolding code
   InitTrainNet();
-  if (Caffe::root_solver()) {
+  if (Caffe::local_root_solver()) {
     InitTestNets();
     LOG(INFO) << "Solver scaffolding done.";
   }
@@ -107,7 +102,7 @@ void Solver<Dtype>::InitTrainNet() {
 
 template <typename Dtype>
 void Solver<Dtype>::InitTestNets() {
-  CHECK(Caffe::root_solver());
+  CHECK(Caffe::local_root_solver());
   const bool has_net_param = param_.has_net_param();
   const bool has_net_file = param_.has_net();
   const int num_generic_nets = has_net_param + has_net_file;
@@ -220,7 +215,7 @@ void Solver<Dtype>::Step(int iters) {
     net_->ClearParamDiffs();
     if (param_.test_interval() && iter_ % param_.test_interval() == 0
         && (iter_ > 0 || param_.test_initialization())) {
-      if (Caffe::root_solver()) {
+      if (Caffe::local_root_solver()) {
         TestAll();
         REPORT_GPU_MEMORY_USAGE
       }
@@ -287,15 +282,12 @@ void Solver<Dtype>::Step(int iters) {
 
     SolverAction::Enum request = GetRequestedAction();
 
-    // Save a snapshot if needed.
-#ifdef USE_MPI
-    auto proc_rank = Clusters::proc_rank();
-#endif
-    if ((param_.snapshot()
-         && iter_ % param_.snapshot() == 0
-         && Caffe::root_solver() && proc_rank == 0) ||
-         (request == SolverAction::SNAPSHOT)) {
-      Snapshot();
+    if (Caffe::root_solver()) {
+        if ((param_.snapshot()
+             && iter_ % param_.snapshot() == 0) ||
+             (request == SolverAction::SNAPSHOT)) {
+            Snapshot();
+        }
     }
     if (SolverAction::STOP == request) {
       requested_early_exit_ = true;
@@ -307,7 +299,7 @@ void Solver<Dtype>::Step(int iters) {
 
 template <typename Dtype>
 void Solver<Dtype>::Solve(const char* resume_file) {
-  CHECK(Caffe::root_solver());
+  CHECK(Caffe::local_root_solver());
   LOG(INFO) << "Solving " << net_->name();
   LOG(INFO) << "Learning Rate Policy: " << param_.lr_policy();
 
@@ -325,7 +317,7 @@ void Solver<Dtype>::Solve(const char* resume_file) {
   Step(param_.max_iter() - iter_);
   // If we haven't already, save a snapshot after optimization, unless
   // overridden by setting snapshot_after_train := false
-  if (param_.snapshot_after_train()
+  if (Caffe::root_solver() && param_.snapshot_after_train()
       && (!param_.snapshot() || iter_ % param_.snapshot() != 0)) {
     Snapshot();
   }
@@ -373,7 +365,7 @@ void Solver<Dtype>::TestAll() {
 
 template <typename Dtype>
 void Solver<Dtype>::Test(const int test_net_id) {
-  CHECK(Caffe::root_solver());
+  CHECK(Caffe::local_root_solver());
   LOG(INFO) << "Iteration " << iter_
             << ", Testing net (#" << test_net_id << ")";
   CHECK_NOTNULL(test_nets_[test_net_id].get())->
@@ -448,7 +440,7 @@ void Solver<Dtype>::Test(const int test_net_id) {
 
 template <typename Dtype>
 void Solver<Dtype>::TestDetection(const int test_net_id) {
-  CHECK(Caffe::root_solver());
+  CHECK(Caffe::local_root_solver());
   LOG(INFO) << "Iteration " << iter_
             << ", Testing net (#" << test_net_id << ")";
   CHECK_NOTNULL(test_nets_[test_net_id].get())->
@@ -586,10 +578,7 @@ void Solver<Dtype>::Snapshot() {
 
 template <typename Dtype>
 void Solver<Dtype>::CheckSnapshotWritePermissions() {
-#ifdef USE_MPI
-    auto proc_rank = Clusters::proc_rank();
-#endif
-  if (Caffe::root_solver() && param_.snapshot() && proc_rank == 0) {
+  if (Caffe::root_solver() && param_.snapshot()) {
     CHECK(param_.has_snapshot_prefix())
         << "In solver params, snapshot is specified but snapshot_prefix is not";
     string probe_filename = SnapshotFilename(".tempfile");
