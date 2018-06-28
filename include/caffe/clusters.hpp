@@ -1,4 +1,10 @@
+#ifndef CAFFE_CLUSTER_HPP_
+#define CAFFE_CLUSTER_HPP_
+
+#ifdef USE_MPI
 #include <mpi.h>
+#endif
+
 #include "caffe/proto/caffe.pb.h"
 
 namespace Clusters{
@@ -16,3 +22,5 @@ namespace Clusters{
   int proc_local_count();
 
 }
+
+#endif  // CAFFE_INNER_PRODUCT_LAYER_HPP_
