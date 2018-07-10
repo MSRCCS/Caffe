@@ -11,6 +11,7 @@ namespace Clusters{
   int proc_local_count_ = -1;  // The number of processes in this node (if 1 process/node this is equal Caffe:solver_count())
 
   void Init() {
+#ifdef USE_MPI
     MPI_Init(NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &proc_rank_);
     MPI_Comm_size(MPI_COMM_WORLD, &proc_count_);
@@ -20,10 +21,13 @@ namespace Clusters{
     MPI_Comm_rank(shmcomm, &proc_local_rank_);
     MPI_Comm_size(shmcomm, &proc_local_count_);
     LOG(INFO) << "MPI world: ("<< Clusters::proc_rank() << "/" << Clusters::proc_count() << ") local:(" << Clusters::proc_local_rank() <<"/" << Clusters::proc_local_count() << ")";
+#endif
   }
   
   void Finalize() {
+#ifdef USE_MPI
     MPI_Finalize();	
+#endif
   }
   int proc_rank() {
     CHECK_GT(proc_rank_, -1);
