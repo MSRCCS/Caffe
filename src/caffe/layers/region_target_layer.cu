@@ -26,8 +26,10 @@ __global__ void ExtractBoundingBox(int total, int num_anchor, int height, int wi
       int offset_double_bnji_next = offset_double_bnji + num_anchor * height * width;
       *(curr_bbs_data + 0) = (*(blob_xy_data + offset_double_bnji) + i) / width;
       *(curr_bbs_data + 1) = (*(blob_xy_data + offset_double_bnji_next) + j) / height;
-      *(curr_bbs_data + 2) = exp(*(blob_wh_data + offset_double_bnji)) * biases[2 * n] / width;
-      *(curr_bbs_data + 3) = exp(*(blob_wh_data + offset_double_bnji_next)) * biases[2 * n + 1] / height;
+      double w = *(blob_wh_data + offset_double_bnji);
+      double h = *(blob_wh_data + offset_double_bnji_next);
+      *(curr_bbs_data + 2) = exp(w) * biases[2 * n] / width;
+      *(curr_bbs_data + 3) = exp(h) * biases[2 * n + 1] / height;
   }
 }
 
@@ -105,7 +107,7 @@ __global__ void GroundTruthTarget(int total, int max_gt,
                 }
             }
         }
-        
+
         *(gt_target_data + b * max_gt * 3 + t * 3 + 0) = target_i;
         *(gt_target_data + b * max_gt * 3 + t * 3 + 1) = target_j;
         *(gt_target_data + b * max_gt * 3 + t * 3 + 2) = target_n;
@@ -177,7 +179,7 @@ __global__ void AlignGroudTruth(int total, const int* gt_target_data, int max_gt
         Dtype tw = *(truth_data + offset_bt + 2);
         Dtype th = *(truth_data + offset_bt + 3);
 
-        if (tw <= 0 || th <= 0) {
+        if (tw <= 0.00001 || th <= 0.00001) {
             // we explicitly ignore this zero-length bounding boxes
             // note: this layer is not designed to support image-level labels
             continue;
@@ -191,7 +193,6 @@ __global__ void AlignGroudTruth(int total, const int* gt_target_data, int max_gt
 
         *(target_xy_data + offset_double_bnji) = tx * width - target_i;
         *(target_xy_data + offset_double_bnji_next) = ty * height - target_j;
-        assert(tw > 0 && th > 0);
         *(target_wh_data + offset_double_bnji) = log(tw * width / biases[2 * target_n]);
         *(target_wh_data + offset_double_bnji_next) = log(th * height / biases[2 * target_n + 1]);
         *(target_xywh_weight_data + offset_double_bnji) = coord_scale * (2 - tw * th);
