@@ -5,10 +5,10 @@
 
 namespace Clusters{
 	
-  int proc_rank_ = -1;   // The rank of this process in the world
-  int proc_count_ = -1;  // The number of processes in the world
-  int proc_local_rank_ = -1;   // The rank of the process in this node (if 1 process/node this is equal Caffe:solver_rank())
-  int proc_local_count_ = -1;  // The number of processes in this node (if 1 process/node this is equal Caffe:solver_count())
+  int proc_rank_ = 0;   // The rank of this process in the world
+  int proc_count_ = 1;  // The number of processes in the world
+  int proc_local_rank_ = 0;   // The rank of the process in this node (if 1 process/node this is equal Caffe:solver_rank())
+  int proc_local_count_ = 1;  // The number of processes in this node (if 1 process/node this is equal Caffe:solver_count())
 
   void Init() {
 #ifdef USE_MPI
