@@ -18,7 +18,7 @@ void EuclideanLossLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
   if (bottom.size() == 2) {
       caffe_gpu_dot(count, diff_.gpu_data(), diff_.gpu_data(), &dot);
   } else if (bottom.size() == 3) {
-      caffe_gpu_powx(count, diff_.gpu_data(), Dtype(2), diff2_.mutable_gpu_data());
+      caffe_gpu_mul(count, diff_.gpu_data(), diff_.gpu_data(), diff2_.mutable_gpu_data());
       caffe_gpu_dot(count, diff2_.gpu_data(), bottom[2]->gpu_data(), &dot);
   }
   Dtype loss = dot / bottom[0]->num() / Dtype(2);
