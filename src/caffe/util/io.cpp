@@ -3,6 +3,9 @@
 #include <io.h>
 #endif
 
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
+
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
@@ -261,4 +264,123 @@ void CVMatToDatum(const cv::Mat& cv_img, Datum* datum) {
   datum->set_data(buffer);
 }
 #endif  // USE_OPENCV
+
+bool ReadLabelFileToLabelMap(const string& filename, bool include_background,
+    const string& delimiter, LabelMap* map) {
+  // cleanup
+  map->Clear();
+
+  std::ifstream file(filename.c_str());
+  string line;
+  // Every line can have [1, 3] number of fields.
+  // The delimiter between fields can be one of " :;".
+  // The order of the fields are:
+  //  name [label] [display_name]
+  //  ...
+  int field_size = -1;
+  int label = 0;
+  LabelMapItem* map_item;
+  // Add background (none_of_the_above) class.
+  if (include_background) {
+    map_item = map->add_item();
+    map_item->set_name("none_of_the_above");
+    map_item->set_label(label++);
+    map_item->set_display_name("background");
+  }
+  while (std::getline(file, line)) {
+    vector<string> fields;
+    fields.clear();
+    boost::split(fields, line, boost::is_any_of(delimiter));
+    if (field_size == -1) {
+      field_size = fields.size();
+    } else {
+      CHECK_EQ(field_size, fields.size())
+          << "Inconsistent number of fields per line.";
+    }
+    map_item = map->add_item();
+    map_item->set_name(fields[0]);
+    switch (field_size) {
+      case 1:
+        map_item->set_label(label++);
+        map_item->set_display_name(fields[0]);
+        break;
+      case 2:
+        label = std::atoi(fields[1].c_str());
+        map_item->set_label(label);
+        map_item->set_display_name(fields[0]);
+        break;
+      case 3:
+        label = std::atoi(fields[1].c_str());
+        map_item->set_label(label);
+        map_item->set_display_name(fields[2]);
+        break;
+      default:
+        LOG(FATAL) << "The number of fields should be [1, 3].";
+        break;
+    }
+  }
+  return true;
+}
+
+bool MapNameToLabel(const LabelMap& map, const bool strict_check,
+    std::map<string, int>* name_to_label) {
+  // cleanup
+  name_to_label->clear();
+
+  for (int i = 0; i < map.item_size(); ++i) {
+    const string& name = map.item(i).name();
+    const int label = map.item(i).label();
+    if (strict_check) {
+      if (!name_to_label->insert(std::make_pair(name, label)).second) {
+        LOG(FATAL) << "There are many duplicates of name: " << name;
+        return false;
+      }
+    } else {
+      (*name_to_label)[name] = label;
+    }
+  }
+  return true;
+}
+
+bool MapLabelToName(const LabelMap& map, const bool strict_check,
+    std::map<int, string>* label_to_name) {
+  // cleanup
+  label_to_name->clear();
+
+  for (int i = 0; i < map.item_size(); ++i) {
+    const string& name = map.item(i).name();
+    const int label = map.item(i).label();
+    if (strict_check) {
+      if (!label_to_name->insert(std::make_pair(label, name)).second) {
+        LOG(FATAL) << "There are many duplicates of label: " << label;
+        return false;
+      }
+    } else {
+      (*label_to_name)[label] = name;
+    }
+  }
+  return true;
+}
+
+bool MapLabelToDisplayName(const LabelMap& map, const bool strict_check,
+    std::map<int, string>* label_to_display_name) {
+  // cleanup
+  label_to_display_name->clear();
+
+  for (int i = 0; i < map.item_size(); ++i) {
+    const string& display_name = map.item(i).display_name();
+    const int label = map.item(i).label();
+    if (strict_check) {
+      if (!label_to_display_name->insert(
+              std::make_pair(label, display_name)).second) {
+        LOG(FATAL) << "There are many duplicates of label: " << label;
+        return false;
+      }
+    } else {
+      (*label_to_display_name)[label] = display_name;
+    }
+  }
+  return true;
+}
+
 }  // namespace caffe

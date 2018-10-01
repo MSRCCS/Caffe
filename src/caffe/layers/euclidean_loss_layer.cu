@@ -15,7 +15,12 @@ void EuclideanLossLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom,
       bottom[1]->gpu_data(),
       diff_.mutable_gpu_data());
   Dtype dot;
-  caffe_gpu_dot(count, diff_.gpu_data(), diff_.gpu_data(), &dot);
+  if (bottom.size() == 2) {
+      caffe_gpu_dot(count, diff_.gpu_data(), diff_.gpu_data(), &dot);
+  } else if (bottom.size() == 3) {
+      caffe_gpu_mul(count, diff_.gpu_data(), diff_.gpu_data(), diff2_.mutable_gpu_data());
+      caffe_gpu_dot(count, diff2_.gpu_data(), bottom[2]->gpu_data(), &dot);
+  }
   Dtype loss = dot / bottom[0]->num() / Dtype(2);
   top[0]->mutable_cpu_data()[0] = loss;
 }
@@ -27,12 +32,23 @@ void EuclideanLossLayer<Dtype>::Backward_gpu(const vector<Blob<Dtype>*>& top,
     if (propagate_down[i]) {
       const Dtype sign = (i == 0) ? 1 : -1;
       const Dtype alpha = sign * top[0]->cpu_diff()[0] / bottom[i]->num();
-      caffe_gpu_axpby(
-          bottom[i]->count(),              // count
-          alpha,                              // alpha
-          diff_.gpu_data(),                   // a
-          Dtype(0),                           // beta
-          bottom[i]->mutable_gpu_diff());  // b
+      if (bottom.size() == 2) {
+          caffe_gpu_axpby(
+                  bottom[i]->count(),              // count
+                  alpha,                              // alpha
+                  diff_.gpu_data(),                   // a
+                  Dtype(0),                           // beta
+                  bottom[i]->mutable_gpu_diff());  // b
+      } else if (bottom.size() == 3) {
+          caffe_gpu_mul(bottom[i]->count(), bottom[2]->gpu_data(), diff_.gpu_data(), 
+                  diff2_.mutable_gpu_data());
+          caffe_gpu_axpby(
+                  bottom[i]->count(),              // count
+                  alpha,                              // alpha
+                  diff2_.gpu_data(),                   // a
+                  Dtype(0),                           // beta
+                  bottom[i]->mutable_gpu_diff());  // b
+      }
     }
   }
 }

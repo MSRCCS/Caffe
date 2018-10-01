@@ -293,7 +293,7 @@ template<typename Dtype> cv::Mat CPMDataTransformer<Dtype>::ReadImageStreamToCVM
 	return cv_img;
 }
 
-template<typename Dtype> void CPMDataTransformer<Dtype>::Transform_nv2(const std::string &input_b64coded_data, const std::string &input_label_data, Dtype* transformed_data, Dtype* transformed_label) {
+template<typename Dtype> void CPMDataTransformer<Dtype>::Transform_nv2(const std::string &input_b64coded_data, const std::string &input_label_data, Dtype* transformed_data, Dtype* transformed_label, bool is_image_path) {
 
 	CPUTimer timer0;
 	timer0.Start();
@@ -301,8 +301,13 @@ template<typename Dtype> void CPMDataTransformer<Dtype>::Transform_nv2(const std
 	CPUTimer timer1;
 	timer1.Start();
 
-	vector<BYTE> data = base64_decode(input_b64coded_data);
-	cv::Mat img = ReadImageStreamToCVMat(data, -1, -1, 1);
+    cv::Mat img;
+    if (is_image_path) {
+        img = ReadImageToCVMat(input_b64coded_data);
+    } else {
+        vector<BYTE> data = base64_decode(input_b64coded_data);
+        img = ReadImageStreamToCVMat(data, -1, -1, 1);
+    }
 	
 	MetaData meta;
 	ReadMetaData2(meta, input_label_data);

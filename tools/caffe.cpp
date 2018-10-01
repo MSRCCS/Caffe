@@ -14,6 +14,9 @@ namespace bp = boost::python;
 #include "boost/algorithm/string.hpp"
 #include "caffe/caffe.hpp"
 #include "caffe/util/signal_handler.h"
+#ifdef USE_MPI
+#include "caffe/clusters.hpp"
+#endif
 
 using caffe::Blob;
 using caffe::Caffe;
@@ -46,6 +49,8 @@ DEFINE_string(snapshot, "",
 DEFINE_string(weights, "",
     "Optional; the pretrained weights to initialize finetuning, "
     "separated by ','. Cannot be set simultaneously with snapshot.");
+DEFINE_bool(ignore_shape_mismatch, false,
+            "Ignore shape mismatch for weights. ");
 DEFINE_int32(iterations, 50,
     "The number of iterations to run.");
 DEFINE_string(sigint_effect, "stop",
@@ -150,14 +155,14 @@ RegisterBrewFunction(device_query);
 
 // Load the weights from the specified caffemodel(s) into the train and
 // test nets.
-void CopyLayers(caffe::Solver<float>* solver, const std::string& model_list) {
+void CopyLayers(caffe::Solver<float>* solver, const std::string& model_list, bool ignore_shape_mismatch) {
   std::vector<std::string> model_names;
   boost::split(model_names, model_list, boost::is_any_of(",") );
   for (int i = 0; i < model_names.size(); ++i) {
     LOG(INFO) << "Finetuning from " << model_names[i];
-    solver->net()->CopyTrainedLayersFrom(model_names[i]);
+    solver->net()->CopyTrainedLayersFrom(model_names[i], ignore_shape_mismatch);
     for (int j = 0; j < solver->test_nets().size(); ++j) {
-      solver->test_nets()[j]->CopyTrainedLayersFrom(model_names[i]);
+      solver->test_nets()[j]->CopyTrainedLayersFrom(model_names[i], ignore_shape_mismatch);
     }
   }
 }
@@ -207,6 +212,11 @@ int train() {
       }
   }
 
+  bool force_p2p = false;
+#ifdef USE_MPI
+  Clusters::Init();
+  force_p2p = true;
+#endif
   vector<int> gpus;
   get_gpus(&gpus);
   if (gpus.size() == 0) {
@@ -240,15 +250,17 @@ int train() {
 
   solver->SetActionFunction(signal_handler.GetActionFunction());
 
+
   if (FLAGS_snapshot.size()) {
     LOG(INFO) << "Resuming from " << FLAGS_snapshot;
     solver->Restore(FLAGS_snapshot.c_str());
   } else if (FLAGS_weights.size()) {
-    CopyLayers(solver.get(), FLAGS_weights);
+    CopyLayers(solver.get(), FLAGS_weights, FLAGS_ignore_shape_mismatch);
   }
 
+
   LOG(INFO) << "Starting Optimization";
-  if (gpus.size() > 1) {
+  if (gpus.size() > 1 || force_p2p) {
 #ifdef USE_NCCL
     caffe::NCCL<float> nccl(solver);
     nccl.Run(gpus, FLAGS_snapshot.size() > 0 ? FLAGS_snapshot.c_str() : NULL);
@@ -258,6 +270,9 @@ int train() {
   } else {
     solver->Solve();
   }
+#ifdef USE_MPI
+  Clusters::Finalize();  
+#endif
   LOG(INFO) << "Optimization Done.";
   return 0;
 }

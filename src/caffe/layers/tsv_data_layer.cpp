@@ -12,6 +12,10 @@
 #include "caffe/util/rng.hpp"
 #include "caffe/util/random_helper.h"
 
+#ifdef USE_MPI
+#include "caffe/clusters.hpp"
+#endif
+
 #include <boost/thread.hpp>
 
 #ifdef _MSC_VER
@@ -154,8 +158,20 @@ template <typename Dtype>
 void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
   const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
+
+  CHECK_EQ(tsv_param.has_world_size(), tsv_param.has_world_rank())
+      << "world_size and world_rank must be specified together";
+  world_size_ = tsv_param.world_size();
+  world_rank_ = tsv_param.world_rank();
+#ifdef USE_MPI
+  if (!tsv_param.has_world_size()) {
+    world_size_ = Clusters::proc_count();
+    world_rank_ = Clusters::proc_rank();
+  }
+#endif
+  CHECK_LT(world_rank_, world_size_);
+  CHECK_GT(world_size_, 0);
   // open TSV file
-  string tsv_data = tsv_param.source();
   bool has_shuffle_file = tsv_param.has_source_shuffle();
   string tsv_shuffle;
   if (has_shuffle_file)
@@ -163,23 +179,31 @@ void TsvDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
   int col_data = tsv_param.col_data();
   int col_label = tsv_param.col_label();
   //int col_crop = tsv_param.col_crop();
-  bool has_separate_label_file = tsv_param.has_source_label();
+  bool has_separate_label_file = tsv_param.source_label_size() > 0;
 
-  tsv_.Open(tsv_data.c_str(), tsv_param.cache_all(), col_data, has_separate_label_file ? -1 : col_label);
+  vector<string> sources(tsv_param.source_size());
+  for (int i = 0; i < tsv_param.source_size(); i++) {
+      sources[i] = tsv_param.source(i);
+  }
+  tsv_.reset(ITsvDataFile::make_tsv(sources, tsv_param.cache_all(), col_data, has_separate_label_file? -1: col_label));
+
   if (has_shuffle_file)
-    tsv_.ShuffleData(tsv_shuffle);
+    tsv_->ShuffleData(tsv_shuffle);
   if (has_separate_label_file)
   {
-	  string tsv_label = tsv_param.source_label();
-	  tsv_label_.Open(tsv_label.c_str(), true, -1, col_label);
+      vector<string> source_labels(tsv_param.source_label_size());
+      for (int i = 0; i < tsv_param.source_label_size(); i++) {
+          source_labels[i] = tsv_param.source_label(i);
+      }
+      tsv_label_.reset(ITsvDataFile::make_tsv(source_labels, true, -1, col_label));
 	  if (has_shuffle_file)
-        tsv_label_.ShuffleData(tsv_shuffle);
-	  CHECK_EQ(tsv_.TotalLines(), tsv_label_.TotalLines())
+        tsv_label_->ShuffleData(tsv_shuffle);
+	  CHECK_EQ(tsv_->TotalLines(), tsv_label_->TotalLines())
 		  << "Data and label files must have the same line number: " 
-		  << tsv_.TotalLines() << " vs. " << tsv_label_.TotalLines();
+		  << tsv_->TotalLines() << " vs. " << tsv_label_->TotalLines();
   }
   int batch_size = tsv_param.batch_size();
-  LOG(INFO) << "Total data: " << tsv_.TotalLines() << ", Batch size: " << batch_size << ", Epoch iterations: " << (float)tsv_.TotalLines() / batch_size;
+  LOG(INFO) << "Total data: " << tsv_->TotalLines() << ", Batch size: " << batch_size << ", Epoch iterations: " << (float)tsv_->TotalLines() / batch_size;
 
   // initialize the prefetch and top blobs.
   // For detection data, new_width, new_height, channels, crop_size can all be ignored.
@@ -362,83 +386,97 @@ void TsvDataLayer<Dtype>::process_one_image_and_label(const string &input_b64cod
 }
 
 template <typename Dtype>
+void TsvDataLayer<Dtype>::process_one_image(const cv::Mat &img_origin, const TsvDataParameter &tsv_param, Dtype *output_image_data)
+{
+    if (tsv_param.crop_type() == TsvDataParameter_CropType_AlexStyle) {
+        Datum datum;
+        CVMatToDatum(img_origin, &datum);
+        this->data_transformer_->TransformData(datum, output_image_data);
+    } else {
+        // crop
+        cv::Rect crop_rect = get_crop_rect(img_origin, tsv_param);
+        cv::Mat img_crop = img_origin(crop_rect).clone();
+
+        // flip
+        if (this->phase_ == TRAIN && random_helper::uniform_int(0, 1))
+            cv::flip(img_crop, img_crop, 1);
+
+        // convert to float 
+        cv::Mat img_float;
+        img_crop.convertTo(img_float, CV_32F);
+
+        if (tsv_param.channels() > 1) {
+            std::vector<float> shift(3);
+            // color jittering
+            if (this->phase_ == TRAIN && tsv_param.has_color_kl_file())
+                get_random_kl_shift(shift, 0.1);
+
+            // mean subtraction
+            shift[0] -= mean_values_[0];
+            shift[1] -= mean_values_[1];
+            shift[2] -= mean_values_[2];
+
+            int nChannel = img_float.channels();
+            for (int y = 0; y < img_float.rows; y++) {
+                float *pImg = (float*)img_float.ptr(y);
+                for (int x = 0; x < img_float.cols; x++) {
+                    pImg[nChannel*x] += shift[0];
+                    pImg[nChannel*x + 1] += shift[1];
+                    pImg[nChannel*x + 2] += shift[2];
+                }
+            }
+        } else {
+            float shift = 0;
+            // mean subtraction
+            shift -= mean_values_[0];
+            for (int y = 0; y < img_float.rows; y++) {
+                float *pImgStart = (float*)img_float.ptr(y);
+                for (float* pImg = pImgStart; pImg<pImgStart + img_float.cols; pImg++) {
+                    *pImg += shift;
+                }
+            }
+        }
+        // resize
+        cv::Mat cvImg;
+        int crop_size = this->layer_param().transform_param().crop_size();
+        cv::resize(img_float, cvImg, cv::Size(crop_size, crop_size));
+
+        // copy to output buffer
+        CVMatToBlobBuffer(cvImg, output_image_data);
+    }
+    // Default pixel_value_scale is 255 in caffe.proto. The following function will not change the pixel values by default.
+    // But if pixel_value_scale is set to 1 and the mean_values to (0,0,0), we will be able to set the pixel value range to [0,1].
+    int crop_size = this->layer_param().transform_param().crop_size();
+    caffe_cpu_scale(crop_size * crop_size * tsv_param.channels(), Dtype(255) / tsv_param.pixel_value_scale(), output_image_data, output_image_data);
+}
+
+template <typename Dtype>
 void TsvDataLayer<Dtype>::process_one_image(const string &input_b64coded_data, const TsvDataParameter &tsv_param, Dtype *output_image_data)
 {
-    vector<BYTE> data = base64_decode(input_b64coded_data);
-    if (tsv_param.data_format() == TsvDataParameter_Base64DataFormat_Image)
+    if (tsv_param.data_format() == TsvDataParameter_DataFormat_ImagePath)
     {
-        if (tsv_param.crop_type() == TsvDataParameter_CropType_AlexStyle)
-        {
-            cv::Mat cvImg = ReadImageStreamToCVMat(data, tsv_param.new_height(), tsv_param.new_width(), tsv_param.channels() > 1);
-            Datum datum;
-            CVMatToDatum(cvImg, &datum);
-            this->data_transformer_->TransformData(datum, output_image_data);
+        cv::Mat img_origin;
+        if (tsv_param.crop_type() == TsvDataParameter_CropType_AlexStyle) {
+            img_origin = ReadImageToCVMat(input_b64coded_data, tsv_param.new_height(), tsv_param.new_width(), tsv_param.channels() > 1);
+        } else {
+            img_origin = ReadImageToCVMat(input_b64coded_data, tsv_param.channels() > 1);
         }
-        else
-        {
-            cv::Mat img_origin = ReadImageStreamToCVMat(data, -1, -1, tsv_param.channels() > 1);
-
-            // crop
-            cv::Rect crop_rect = get_crop_rect(img_origin, tsv_param);
-            cv::Mat img_crop = img_origin(crop_rect).clone();
-
-            // flip
-            if (this->phase_ == TRAIN && random_helper::uniform_int(0, 1))
-                cv::flip(img_crop, img_crop, 1);
-
-            // convert to float 
-            cv::Mat img_float;
-            img_crop.convertTo(img_float, CV_32F);
-
-            if (tsv_param.channels() > 1)
-            {
-                std::vector<float> shift(3);
-                // color jittering
-                if (this->phase_ == TRAIN && tsv_param.has_color_kl_file())
-                    get_random_kl_shift(shift, 0.1);
-
-                // mean subtraction
-                shift[0] -= mean_values_[0];
-                shift[1] -= mean_values_[1];
-                shift[2] -= mean_values_[2];
-
-                int nChannel = img_float.channels();
-                for (int y = 0; y < img_float.rows; y++) {
-                    float *pImg = (float*)img_float.ptr(y);
-                    for (int x = 0; x < img_float.cols; x++) {
-                        pImg[nChannel*x] += shift[0];
-                        pImg[nChannel*x + 1] += shift[1];
-                        pImg[nChannel*x + 2] += shift[2];
-                    }
-                }
-            }
-            else
-            {
-                float shift = 0;
-                // mean subtraction
-                shift -= mean_values_[0];
-                for (int y = 0; y < img_float.rows; y++) {
-                    float *pImgStart = (float*)img_float.ptr(y);
-                    for (float* pImg = pImgStart; pImg<pImgStart+img_float.cols; pImg++) {
-                        *pImg += shift;
-                    }
-                }
-            }
-            // resize
-            cv::Mat cvImg;
-            int crop_size = this->layer_param().transform_param().crop_size();
-            cv::resize(img_float, cvImg, cv::Size(crop_size, crop_size));
-
-            // copy to output buffer
-            CVMatToBlobBuffer(cvImg, output_image_data);
-        }
-        // Default pixel_value_scale is 255 in caffe.proto. The following function will not change the pixel values by default.
-        // But if pixel_value_scale is set to 1 and the mean_values to (0,0,0), we will be able to set the pixel value range to [0,1].
-        int crop_size = this->layer_param().transform_param().crop_size();
-        caffe_cpu_scale(crop_size * crop_size * tsv_param.channels(), Dtype(255) / tsv_param.pixel_value_scale(), output_image_data, output_image_data);
+        process_one_image(img_origin, tsv_param, output_image_data);
     }
-    else if (tsv_param.data_format() == TsvDataParameter_Base64DataFormat_RawData)
+    else if (tsv_param.data_format() == TsvDataParameter_DataFormat_Image) 
     {
+        vector<BYTE> data = base64_decode(input_b64coded_data);
+        cv::Mat img_origin;
+        if (tsv_param.crop_type() == TsvDataParameter_CropType_AlexStyle) {
+            img_origin = ReadImageStreamToCVMat(data, tsv_param.new_height(), tsv_param.new_width(), tsv_param.channels() > 1);
+        } else {
+            img_origin = ReadImageStreamToCVMat(data, -1, -1, tsv_param.channels() > 1);
+        }
+        process_one_image(img_origin, tsv_param, output_image_data);
+    }
+    else if (tsv_param.data_format() == TsvDataParameter_DataFormat_RawData)
+    {
+        vector<BYTE> data = base64_decode(input_b64coded_data);
         caffe_copy(tsv_param.new_height() * tsv_param.new_width() * tsv_param.channels(), (Dtype*)&data[0], output_image_data);
     }
 }
@@ -491,36 +529,37 @@ void TsvDataLayer<Dtype>::process_one_label(const string &input_label_data, cons
 
 template <typename Dtype>
 bool TsvDataLayer<Dtype>::Skip() {
-    int size = Caffe::solver_count();
-    int rank = Caffe::solver_rank();
-    bool keep = (offset_ % size) == rank ||
-        // In test mode, only rank 0 runs, so avoid skipping
-        this->layer_param_.phase() == TEST;
+    // In test mode, only rank 0 (of each node) runs, so avoid skipping within a node
+    if (this->layer_param_.phase() == TEST)
+        return offset_ % world_size_ != 0;  // for world_size == 1, this is always false
+    int size = Caffe::solver_count() * world_size_;
+    int rank = Caffe::solver_count() * world_rank_ + Caffe::solver_rank();
+    bool keep = (offset_ % size) == rank;
     return !keep;
 }
 
 template<typename Dtype>
 void TsvDataLayer<Dtype>::Next() {
-    bool has_separate_label_file = this->layer_param().tsv_data_param().has_source_label();
-    if (tsv_.IsEOF()) {
+    bool has_separate_label_file = tsv_label_ != nullptr;
+    if (tsv_->IsEOF()) {
         LOG_IF(INFO, Caffe::root_solver())
             << "Restarting data prefetching from start.";
-        tsv_.MoveToFirst();
+        tsv_->MoveToFirst();
     }
-    tsv_.MoveToNext();
+    tsv_->MoveToNext();
     if (has_separate_label_file)
     {
-        if (tsv_label_.IsEOF()) {
+        if (tsv_label_->IsEOF()) {
             LOG_IF(INFO, Caffe::root_solver())
                 << "Restarting label prefetching from start.";
-            tsv_label_.MoveToFirst();
+            tsv_label_->MoveToFirst();
         }
-        tsv_label_.MoveToNext();
+        tsv_label_->MoveToNext();
     }
 }
 
 template <typename Dtype>
-void TsvDataLayer<Dtype>::on_load_batch(Batch<Dtype>* batch)
+void TsvDataLayer<Dtype>::on_load_batch_start(Batch<Dtype>* batch)
 {
     const TsvDataParameter &tsv_param = this->layer_param().tsv_data_param();
     int crop_size = this->layer_param().transform_param().crop_size();
@@ -529,6 +568,11 @@ void TsvDataLayer<Dtype>::on_load_batch(Batch<Dtype>* batch)
     shape[2] = crop_size > 0 ? crop_size : tsv_param.new_height();
     shape[3] = crop_size > 0 ? crop_size : tsv_param.new_width();
     batch->data_.Reshape(shape);
+}
+
+template <typename Dtype>
+void TsvDataLayer<Dtype>::on_load_batch_end(Batch<Dtype>* batch)
+{
 }
 
 // This function is called on prefetch thread
@@ -541,7 +585,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	CPUTimer timer;
 	CHECK(batch->data_.count());
 
-    on_load_batch(batch);
+    on_load_batch_start(batch);
 
 	if (this->output_labels_) {
         memset(batch->label_.mutable_cpu_data(), 0, batch->label_.count() * sizeof(Dtype));
@@ -552,7 +596,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 
     vector<string> base64coded_data;
     vector<string> label;
-    bool has_separate_label_file = tsv_param.has_source_label();
+    bool has_separate_label_file = tsv_label_ != nullptr; 
     timer.Start();
 	for (int item_id = 0; item_id < batch_size; ++item_id)
 	{
@@ -560,21 +604,21 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
             Next();
             offset_++;
         }
-        if (tsv_.IsEOF())
+        if (tsv_->IsEOF())
         {
             LOG_IF(INFO, Caffe::root_solver()) << "Restarting data prefetching from start.";
-            tsv_.MoveToFirst();
+            tsv_->MoveToFirst();
         }
-        int result = tsv_.ReadNextLine(base64coded_data, label);
+        int result = tsv_->ReadNextLine(base64coded_data, label);
         CHECK(result == 0) << "Data: empty line or unexpected EOF.";
 		if (has_separate_label_file)
 		{
-			if (tsv_label_.IsEOF())
+			if (tsv_label_->IsEOF())
 			{
                 LOG_IF(INFO, Caffe::root_solver()) << "Restarting label prefetching from start.";
-				tsv_label_.MoveToFirst();
+				tsv_label_->MoveToFirst();
             }
-            int result_label = tsv_label_.ReadNextLine(base64coded_data, label);
+            int result_label = tsv_label_->ReadNextLine(base64coded_data, label);
             CHECK(result_label == 0) << "Label: empty line or unexpected EOF.";
         }
         // TsvRawDataFile allows sequential read. After calling ReadNextLine, the so-called cursor is 
@@ -586,6 +630,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 	timer.Start();
     Dtype *batch_data = batch->data_.mutable_cpu_data();
     Dtype *label_data = batch->label_.mutable_cpu_data();
+    CHECK_EQ(base64coded_data.size(), label.size());
 #ifdef _MSC_VER
     parallel_for((size_t)0, base64coded_data.size(), [&](size_t i) {
 #else
@@ -597,6 +642,7 @@ void TsvDataLayer<Dtype>::load_batch(Batch<Dtype>* batch) {
 #ifdef _MSC_VER
     );
 #endif
+    on_load_batch_end(batch);
     trans_time += timer.MicroSeconds();
     
     timer.Stop();

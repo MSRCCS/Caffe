@@ -2601,4 +2601,88 @@ TYPED_TEST(NetTest, TestAllInOneNetDeploy) {
   ASSERT_TRUE(found_data);
 }
 
+  TYPED_TEST(NetTest, TestMemoryOptimizationInput) {
+    const string& proto =
+      "name: 'ReshapableNetwork' "
+      "opt_test_memory: true "
+      "layer { "
+      "  name: 'data' "
+      "  type: 'Input' "
+      "  top: 'data' "
+      "  input_param { "
+      "  shape: { dim: 1 dim: 3 dim: 100 dim: 100 } "
+      "  } "
+      "} "
+      "layer { "
+      "  name: 'conv1' "
+        "  type: 'Convolution' "
+      "  bottom: 'data' "
+      "  top: 'conv1' "
+      "  convolution_param { "
+      "    num_output: 5 "
+      "    kernel_size: 3 "
+      "    stride: 2 "
+      "    weight_filler { "
+      "      type: 'gaussian' "
+      "      std: 0.01 "
+      "    } "
+      "    bias_filler { "
+      "      type: 'constant' "
+      "      value: 0.2 "
+      "    } "
+      "  } "
+      "} "
+      "layer { "
+      "  name: 'relu1' "
+      "  type: 'ReLU' "
+      "  bottom: 'conv1' "
+      "  top: 'conv1' "
+      "} "
+      "layer { "
+      "  name: 'pool1' "
+      "  type: 'Pooling' "
+      "  bottom: 'conv1' "
+      "  top: 'pool1' "
+      "  pooling_param { "
+      "    pool: MAX "
+      "    kernel_size: 2 "
+      "    stride: 2 "
+      "  } "
+      "} "
+      "layer { "
+      "  name: 'norm1' "
+      "  type: 'LRN' "
+      "  bottom: 'pool1' "
+      "  top: 'norm1' "
+      "  lrn_param { "
+      "    local_size: 3 "
+      "  } "
+      "} "
+      "layer { "
+      "  name: 'softmax' "
+      "  type: 'Softmax' "
+      "  bottom: 'norm1' "
+      "  top: 'softmax' "
+      "} ";
+    this->InitNetFromProtoString(proto);
+
+    typedef typename TypeParam::Dtype Dtype;
+    Caffe::set_random_seed(this->seed_);
+    Caffe::set_mode(Caffe::GPU);
+    FillerParameter filler_param;
+    filler_param.set_std(1);
+    GaussianFiller<Dtype> filler(filler_param);
+    Blob<Dtype> blob(1, 3, 10, 10);
+    filler.Fill(&blob);
+
+    shared_ptr<Blob<Dtype> > input_blob = this->net_->blob_by_name("data");
+    input_blob->Reshape(blob.num(), blob.channels(), blob.height(), blob.width());
+    caffe_copy(blob.count(), blob.cpu_data(), input_blob->mutable_cpu_data());
+    this->net_->Forward();
+
+    for (int i=0; i < blob.count(); i++) {
+      // The input blob should not be overwritten.
+      EXPECT_EQ(blob.cpu_data()[i], input_blob->cpu_data()[i]);
+    }
+  }
 }  // namespace caffe

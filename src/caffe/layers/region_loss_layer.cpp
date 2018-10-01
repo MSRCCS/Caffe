@@ -47,7 +47,13 @@ void softmax_cpu(const float *input, int n, int batch, int batch_offset, int gro
     }
 }
 
-static inline float logistic_activate(float x) { return 1. / (1. + exp(-x)); }
+static inline float logistic_activate(float x) { 
+    if (x > 0) {
+        return 1. / (1. + exp(-x)); 
+    } else {
+        return exp(x) / (1 + exp(x));
+    }
+}
 static inline float logistic_gradient(float x) { return (1 - x)*x; }
 
 float activate(float x, ACTIVATION a)
@@ -86,11 +92,13 @@ void gradient_array(const float *x, const int n, const ACTIVATION a, float *delt
 
 float mag_array(float *a, int n)
 {
-    int i;
     float sum = 0;
-    for (i = 0; i < n; ++i) {
+
+#pragma omp parallel for reduction(+:sum)
+    for (int i = 0; i < n; ++i) {
         sum += a[i] * a[i];
     }
+
     return sqrt(sum);
 }
 
@@ -115,7 +123,7 @@ float overlap(float x1, float w1, float x2, float w2)
     return right - left;
 }
 
-float box_intersection(box a, box b)
+float box_intersection(const box &a, const box &b)
 {
     float w = overlap(a.x, a.w, b.x, b.w);
     float h = overlap(a.y, a.h, b.y, b.h);
@@ -124,19 +132,19 @@ float box_intersection(box a, box b)
     return area;
 }
 
-float box_union(box a, box b)
+float box_union(const box &a, const box &b)
 {
     float i = box_intersection(a, b);
     float u = a.w*a.h + b.w*b.h - i;
     return u;
 }
 
-float box_iou(box a, box b)
+float box_iou(const box &a, const box &b)
 {
     return box_intersection(a, b) / box_union(a, b);
 }
 
-box get_region_box(float *x, float *biases, int n, int index, int i, int j, int w, int h, int stride)
+box get_region_box(const float *x, float *biases, int n, int index, int i, int j, int w, int h, int stride)
 {
     box b;
     b.x = (i + x[index + 0 * stride]) / w;
@@ -228,8 +236,9 @@ char *fgetl(FILE *fp)
 
 tree *read_tree(const char *filename)
 {
-    tree t = { 0 };
+    tree t;
     FILE *fp = fopen(filename, "r");
+    CHECK(fp) << "Cannot open the tree file: " << filename;
 
     char *line;
     int last_parent = -1;
@@ -310,7 +319,20 @@ void hierarchy_predictions(float *predictions, int n, tree *hier, int only_leave
     }
 }
 
-int hierarchy_top_prediction(float *predictions, tree *hier, float thresh, int stride)
+float hierarchy_prediction_one(float *predictions, tree *hier, int target, int stride)
+{
+    float result = 1;
+    while (true) {
+        result *= predictions[target * stride];
+        target = hier->parent[target];
+        if (target < 0) {
+            break;
+        }
+    }
+    return result;
+}
+
+int hierarchy_top_prediction(const float *predictions, tree *hier, float thresh, int stride)
 {
     float p = 1;
     int group = 0;
@@ -321,7 +343,7 @@ int hierarchy_top_prediction(float *predictions, tree *hier, float thresh, int s
 
         for (i = 0; i < hier->group_size[group]; ++i) {
             int index = i + hier->group_offset[group];
-            float val = predictions[(i + hier->group_offset[group])*stride];
+            float val = predictions[index *stride];
             if (val > max) {
                 max_i = index;
                 max = val;
@@ -333,7 +355,11 @@ int hierarchy_top_prediction(float *predictions, tree *hier, float thresh, int s
             if (hier->child[max_i] < 0) return max_i;
         }
         else {
-            return hier->parent[hier->group_offset[group]];
+            if (group == 0) {
+                return max_i;
+            } else {
+                return hier->parent[hier->group_offset[group]];
+            } 
         }
     }
     return 0;
@@ -368,7 +394,20 @@ void correct_region_boxes(box *boxes, int n, int w, int h, int netw, int neth, i
     }
 }
 
-void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, float **probs, box *boxes, int only_objectness, int *map, float tree_thresh, int relative)
+vector<int> read_map(const char *filename)
+{
+    vector<int> map;
+    char *str;
+    FILE *file = fopen(filename, "r");
+    CHECK(file) << filename;
+    while((str=fgetl(file))){
+        map.push_back(atoi(str));
+    }
+    return map;
+}
+
+void get_region_boxes(layer l, int output_classes, int w, int h, int netw, int neth, float thresh, float **probs, box *boxes, int only_objectness, 
+        const vector<int> &map, float tree_thresh, int relative)
 {
     int i, j, n, z;
     float *predictions = l.output;
@@ -377,7 +416,7 @@ void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, f
         for (j = 0; j < l.h; ++j) {
             for (i = 0; i < l.w / 2; ++i) {
                 for (n = 0; n < l.n; ++n) {
-                    for (z = 0; z < l.classes + 5; ++z) {
+                    for (z = 0; z < l.classes + l.coords + 1; ++z) {
                         int i1 = z*l.w*l.h*l.n + n*l.w*l.h + j*l.w + i;
                         int i2 = z*l.w*l.h*l.n + n*l.w*l.h + j*l.w + (l.w - i - 1);
                         float swap = flip[i1];
@@ -400,23 +439,32 @@ void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, f
         int col = i % l.w;
         for (n = 0; n < l.n; ++n) {
             int index = n*l.w*l.h + i;
-            for (j = 0; j < l.classes; ++j) {
+            for (j = 0; j < output_classes; ++j) {
                 probs[index][j] = 0;
             }
-            int obj_index = entry_index(l, 0, n*l.w*l.h + i, 4);
+            int obj_index = entry_index(l, 0, n*l.w*l.h + i, l.coords);
             int box_index = entry_index(l, 0, n*l.w*l.h + i, 0);
             float scale = predictions[obj_index];
             boxes[index] = get_region_box(predictions, l.biases, n, box_index, col, row, l.w, l.h, l.w*l.h);
 
-            int class_index = entry_index(l, 0, n*l.w*l.h + i, 5);
+            int class_index = entry_index(l, 0, n*l.w*l.h + i, l.coords + 1);
             if (l.softmax_tree) {
-                hierarchy_predictions(predictions + class_index, l.classes, l.softmax_tree, 0, l.w*l.h);
-                if (map) {
-                    for (j = 0; j < 200; ++j) {
-                        int class_index = entry_index(l, 0, n*l.w*l.h + i, 5 + map[j]);
-                        float prob = scale*predictions[class_index];
-                        probs[index][j] = (prob > thresh) ? prob : 0;
+                if (map.size() > 0) {
+                    //hierarchy_predictions(predictions + class_index, l.classes, l.softmax_tree, 0, l.w*l.h);
+                    float max_prob = 0;
+                    for (j = 0; j < map.size(); ++j) {
+                        float prob;
+                        //int class_index = entry_index(l, 0, n*l.w*l.h + i, l.coords + 1 + map[j]);
+                        //prob = scale*predictions[class_index];
+                        prob = scale * hierarchy_prediction_one(predictions + class_index, l.softmax_tree, map[j], l.w * l.h);
+
+                        prob = (prob > thresh) ? prob : 0;
+                        if (prob > max_prob) {
+                            max_prob = prob;
+                        }
+                        probs[index][j] = prob;
                     }
+                    probs[index][map.size()] = max_prob;
                 }
                 else {
                     int j = hierarchy_top_prediction(predictions + class_index, l.softmax_tree, tree_thresh, l.w*l.h);
@@ -427,7 +475,7 @@ void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, f
             else {
                 float max = 0;
                 for (j = 0; j < l.classes; ++j) {
-                    int class_index = entry_index(l, 0, n*l.w*l.h + i, 5 + j);
+                    int class_index = entry_index(l, 0, n*l.w*l.h + i, l.coords + 1 + j);
                     float prob = scale*predictions[class_index];
                     probs[index][j] = (prob > thresh) ? prob : 0;
                     if (prob > max) max = prob;
@@ -548,8 +596,12 @@ void RegionLossLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, cons
     l.softmax_tree = region_param.has_tree() ? read_tree(region_param.tree().c_str()) : 0;
     l.softmax = region_param.softmax();
     l.temperature = 1;
-
-    seen_images_ = 0;
+    
+    anchor_aligned_images_ = region_param.anchor_aligned_images();
+    this->blobs_.resize(1);
+    this->blobs_[0].reset(new Blob<Dtype>(1, 1, 1, 1));
+    seen_images_ = this->blobs_[0]->mutable_cpu_data();
+    *seen_images_ = 0;
 }
 
 template <typename Dtype>
@@ -557,19 +609,16 @@ void RegionLossLayer<Dtype>::Reshape(
   const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
     LossLayer<Dtype>::Reshape(bottom, top);
     output_.ReshapeLike(*bottom[0]);
+    output_gpu_.ReshapeLike(*bottom[0]);
 }
 
 template <typename Dtype>
 void RegionLossLayer<Dtype>::prepare_net_layer(network &net, layer &l, const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top)
 {
-    net.input = (const float *)bottom[0]->cpu_data();
-
     net.truth = (const float *)bottom[1]->cpu_data();
-    l.output = (float *)output_.mutable_cpu_data();
     // We should use bottom[0]->mutable_cpu_diff() here. But the buffer will be cleared before backward due to shared memory optimization.
     // So we use output_.mutable_cpu_diff() instead and restore this to bottom[0] diff in Backward_cpu(...) and Backward_gpu(...)
     // l.delta = (float *)bottom[0]->mutable_cpu_diff();
-    l.delta = (float *)output_.mutable_cpu_diff();
     l.cost = (float *)top[0]->mutable_cpu_data();
     l.loss_weight = top[0]->cpu_diff()[0];
 
@@ -592,8 +641,8 @@ void find_target_for_non_bbox_label(const box &truth, int cls,
     for (int j = 0; j < l.h; j++) {
         for (int i = 0; i < l.w; i++) {
             for (int n = 0; n < l.n; n++) {
-                int obj_index = entry_index(l, b, n * l.w * l.h + j * l.w + i, 4);
-                int cls_index = entry_index(l, b, n * l.w * l.h + j * l.w + i, 5 + cls);
+                int obj_index = entry_index(l, b, n * l.w * l.h + j * l.w + i, l.coords);
+                int cls_index = entry_index(l, b, n * l.w * l.h + j * l.w + i, l.coords + 1 + cls);
                 float confidence = l.output[cls_index] * l.output[obj_index];
                 if (confidence > best_confidence) {
                     best_confidence = confidence;
@@ -606,11 +655,14 @@ void find_target_for_non_bbox_label(const box &truth, int cls,
     }
 }
 
-void find_target_for_bbox_label(const box &truth, 
+bool find_target_for_bbox_label(const box &truth, 
         const layer &l, int b, int &target_i, int &target_j, int &target_n)
 {
     target_i = (truth.x * l.w);
     target_j = (truth.y * l.h);
+    if (target_i < 0 || target_i >= l.w || target_j < 0 || target_j >= l.h) {
+        return false;
+    }
     box truth_shift = truth;
     truth_shift.x = 0;
     truth_shift.y = 0;
@@ -631,16 +683,43 @@ void find_target_for_bbox_label(const box &truth,
             target_n = n;
         }
     }
+    return true;
 }
 
 bool is_global_label_without_box(const box &truth) {
     return truth.x > 100000 && truth.y > 100000;
 }
 
+void print_bb_obj_class_loss(layer &l) {
+    float loss_xy = 0;
+    float loss_wh = 0;
+    float loss_objness = 0;
+    float loss_class = 0;
+    for (int b = 0; b < l.batch; b++) {
+        for (int n = 0; n < l.n; n++) {
+            int idx_xy = entry_index(l, b, n * l.w * l.h, 0);
+            loss_xy += pow(mag_array(l.delta + idx_xy, l.w * l.h * 2), 2);
+            int idx_wh = entry_index(l, b, n * l.w * l.h, 2);
+            loss_wh += pow(mag_array(l.delta + idx_wh, l.w * l.h * (l.coords - 2)), 2);
+            int idx_objness = entry_index(l, b, n * l.w * l.h, l.coords);
+            loss_objness += pow(mag_array(l.delta + idx_objness, l.w * l.h), 2);
+            int idx_class = entry_index(l, b, n * l.w * l.h, l.coords + 1);
+            loss_class += pow(mag_array(l.delta + idx_class, l.w * l.h * l.classes), 2);
+        }
+    }
+    LOG_IF(INFO, Caffe::root_solver()) << "loss_xy: " << loss_xy / l.batch << "; "
+        << "loss_wh: " << loss_wh / l.batch << "; "
+        << "loss_objness: " << loss_objness / l.batch << "; "
+        << "loss_class: " << loss_class / l.batch;
+}
+
 template <typename Dtype>
 void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
 {
-    int i, j, b, t, n;
+    seen_images_ = this->blobs_[0]->mutable_cpu_data();
+
+    const RegionLossParameter &region_param = this->layer_param().region_loss_param();
+    bool display = region_param.debug_info() > 0 && ((((int)*seen_images_) / l.batch) % region_param.debug_info()) == 0;
 
     memset(l.delta, 0, l.outputs * l.batch * sizeof(float));
     float avg_iou = 0;
@@ -651,86 +730,112 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
     int count = 0;
     int class_count = 0;
     *(l.cost) = 0;
-    for (b = 0; b < l.batch; ++b) {
-        if (l.softmax_tree) {
-            int onlyclass = 0;
-            for (t = 0; t < 30; ++t) {
-                box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
-                if (!truth.x) break;
-                int cls = net.truth[t * 5 + b*l.truths + 4];
-                float maxp = 0;
-                int maxi = 0;
-                if (truth.x > 100000 && truth.y > 100000) {
-                    for (n = 0; n < l.n*l.w*l.h; ++n) {
-                        int class_index = entry_index(l, b, n, 5);
-                        int obj_index = entry_index(l, b, n, 4);
-                        float scale = l.output[obj_index];
-                        l.delta[obj_index] = l.noobject_scale * (0 - l.output[obj_index]);
-                        float p = scale*get_hierarchy_probability(l.output + class_index, l.softmax_tree, cls, l.w*l.h);
-                        if (p > maxp) {
-                            maxp = p;
-                            maxi = n;
-                        }
-                    }
-                    int class_index = entry_index(l, b, maxi, 5);
-                    int obj_index = entry_index(l, b, maxi, 4);
-                    delta_region_class(l.output, l.delta, class_index, cls, l.classes, l.softmax_tree, l.class_scale, l.w*l.h, &avg_cat);
-                    if (l.output[obj_index] < .3) l.delta[obj_index] = l.object_scale * (.3 - l.output[obj_index]);
-                    else  l.delta[obj_index] = 0;
-                    ++class_count;
-                    onlyclass = 1;
-                    break;
-                }
-            }
-            if (onlyclass) continue;
-        }
-        for (j = 0; j < l.h; ++j) {
-            for (i = 0; i < l.w; ++i) {
-                for (n = 0; n < l.n; ++n) {
-                    int box_index = entry_index(l, b, n*l.w*l.h + j*l.w + i, 0);
-                    box pred = get_region_box(l.output, l.biases, n, box_index, i, j, l.w, l.h, l.w*l.h);
-                    float best_iou = 0;
-                    for (t = 0; t < 30; ++t) {
-                        box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
-                        if (is_global_label_without_box(truth)) {
-                            continue; // this is a class label without bbox
-                        }
-                        if (!truth.x) break;
-                        float iou = box_iou(pred, truth);
-                        if (iou > best_iou) {
-                            best_iou = iou;
-                        }
-                    }
-                    int obj_index = entry_index(l, b, n*l.w*l.h + j*l.w + i, 4);
-                    avg_anyobj += l.output[obj_index];
-                    l.delta[obj_index] = l.noobject_scale * (0 - l.output[obj_index]);
-                    if (best_iou > l.thresh) {
-                        l.delta[obj_index] = 0;
-                    }
+    if (l.softmax_tree) {
+        for (int b = 0; b < l.batch; ++b) {
+                for (int t = 0; t < 30; ++t) {
+                    box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
+                    if (!truth.x) break;
+                    int cls = net.truth[t * 5 + b*l.truths + 4];
+                    float maxp = 0;
+                    int maxi = 0;
+                    if (is_global_label_without_box(truth)) {
+                        assert(t == 0);
 
-                    if (seen_images_ * Caffe::solver_count() < 12800) {
-                        box truth = { 0 };
-                        truth.x = (i + .5) / l.w;
-                        truth.y = (j + .5) / l.h;
-                        truth.w = l.biases[2 * n] / l.w;
-                        truth.h = l.biases[2 * n + 1] / l.h;
-                        delta_region_box(truth, l.output, l.biases, n, box_index, i, j, l.w, l.h, l.delta, .01, l.w*l.h);
+                        //#pragma omp parallel for reduction(max:maxp)
+                        for (int n = 0; n < l.n*l.w*l.h; ++n) {
+                            int class_index = entry_index(l, b, n, l.coords + 1);
+                            int obj_index = entry_index(l, b, n, l.coords);
+                            float scale = l.output[obj_index];
+                            l.delta[obj_index] = l.noobject_scale * (0 - l.output[obj_index]);
+                            float p = scale*get_hierarchy_probability(l.output + class_index, l.softmax_tree, cls, l.w*l.h);
+                            if (p > maxp) {
+                                maxp = p;
+                                maxi = n;
+                            }
+                        }
+                        int class_index = entry_index(l, b, maxi, l.coords + 1);
+                        int obj_index = entry_index(l, b, maxi, l.coords);
+                        delta_region_class(l.output, l.delta, class_index, cls, l.classes, l.softmax_tree, l.class_scale, l.w*l.h, &avg_cat);
+                        if (l.output[obj_index] < .3) l.delta[obj_index] = l.object_scale * (.3 - l.output[obj_index]);
+                        else  l.delta[obj_index] = 0;
+                        ++class_count;
+                        break;
                     }
                 }
+        }
+    }
+#pragma omp parallel for reduction(+:avg_anyobj)
+    for (long long idx = 0; idx < l.batch * l.h * l.w * l.n; idx++) {
+        int b = idx / (l.h * l.w * l.n);
+        long long left = idx % (l.h * l.w * l.n);
+        int j = left / (l.w * l.n);
+        left = left % (l.w * l.n);
+        int i = left / l.n;
+        int n = left % l.n;
+        int box_index = entry_index(l, b, n*l.w*l.h + j*l.w + i, 0);
+        box pred = get_region_box(l.output, l.biases, n, box_index, i, j, l.w, l.h, l.w*l.h);
+        float best_iou = 0;
+        int best_cls = 0;
+        bool is_global_label = false;
+        for (int t = 0; t < 30; ++t) {
+            box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
+            is_global_label = is_global_label_without_box(truth);
+            if (is_global_label)
+                break; // this is a class label without bbox
+            if (!truth.x) break;
+            float iou = box_iou(pred, truth);
+            if (iou > best_iou) {
+                best_iou = iou;
+                best_cls = (int)(*(net.truth + t * 5 + b * l.truths));
             }
         }
-        for (t = 0; t < 30; ++t) {
-            box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
+        if (is_global_label && l.softmax_tree)
+            continue;
+        int obj_index = entry_index(l, b, n*l.w*l.h + j*l.w + i, l.coords);
+        avg_anyobj += l.output[obj_index];
+        l.delta[obj_index] = l.noobject_scale * (0 - l.output[obj_index]);
+        if (best_iou > l.thresh) {
+            l.delta[obj_index] = 0;
+        }
+    }
+    if ((*seen_images_) * Caffe::solver_count() < this->anchor_aligned_images_) {
+#pragma omp parallel for
+        for (long long idx = 0; idx < l.batch * l.h * l.w * l.n; idx++) {
+            int b = idx / (l.h * l.w * l.n);
+            long long left = idx % (l.h * l.w * l.n);
+            int j = left / (l.w * l.n);
+            left = left % (l.w * l.n);
+            int i = left / l.n;
+            int n = left % l.n;
+            int box_index = entry_index(l, b, n*l.w*l.h + j*l.w + i, 0);
+            box truth = { 0 };
+            truth.x = (i + .5) / l.w;
+            truth.y = (j + .5) / l.h;
+            truth.w = l.biases[2 * n] / l.w;
+            truth.h = l.biases[2 * n + 1] / l.h;
+            delta_region_box(truth, l.output, l.biases, n, box_index, i, j, l.w, l.h, l.delta, .01, l.w*l.h);
+        }
+    }
+    for (int b = 0; b < l.batch; ++b) {
+        for (int t = 0; t < 30; ++t) {
+            const box truth = float_to_box(net.truth + t * 5 + b*l.truths, 1);
             int cls = net.truth[t * 5 + b*l.truths + 4];
             int best_n = 0;
             if (!truth.x) break;
 
             float iou; // this is the target iou
             bool is_global_label = is_global_label_without_box(truth);
+            int i, j;
             if (is_global_label) {
+                if (l.softmax_tree)
+                    break;
+                // Weak labels with no tree
                 find_target_for_non_bbox_label(truth, cls, l, b, i, j, best_n);
             } else {
-                find_target_for_bbox_label(truth, l, b, i, j, best_n);
+                bool valid = find_target_for_bbox_label(truth, l, b, i, j, best_n);
+                if (!valid) {
+                    continue;
+                }
 
                 int box_index = entry_index(l, b, best_n*l.w*l.h + j*l.w + i, 0);
                 iou = delta_region_box(truth, l.output, l.biases, best_n, 
@@ -740,7 +845,7 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
             }
 
             //l.delta[best_index + 4] = iou - l.output[best_index + 4];
-            int obj_index = entry_index(l, b, best_n*l.w*l.h + j*l.w + i, 4);
+            int obj_index = entry_index(l, b, best_n*l.w*l.h + j*l.w + i, l.coords);
             avg_obj += l.output[obj_index];
             if (!is_global_label) {
                 l.delta[obj_index] = l.object_scale * (1 - l.output[obj_index]);
@@ -756,7 +861,8 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
             }
 
             //if (l.map) cls = l.map[cls];
-            int class_index = entry_index(l, b, best_n*l.w*l.h + j*l.w + i, 5);
+            int class_index;
+            class_index = entry_index(l, b, best_n*l.w*l.h + j*l.w + i, l.coords + 1);
             delta_region_class(l.output, l.delta, class_index, cls, l.classes, l.softmax_tree, l.class_scale, l.w*l.h, &avg_cat);
             ++count;
             ++class_count;
@@ -765,19 +871,16 @@ void RegionLossLayer<Dtype>::forward_for_loss(network &net, layer &l)
     
     *(l.cost) = pow(mag_array(l.delta, l.outputs * l.batch), 2);
 
-    const RegionLossParameter &region_param = this->layer_param().region_loss_param();
-    if (region_param.debug_info())
+    if (display)
     {
         char msg[1024];
-        sprintf(msg, "Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", avg_iou / count, avg_cat / class_count, avg_obj / count, avg_anyobj / (l.w*l.h*l.n*l.batch), recall / count, count);
-        LOG(INFO) << msg;
+        sprintf(msg, "Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", 
+                avg_iou / count, avg_cat / class_count, avg_obj / count, avg_anyobj / (l.w*l.h*l.n*l.batch), recall / count, count);
+        LOG_IF(INFO, Caffe::root_solver()) << msg;
+        print_bb_obj_class_loss(l);
     }
 
-    // multiplicate delta with -loss_weight to fit for caffe's sgd solver.
-    caffe_cpu_scale(l.outputs*l.batch, -l.loss_weight / l.batch, l.delta, l.delta);
-    *(l.cost) /= l.batch;
-
-    seen_images_ += l.batch;
+    (*seen_images_) += l.batch;
 }
 
 template <typename Dtype>
@@ -785,7 +888,11 @@ void RegionLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, con
     // prepare wrapper environment for forward computation
     network &net = this->net_;
     layer &l = this->l_;
+
+    net.input = (const float *)bottom[0]->cpu_data();
     prepare_net_layer(net, l, bottom, top);
+    l.output = (float *)output_.mutable_cpu_data();
+    l.delta = (float *)output_.mutable_cpu_diff();
 
     // perform computation
     memcpy(l.output, net.input, l.outputs*l.batch * sizeof(float));
@@ -794,21 +901,21 @@ void RegionLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, con
         for (int n = 0; n < l.n; ++n) {
             int index = entry_index(l, b, n*l.w*l.h, 0);
             activate_array(l.output + index, 2 * l.w*l.h, LOGISTIC);
-            index = entry_index(l, b, n*l.w*l.h, 4);
+            index = entry_index(l, b, n*l.w*l.h, l.coords);
             activate_array(l.output + index, l.w*l.h, LOGISTIC);
         }
     }
     if (l.softmax_tree) {
-        int count = 5;
+        int count = l.coords + 1;
         for (int i = 0; i < l.softmax_tree->groups; ++i) {
             int group_size = l.softmax_tree->group_size[i];
-            softmax_cpu(net.input + count, group_size, l.batch, l.inputs, l.n*l.w*l.h, 1, l.n*l.w*l.h, l.temperature, l.output + count);
+            int index = entry_index(l, 0, 0, count);
+            softmax_cpu(net.input + index, group_size, l.batch * l.n, l.inputs / l.n, l.w*l.h, 1, l.w*l.h, l.temperature, l.output + index);
             count += group_size;
         }
     }
-     else 
-    if (l.softmax) {
-        int index = entry_index(l, 0, 0, 5);
+    else if (l.softmax) {
+        int index = entry_index(l, 0, 0, l.coords + 1);
         softmax_cpu(net.input + index, l.classes, l.batch*l.n, l.inputs / l.n, l.w*l.h, 1, l.w*l.h, 1, l.output + index);
     }
 
@@ -816,6 +923,15 @@ void RegionLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, con
 
     // compute the remaining part for loss
     forward_for_loss(net, l);
+
+    *(l.cost) = pow(mag_array(l.delta, l.outputs * l.batch), 2);
+    // multiplicate delta with -loss_weight to fit for caffe's sgd solver.
+    caffe_cpu_scale(l.outputs*l.batch, -l.loss_weight / l.batch, l.delta, l.delta);
+    *(l.cost) /= l.batch;
+
+    if (top.size() == 2) {
+        top[1]->CopyFrom(output_);
+    }
 }
 
 template <typename Dtype>
@@ -824,7 +940,9 @@ void RegionLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
     // prepare wrapper environment for backward computation
     network &net = this->net_;
     layer &l = this->l_;
+    net.input = (const float *)bottom[0]->cpu_data();
     prepare_net_layer(net, l, bottom, top);
+    l.output = (float *)output_.mutable_cpu_data();
     l.delta = (float *)bottom[0]->mutable_cpu_diff();
     memcpy(l.delta, output_.cpu_diff(), l.batch * l.outputs * sizeof(float));
 
@@ -833,7 +951,7 @@ void RegionLossLayer<Dtype>::Backward_cpu(const vector<Blob<Dtype>*>& top,
         for (n = 0; n < l.n; ++n) {
             int index = entry_index(l, b, n*l.w*l.h, 0);
             gradient_array(l.output+ index, 2 * l.w*l.h, LOGISTIC, l.delta+ index);
-            index = entry_index(l, b, n*l.w*l.h, 4);
+            index = entry_index(l, b, n*l.w*l.h, l.coords);
             gradient_array(l.output+ index, l.w*l.h, LOGISTIC, l.delta+ index);
         }
     }
@@ -860,7 +978,7 @@ void RegionOutputLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, co
 
     layer &l = this->l_;
     l.classes = region_param.classes();
-    l.coords = 4;
+    l.coords = region_param.coords(); 
     for (int i = 0; i < region_param.biases_size(); ++i) {
         biases_.push_back(region_param.biases(i));
     }
@@ -868,6 +986,15 @@ void RegionOutputLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, co
     l.n = biases_.size() / 2;
     l.biases = &biases_[0];
     l.softmax = true;
+    l.softmax_tree = region_param.has_tree() ? read_tree(region_param.tree().c_str()) : 0;
+    if (region_param.has_map()) {
+        this->map_ = read_map(region_param.map().c_str());
+        classes_ = this->map_.size();
+    } else if (l.softmax_tree) {
+        CHECK_EQ(l.softmax_tree->n, l.classes);
+    }
+    this->class_specific_nms_ = region_param.class_specific_nms();
+    l.temperature = 1;
 
     vector<int> shape(3);
     shape[0] = 1;
@@ -877,6 +1004,7 @@ void RegionOutputLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, co
 
     shape[2] = classes_ + 1;
     top[1]->Reshape(shape);
+    CHECK_EQ(bottom[0]->channels(), l.n * (l.classes + 1 + l.coords));
 }
 
 template <typename Dtype>
@@ -896,6 +1024,7 @@ void RegionOutputLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const
     net_h_ = l.h * feat_stride_;
 
     output_.ReshapeLike(*bottom[0]);
+    output_gpu_.ReshapeLike(*bottom[0]);
 
     vector<int> shape = top[0]->shape();
     shape[1] = l.w*l.h*l.n;
@@ -925,11 +1054,16 @@ void RegionOutputLayer<Dtype>::GetRegionBoxes(const vector<Blob<Dtype>*>& bottom
     box *boxes = (box *)box_output;
     vector<float*> probs(l.w*l.h*l.n);
     for (int j = 0; j < l.w*l.h*l.n; ++j)
-        probs[j] = prob_output + (l.classes + 1) * j;
-
-    get_region_boxes(l, im_w, im_h, net_w_, net_h_, thresh_, &probs[0], boxes, 0, 0, hier_thresh_, 0);//1);
-    if (nms_ > 0)
-        do_nms_sort(boxes, &probs[0], l.w*l.h*l.n, l.classes, nms_);//0.4);
+        probs[j] = prob_output + (classes_ + 1) * j;
+    
+    get_region_boxes(l, classes_, im_w, im_h, net_w_, net_h_, thresh_, &probs[0], boxes, 0, this->map_, hier_thresh_, 0);//1);
+    if (nms_ > 0) {
+        if (this->class_specific_nms_) {
+            do_nms_sort(boxes, &probs[0], l.w*l.h*l.n, classes_, nms_);//0.4);
+        } else {
+            do_nms_obj(boxes, &probs[0], l.w*l.h*l.n, classes_, nms_);//0.4);
+        }
+    }
 }
 
 template <typename Dtype>
@@ -946,20 +1080,21 @@ void RegionOutputLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
         for (int n = 0; n < l.n; ++n) {
             int index = entry_index(l, b, n*l.w*l.h, 0);
             activate_array(l.output + index, 2 * l.w*l.h, LOGISTIC);
-            index = entry_index(l, b, n*l.w*l.h, 4);
+            index = entry_index(l, b, n*l.w*l.h, l.coords);
             activate_array(l.output + index, l.w*l.h, LOGISTIC);
         }
     }
     if (l.softmax_tree) {
-        int count = 5;
+        int count = l.coords + 1;
         for (int i = 0; i < l.softmax_tree->groups; ++i) {
             int group_size = l.softmax_tree->group_size[i];
-            softmax_cpu(net.input + count, group_size, l.batch, l.inputs, l.n*l.w*l.h, 1, l.n*l.w*l.h, l.temperature, l.output + count);
+            int index = entry_index(l, 0, 0, count);
+            softmax_cpu(net.input + index, group_size, l.batch * l.n, l.inputs / l.n, l.w*l.h, 1, l.w*l.h, l.temperature, l.output + index);
             count += group_size;
         }
     }
     else if (l.softmax) {
-        int index = entry_index(l, 0, 0, 5);
+        int index = entry_index(l, 0, 0, l.coords + 1);
         softmax_cpu(net.input + index, l.classes, l.batch*l.n, l.inputs / l.n, l.w*l.h, 1, l.w*l.h, 1, l.output + index);
     }
     

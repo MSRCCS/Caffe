@@ -1,3 +1,4 @@
+#define _USE_MATH_DEFINES
 #include <opencv2/core/core.hpp>
 
 #include <stdint.h>
@@ -118,6 +119,7 @@ void add_pixel(image m, int x, int y, int c, float val)
 
 image resize_image(image im, int w, int h)
 {
+    assert(w > 1 && h > 1 && im.h > 1 && im.w > 1);
     image resized = make_image(w, h, im.c);
     image part = make_image(w, im.h, im.c);
     int r, c, k;
@@ -184,9 +186,19 @@ image ipl_to_image(IplImage* src)
 // imbuf is image stream in memory
 image load_image_cv(vector<unsigned char>& imbuf, int channels)
 {
-    cv::Mat cv_img;
     int cv_read_flag = (channels == 3 ? CV_LOAD_IMAGE_COLOR : CV_LOAD_IMAGE_GRAYSCALE);
     cv::Mat src = cv::imdecode(cv::Mat(imbuf), cv_read_flag);
+
+    image out = cvmat_to_image(&src);
+    // Here we directly work in the BGR format, not as in https://github.com/pjreddie/darknet/blob/master/src/image.c#L526
+    // rgbgr_image(out);
+    return out;
+}
+
+// imbuf is image stream in memory
+image load_image_cv(const string &filename, int channels) 
+{
+    cv::Mat src = ReadImageToCVMat(filename, channels > 1);
 
     image out = cvmat_to_image(&src);
     // Here we directly work in the BGR format, not as in https://github.com/pjreddie/darknet/blob/master/src/image.c#L526
@@ -206,9 +218,26 @@ image load_image(vector<unsigned char>& imbuf, int w, int h, int c)
     return out;
 }
 
+image load_image(const string &filename, int w, int h, int c) 
+{
+    image out = load_image_cv(filename, c);
+
+    if ((h && w) && (h != out.h || w != out.w)) {
+        image resized = resize_image(out, w, h);
+        free_image(out);
+        out = resized;
+    }
+    return out;
+}
+
 image load_image_color(vector<unsigned char>& imbuf, int w, int h)
 {
     return load_image(imbuf, w, h, 3);
+}
+
+image load_image_color(const string &filename, int w, int h)
+{
+    return load_image(filename, w, h, 3);
 }
 
 void fill_image(image m, float s)
@@ -232,16 +261,75 @@ float bilinear_interpolate(image im, float x, float y, int c)
     return val;
 }
 
-void place_image(image im, int w, int h, int dx, int dy, image canvas)
+void original_image_to_network_input(float x3, float y3, 
+        float cos_rad, float sin_rad,
+        int orig_img_w, int orig_img_h, 
+        int nw, int nh, 
+        int network_w, int network_h,
+        float dx, float dy,
+        float &rotate_x3, float &rotate_y3) {
+    float offset_x3 = x3 * nw / orig_img_w - 0.5 * nw;
+    float offset_y3 = y3 * nh / orig_img_h - 0.5 * nh; 
+    rotate_x3 = cos_rad * offset_x3 - sin_rad * offset_y3;
+    rotate_y3 = sin_rad * offset_x3 + cos_rad * offset_y3;
+    rotate_x3 += (float)nw / 2. + dx;
+    rotate_y3 += (float)nh / 2. + dy;
+}
+
+void network_input_to_original_image(float in_x, float in_y,
+        float cos_rad, float sin_rad,
+        int orig_img_w, int orig_img_h,
+        int nw, int nh,
+        int network_w, int network_h,
+        float dx, float dy,
+        float &out_x, float &out_y) {
+    float rx = in_x - 0.5 * nw - dx;
+    float ry = in_y - 0.5 * nh - dy;
+    out_x = cos_rad * rx + sin_rad * ry; 
+    out_y = -sin_rad * rx + cos_rad * ry;
+    out_x *= orig_img_w / (float)nw;
+    out_y *= orig_img_h / (float)nh;
+    out_x += orig_img_w * .5;
+    out_y += orig_img_h * .5;
+}
+
+void place_image(image im, int w, int h, int dx, int dy, image canvas, float rad)
 {
-    int x, y, c;
-    for (c = 0; c < im.c; ++c) {
-        for (y = 0; y < h; ++y) {
-            for (x = 0; x < w; ++x) {
-                int rx = ((float)x / w) * im.w;
-                int ry = ((float)y / h) * im.h;
-                float val = bilinear_interpolate(im, rx, ry, c);
-                set_pixel(canvas, x + dx, y + dy, c, val);
+    if (rad) {
+        const float fill_value = 0.5;
+        float cos_rad = cos(rad);
+        float sin_rad = sin(rad);
+        for (int c = 0; c < im.c; c++) {
+            for (int y1 = 0; y1 < canvas.h; y1++) {
+                for (int x1 = 0; x1 < canvas.w; x1++) {
+                    float m_x, m_y;
+                    network_input_to_original_image((float)x1, (float)y1,
+                            cos_rad, sin_rad,
+                            im.w, im.h,
+                            w, h,
+                            canvas.w, canvas.h,
+                            dx, dy,
+                            m_x, m_y);
+                    float val;
+                    if (m_x < 0 || m_x >= im.w - 1 || m_y < 0 || m_y >= im.h - 1) {
+                        val = fill_value;
+                    } else {
+                        val = bilinear_interpolate(im, m_x, m_y, c);
+                    }
+                    set_pixel(canvas, x1, y1, c, val);
+                }
+            }
+        }
+    } else {
+        int x, y, c;
+        for (c = 0; c < im.c; ++c) {
+            for (y = 0; y < h; ++y) {
+                for (x = 0; x < w; ++x) {
+                    float rx = ((float)x / w) * im.w;
+                    float ry = ((float)y / h) * im.h;
+                    float val = bilinear_interpolate(im, rx, ry, c);
+                    set_pixel(canvas, x + dx, y + dy, c, val);
+                }
             }
         }
     }
@@ -458,7 +546,12 @@ vector<box_label> read_boxes(const string &input_label_data, map<string, int> &l
     // Read json.
     ptree pt;
     std::istringstream is(input_label_data);
-    read_json(is, pt);
+    try {
+        read_json(is, pt);
+    } catch (std::exception &e) {
+        LOG(FATAL) << "invalid json string: " << input_label_data << " error: " << e.what();
+    }
+
 
     for (boost::property_tree::ptree::iterator it = pt.begin(); it != pt.end(); ++it)
     {
@@ -480,6 +573,13 @@ vector<box_label> read_boxes(const string &input_label_data, map<string, int> &l
         float y = ((rect[1] + rect[3]) / 2) / orig_img_h;
         float w = (rect[2] - rect[0]) / orig_img_w;
         float h = (rect[3] - rect[1]) / orig_img_h;
+        
+        if (x < -0.001 || y < -0.001 || x > 0.999 || y > 0.999 || w <= -0.001 || h <= -0.001) {
+            LOG(ERROR) << "invalid bounding box detected and will be skipped: " 
+                << rect[0] << ", " << rect[1] << ", " 
+                << rect[2] << ", " << rect[3] << " string: " << input_label_data;
+            continue;
+        }
 
         box_label box;
         box.id = labelmap[cls];
@@ -516,10 +616,16 @@ float constrain(float min, float max, float a)
     return a;
 }
 
-void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float sy, int flip)
+int correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float sy, int flip,
+        float rad,
+        int orig_img_w, int orig_img_h, 
+        int nw, int nh,
+        int network_w, int network_h, float odx, float ody)
 {
-    int i;
-    for (i = 0; i < n; ++i) {
+    int valid_boxes = 0;
+    float cos_rad = cos(rad);
+    float sin_rad = sin(rad);
+    for (int i = 0; i < n; ++i) {
         if (boxes[i].x == 0 && boxes[i].y == 0) {
             boxes[i].x = 999999;
             boxes[i].y = 999999;
@@ -527,16 +633,64 @@ void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float 
             boxes[i].h = 999999;
             continue;
         }
-        boxes[i].left = boxes[i].left  * sx - dx;
-        boxes[i].right = boxes[i].right * sx - dx;
-        boxes[i].top = boxes[i].top   * sy - dy;
-        boxes[i].bottom = boxes[i].bottom* sy - dy;
+        if (rad) {
+            float x0 = boxes[i].left * orig_img_w;
+            float y0 = boxes[i].top * orig_img_h;
+            float x3 = boxes[i].right * orig_img_w;
+            float y3 = boxes[i].bottom * orig_img_h;
+            float x1 = x3;
+            float y1 = y0;
+            float x2 = x0;
+            float y2 = y3;
+            float area_in_new = (boxes[i].right - boxes[i].left) * 
+                (boxes[i].bottom - boxes[i].top) * nw * nh;
+            original_image_to_network_input(x0, y0, cos_rad, sin_rad, orig_img_w, orig_img_h,
+                    nw, nh, network_w, network_h,
+                    odx, ody,
+                    x0, y0);
+            original_image_to_network_input(x1, y1, cos_rad, sin_rad, orig_img_w, orig_img_h,
+                    nw, nh, network_w, network_h,
+                    odx, ody,
+                    x1, y1);
+            original_image_to_network_input(x2, y2, cos_rad, sin_rad, orig_img_w, orig_img_h,
+                    nw, nh, network_w, network_h,
+                    odx, ody,
+                    x2, y2);
+            original_image_to_network_input(x3, y3, cos_rad, sin_rad, orig_img_w, orig_img_h,
+                    nw, nh, network_w, network_h,
+                    odx, ody,
+                    x3, y3);
+            float left = fmin(fmin(fmin(x0, x1), x2), x3);
+            float right = fmax(fmax(fmax(x0, x1), x2), x3);
+            float top = fmin(fmin(fmin(y0, y1), y2), y3);
+            float bottom = fmax(fmax(fmax(y0, y1), y2), y3);
+            {
+                // make the area the same with the aspect ratio held
+                float shrink = sqrt(area_in_new / (right - left) / (bottom - top));
+                float final_width = (right - left) * shrink;
+                float final_height = (bottom - top) * shrink;
+                float final_cx = (left + right) / 2.;
+                float final_cy = (top + bottom) / 2.;
+                boxes[i].left = (final_cx - final_width / 2.) / network_w;
+                boxes[i].right = (final_cx + final_width / 2.) / network_w;
+                boxes[i].top = (final_cy - final_height / 2.) / network_h;
+                boxes[i].bottom = (final_cy + final_height / 2.) / network_h;
+                
+            }
+        } else {
+            boxes[i].left = boxes[i].left  * sx - dx;
+            boxes[i].right = boxes[i].right * sx - dx;
+            boxes[i].top = boxes[i].top   * sy - dy;
+            boxes[i].bottom = boxes[i].bottom* sy - dy;
+        }
 
         if (flip) {
             float swap = boxes[i].left;
             boxes[i].left = 1. - boxes[i].right;
             boxes[i].right = 1. - swap;
         }
+
+        float area_old = (boxes[i].right - boxes[i].left) * (boxes[i].bottom - boxes[i].top);
 
         boxes[i].left = constrain(0, 1, boxes[i].left);
         boxes[i].right = constrain(0, 1, boxes[i].right);
@@ -550,16 +704,30 @@ void correct_boxes(box_label *boxes, int n, float dx, float dy, float sx, float 
 
         boxes[i].w = constrain(0, 1, boxes[i].w);
         boxes[i].h = constrain(0, 1, boxes[i].h);
+
+        float area_new = boxes[i].w * boxes[i].h;
+
+        if (area_old > 1e-6 && area_new / area_old > 0.5)
+            valid_boxes++;
     }
+
+    return valid_boxes;
 }
 
-void fill_truth_detection(const string &input_label_data, float *truth, int num_boxes, map<string, int> &labelmap, int orig_img_w, int orig_img_h, int flip, float dx, float dy, float sx, float sy)
+int fill_truth_detection(const string &input_label_data, float *truth, int num_boxes, map<string, int> &labelmap, 
+        int orig_img_w, int orig_img_h, int flip, float dx, float dy, float sx, float sy,
+        float rad,
+        int nw, int nh, int network_w, int network_h, float odx, float ody)
 {
     vector<box_label> boxes = read_boxes(input_label_data, labelmap, orig_img_w, orig_img_h);
-    randomize_boxes(&boxes[0], boxes.size());
-    correct_boxes(&boxes[0], boxes.size(), dx, dy, sx, sy, flip);
-    int count = boxes.size();
-    if (count > num_boxes) count = num_boxes;
+    auto count = boxes.size();
+    if (!count)
+        return 0;
+    randomize_boxes(&boxes[0], count);
+    int valid_boxes = correct_boxes(&boxes[0], count, dx, dy, sx, sy, flip, rad,
+            orig_img_w, orig_img_h, nw, nh, network_w, network_h, odx, ody);
+    if (count > num_boxes) 
+        count = num_boxes;
     float x, y, w, h;
     int id;
     int i;
@@ -579,18 +747,26 @@ void fill_truth_detection(const string &input_label_data, float *truth, int num_
         truth[i * 5 + 3] = h;
         truth[i * 5 + 4] = id;
     }
+
+    return valid_boxes;
 }
 
 void load_data_detection(const string &input_b64coded_data, const string &input_label_data, float *output_image_data, float *output_label_data,
                          map<string, int> labelmap,
                          int w, int h, int boxes, float jitter, float hue, float saturation, float exposure,
                          float mean_r, float mean_g, float mean_b,
-                         float pixel_value_scale)
+                         float pixel_value_scale,
+                         const BoxDataParameter &box_param,
+                         bool is_image_path)
 {
-    vector<BYTE> imbuf = base64_decode(input_b64coded_data);
-
+    image orig;
     // load image in BGR format with values ranging in [0,1]
-    image orig = load_image_color(imbuf, 0, 0);
+    if (is_image_path) {
+        orig = load_image_color(input_b64coded_data, 0, 0);
+    } else {
+        vector<BYTE> imbuf = base64_decode(input_b64coded_data);
+        orig = load_image_color(imbuf, 0, 0);
+    }
 
     image sized = make_image(w, h, orig.c);
     fill_image(sized, .5);
@@ -598,27 +774,60 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
     float dw = jitter * orig.w;
     float dh = jitter * orig.h;
 
-    float new_ar = (orig.w + rand_uniform(-dw, dw)) / (orig.h + rand_uniform(-dh, dh));
-    float scale = rand_uniform(.25, 2);
+    float nw, nh, dx, dy, rad;
+    int flip;
+    for (int tries = 0; tries < box_param.max_samples(); tries++)
+    {
+        float new_ar = (orig.w + rand_uniform(-dw, dw)) / (orig.h + rand_uniform(-dh, dh));
+        float random_scale_min = box_param.random_scale_min();
+        float random_scale_max = box_param.random_scale_max();
+        float scale = rand_uniform(random_scale_min, random_scale_max);
 
-    float nw, nh;
+        // float nw, nh;
 
-    if (new_ar < 1) {
-        nh = scale * h;
-        nw = nh * new_ar;
+        if (random_scale_min == random_scale_max && box_param.output_ssd_label())
+        {
+            // for ssd in test mode (random_scale_min == random_scale_max)
+            // stretch image to 300x300 as specified by wxh
+            nw = w;
+            nh = h;
+        }
+        else if (new_ar < 1) {
+            nh = scale * h;
+            nw = nh * new_ar;
+        }
+        else {
+            nw = scale * w;
+            nh = nw / new_ar;
+        }
+
+        // float dx, dy;
+        if (box_param.fix_offset()) {
+            dx = (w - nw) / 2;
+            dy = (h - nh) / 2;
+        } else {
+            dx = rand_uniform(0, w - nw);
+            dy = rand_uniform(0, h - nh);
+        }
+
+        rad = rand_uniform(-box_param.rotate_max(),
+                box_param.rotate_max());
+        rad *= M_PI / 180.;
+
+        flip = random_helper::uniform_int(0, 1) && !box_param.fix_offset();
+
+        int valid_boxes = fill_truth_detection(input_label_data, output_label_data, boxes, labelmap, orig.w, orig.h, flip, 
+                -dx / w, -dy / h, nw / w, nh / h,
+                rad,
+                nw, nh, sized.w, sized.h, dx, dy);
+        
+        if (valid_boxes > 0)
+            break;
     }
-    else {
-        nw = scale * w;
-        nh = nw / new_ar;
-    }
 
-    float dx = rand_uniform(0, w - nw);
-    float dy = rand_uniform(0, h - nh);
-
-    place_image(orig, nw, nh, dx, dy, sized);
+    place_image(orig, nw, nh, dx, dy, sized, rad);
 
     random_distort_image(sized, hue, saturation, exposure);
-    int flip = random_helper::uniform_int(0, 1);
     if (flip) flip_image(sized);
 
     // scale values back to [0,255]
@@ -628,9 +837,9 @@ void load_data_detection(const string &input_b64coded_data, const string &input_
     image_subtract_mean(sized, mean_r, mean_g, mean_b);
 
     memcpy(output_image_data, sized.data, sizeof(float) * h * w * orig.c);
+    
     free_image(sized);
 
-    fill_truth_detection(input_label_data, output_label_data, boxes, labelmap, orig.w, orig.h, flip, -dx / w, -dy / h, nw / w, nh / h);
     free_image(orig);
 }
 
@@ -638,8 +847,10 @@ template <typename Dtype>
 void TsvBoxDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
     TsvDataLayer<Dtype>::DataLayerSetUp(bottom, top);
+    box_data_param_idx_ = 0;
 
-    const BoxDataParameter &box_param = this->layer_param().box_data_param();
+    const BoxDataParameter &box_param = this->layer_param().box_data_param(
+            box_data_param_idx_);
 
     iter_ = 0;
     dim_ = box_param.random_min();
@@ -653,6 +864,26 @@ void TsvBoxDataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
     top[1]->Reshape(shape);
     for (int i = 0; i < this->prefetch_.size(); ++i) {
         this->prefetch_[i]->label_.Reshape(shape);
+    }
+    
+    cum_tsv_box_weights_.clear();
+    for (int i = 0; i < this->layer_param().box_data_param_size(); i++) {
+        auto &box_data_param = this->layer_param().box_data_param(i);
+        cum_tsv_box_weights_.push_back(box_data_param.weight());
+    }
+    
+    for (size_t s = 0; s < cum_tsv_box_weights_.size(); s++) {
+        CHECK_GT(cum_tsv_box_weights_[s], 0);
+    }
+    
+    for (size_t s = 1; s < cum_tsv_box_weights_.size(); s++) {
+        cum_tsv_box_weights_[s] += cum_tsv_box_weights_[s - 1];
+    }
+    
+    CHECK_GT(cum_tsv_box_weights_.size(), 0);
+    Dtype norm_factor = cum_tsv_box_weights_[cum_tsv_box_weights_.size() - 1];
+    for (size_t s = 0; s < cum_tsv_box_weights_.size(); s++) {
+        cum_tsv_box_weights_[s] /= norm_factor;
     }
 }
 
@@ -686,12 +917,28 @@ void TsvBoxDataLayer<Dtype>::load_labelmap(const string &filename)
 }
 
 template <typename Dtype>
-void TsvBoxDataLayer<Dtype>::on_load_batch(Batch<Dtype>* batch)
-{
+void TsvBoxDataLayer<Dtype>::update_curr_box_data_param_idx() {
+    
+    Dtype prob = (Dtype)random_helper::uniform_real(0, 1);
+    size_t idx = 0;
+    for (; idx < cum_tsv_box_weights_.size(); idx++) {
+        if (prob <= cum_tsv_box_weights_[idx]) {
+            break;
+        }
+    }
+    
+    box_data_param_idx_ = idx;
+}
+
+template <typename Dtype>
+void TsvBoxDataLayer<Dtype>::on_load_batch_start(Batch<Dtype>* batch) {
+    update_curr_box_data_param_idx();
+
     // change size
     if (iter_++ % this->iter_for_resize_ == 0)
     {
-        const BoxDataParameter &box_param = this->layer_param().box_data_param();
+        const BoxDataParameter &box_param = this->layer_param().box_data_param(
+                box_data_param_idx_);
         int rand_step = box_param.random_step();
         int rand_min = box_param.random_min() / rand_step;
         int rand_max = box_param.random_max() / rand_step;
@@ -710,12 +957,83 @@ void TsvBoxDataLayer<Dtype>::on_load_batch(Batch<Dtype>* batch)
     shape[2] = dim_;
     shape[3] = dim_;
     batch->data_.Reshape(shape);
+
+    // reshape label as it may be changed due to output_ssd_label
+    const BoxDataParameter &box_param = this->layer_param().box_data_param(
+            box_data_param_idx_);
+    vector<int> label_shape(2);
+    label_shape[0] = shape[0];
+    label_shape[1] = box_param.max_boxes() * 5;
+    batch->label_.Reshape(label_shape);
+}
+
+template <typename Dtype>
+void TsvBoxDataLayer<Dtype>::on_load_batch_end(Batch<Dtype>* batch)
+{
+    const BoxDataParameter &box_param = this->layer_param().box_data_param(
+            box_data_param_idx_);
+    if (!box_param.output_ssd_label())
+        return;
+
+    // count the number of bboxes
+    int num_boxes = 0;
+    int batch_size = batch->label_.shape(0);
+    const Dtype *label_data = batch->label_.cpu_data();
+    for (int n = 0; n < batch_size; n++)
+    {
+        for (int i = 0; i < box_param.max_boxes(); i++)
+        {
+            if (label_data[(n * box_param.max_boxes() + i) * 5] > 0)
+                num_boxes++;
+        }
+    }
+
+    Blob<Dtype> ssd_label;
+    vector<int> shape(4);
+    shape[0] = 1;
+    shape[1] = 1;
+    shape[2] = std::max(num_boxes, 1);
+    shape[3] = 8;
+    ssd_label.Reshape(shape);
+
+    Dtype *ssd_label_data = ssd_label.mutable_cpu_data();
+    if (num_boxes == 0)
+    {
+        // Store all -1 in the label.
+        caffe_set<Dtype>(8, -1, ssd_label_data);
+    }
+    else
+    {
+        int idx = 0;
+        for (int n = 0; n < batch_size; n++)
+        {
+            for (int i = 0; i < box_param.max_boxes(); i++)
+            {
+                const Dtype *truth = label_data + (n * box_param.max_boxes() + i) * 5;
+                if (truth[0] > 0)
+                {
+                    ssd_label_data[idx++] = n;
+                    ssd_label_data[idx++] = truth[4]; // class label
+                    ssd_label_data[idx++] = 0; // instance_id, not used for now
+                    ssd_label_data[idx++] = truth[0] - truth[2] / 2; // xmin
+                    ssd_label_data[idx++] = truth[1] - truth[3] / 2; // ymin
+                    ssd_label_data[idx++] = truth[0] + truth[2] / 2; // xmax
+                    ssd_label_data[idx++] = truth[1] + truth[3] / 2; // ymax
+                    ssd_label_data[idx++] = 0; // difficult flag
+                }
+            }
+        }
+    }
+
+    batch->label_.Reshape(shape);
+    caffe_copy(ssd_label.count(), ssd_label.cpu_data(), batch->label_.mutable_cpu_data());
 }
 
 template <typename Dtype>
 void TsvBoxDataLayer<Dtype>::process_one_image_and_label(const string &input_b64coded_data, const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_image_data, Dtype *output_label_data)
 {
-    const BoxDataParameter &box_param = this->layer_param().box_data_param();
+    const BoxDataParameter &box_param = this->layer_param().box_data_param(
+            box_data_param_idx_);
     float jitter = box_param.jitter();
     float exposure = box_param.exposure();
     float hue = box_param.hue();
@@ -726,7 +1044,9 @@ void TsvBoxDataLayer<Dtype>::process_one_image_and_label(const string &input_b64
     load_data_detection(input_b64coded_data, input_label_data, (float*)output_image_data, (float*)output_label_data,
         labelmap_,
         dim_, dim_, max_boxes, jitter, hue, saturation, exposure,
-        this->mean_values_[2], this->mean_values_[1], this->mean_values_[0], pixel_value_scale);
+        this->mean_values_[2], this->mean_values_[1], this->mean_values_[0], pixel_value_scale,
+        box_param, 
+        tsv_param.data_format() == TsvDataParameter_DataFormat_ImagePath);
 }
 
 INSTANTIATE_CLASS(TsvBoxDataLayer);

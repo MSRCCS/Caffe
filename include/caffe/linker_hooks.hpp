@@ -43,6 +43,8 @@ namespace caffe {
   FUNC(BatchReindex); \
   FUNC(Bias); \
   FUNC(BNLL); \
+  FUNC(CCALoss); \
+  FUNC(CenterLoss); \
   FUNC(Concat); \
   FUNC(ContrastiveLoss); \
   FUNC(Convolution); \
@@ -50,11 +52,14 @@ namespace caffe {
   FUNC(CrossEntropyLoss); \
   FUNC(Deconvolution); \
   FUNC(DenseLoss); \
+  FUNC(DetectionEvaluate); \
+  FUNC(DetectionOutput); \
   FUNC(Dropout); \
   FUNC(DummyData); \
   FUNC(Eltwise); \
   FUNC(ELU); \
   FUNC(EuclideanLoss); \
+  FUNC(IndexedThresholdLoss); \
   FUNC(Exp); \
   FUNC(Embed); \
   FUNC(Filter); \
@@ -78,15 +83,23 @@ namespace caffe {
   FUNC(MILData); \
   FUNC(MultinomialLogisticLoss); \
   FUNC(MultiAccuracy); \
+  FUNC(MultiBoxLoss); \
   FUNC(MVN); \
+  FUNC(Normalize); \
   FUNC(Parameter); \
+  FUNC(Permute); \
   FUNC(Pooling); \
   FUNC(Power); \
   FUNC(PReLU); \
+  FUNC(PriorBox); \
   FUNC(Python); \
   FUNC(Reduction); \
   FUNC(RegionLoss); \
   FUNC(RegionOutput); \
+  FUNC(RegionPrediction); \
+  FUNC(YoloBBs); \
+  FUNC(YoloEvalCompat); \
+  FUNC(RegionTarget); \
   FUNC(ReLU); \
   FUNC(Reorg); \
   FUNC(Reshape); \
@@ -95,6 +108,7 @@ namespace caffe {
   FUNC(RPNProposal); \
   FUNC(Scale); \
   FUNC(SgmLoss); \
+  FUNC(Resize); \
   FUNC(Sigmoid); \
   FUNC(Silence); \
   FUNC(Slice); \
@@ -102,6 +116,11 @@ namespace caffe {
   FUNC(SmoothL1Loss); \
   FUNC(Softmax); \
   FUNC(SoftmaxWithLoss); \
+  FUNC(SoftmaxTree); \
+  FUNC(SoftmaxTreeWithLoss); \
+  FUNC(TreePrediction); \
+  FUNC(SoftmaxTreePrediction); \
+  FUNC(NMSFilter); \
   FUNC(Split); \
   FUNC(SPP); \
   FUNC(TanH); \
@@ -113,7 +132,8 @@ namespace caffe {
   FUNC(TsvData); \
   FUNC(WSgmLoss); \
   FUNC(WindowData); \
-  FUNC(XCovLoss)
+  FUNC(XCovLoss); \
+  FUNC(Axpy)
 
 #ifdef WITH_PYTHON_LAYER
 #define FOR_PYTHON_LAYER(FUNC) \

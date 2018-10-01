@@ -9,12 +9,16 @@
 #include "caffe/layers/data_layer.hpp"
 #include "caffe/util/benchmark.hpp"
 
+#ifdef USE_MPI
+#include "caffe/clusters.hpp"
+#endif
+
 namespace caffe {
 
 template <typename Dtype>
 DataLayer<Dtype>::DataLayer(const LayerParameter& param)
   : BasePrefetchingDataLayer<Dtype>(param),
-    offset_() {
+    offset_(), world_size_(1), world_rank_(0) {
   db_.reset(db::GetDB(param.data_param().backend()));
   db_->Open(param.data_param().source(), db::READ);
   cursor_.reset(db_->NewCursor());
@@ -28,6 +32,20 @@ DataLayer<Dtype>::~DataLayer() {
 template <typename Dtype>
 void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
       const vector<Blob<Dtype>*>& top) {
+  const DataParameter &data_param = this->layer_param().data_param();
+  CHECK_EQ(data_param.has_world_size(), data_param.has_world_rank())
+      << "world_size and world_rank must be specified together";
+  world_size_ = data_param.world_size();
+  world_rank_ = data_param.world_rank();
+#ifdef USE_MPI
+  if (!data_param.has_world_size()) {
+    world_size_ = Clusters::proc_count();
+    world_rank_ = Clusters::proc_rank();
+  }
+#endif
+  CHECK_LT(world_rank_, world_size_);
+  CHECK_GT(world_size_, 0);
+
   const int batch_size = this->layer_param_.data_param().batch_size();
   // Read a data point, and use it to initialize the top blob.
   Datum datum;
@@ -58,11 +76,12 @@ void DataLayer<Dtype>::DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 
 template <typename Dtype>
 bool DataLayer<Dtype>::Skip() {
-  int size = Caffe::solver_count();
-  int rank = Caffe::solver_rank();
-  bool keep = (offset_ % size) == rank ||
-              // In test mode, only rank 0 runs, so avoid skipping
-              this->layer_param_.phase() == TEST;
+  // In test mode, only rank 0 (of each node) runs, so avoid skipping within a node
+  if (this->layer_param_.phase() == TEST)
+      return offset_ % world_size_ != 0;  // for world_size == 1, this is always false
+  int size = Caffe::solver_count() * world_size_;
+  int rank = Caffe::solver_count() * world_rank_ + Caffe::solver_rank();
+  bool keep = (offset_ % size) == rank;
   return !keep;
 }
 

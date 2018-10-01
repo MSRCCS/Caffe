@@ -143,6 +143,8 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
 	
 	//if this is not a loss layer then a blob is deletable
 	bool is_deletable = layers_[layer_id]->layer_param().loss_weight_size() == 0;
+    //if this is not a Parameter layer then it is deletable
+    is_deletable &= layer_types_[layer_id] != "Parameter";
 	for (int ti = 0; ti < top_vecs_[layer_id].size(); ++ti)
 	{
 		const int blob_id = top_id_vecs_[layer_id][ti];
@@ -334,6 +336,10 @@ void Net<Dtype>::Init(const NetParameter& in_param) {
 				  bool is_find_cache = false;
 				  int cache_idx = -1;
 				  const int blob_id = top_id_vecs_[i][ti];
+
+				  // Keep the input blobs.
+				  if (std::find(net_input_blob_indices_.begin(), net_input_blob_indices_.end(), blob_id) != net_input_blob_indices_.end())
+				    continue;
 
 				  if (blob_used_counter_[blob_id] == 1)
 				  {
@@ -828,33 +834,38 @@ Dtype Net<Dtype>::ForwardFromTo(int start, int end) {
   CHECK_LT(end, layers_.size());
   Dtype loss = 0;
   for (int i = start; i <= end; ++i) {
-	  if (((phase_ == TEST && opt_test_memory_) || (phase_ == TRAIN && opt_train_memory_&& (!layer_need_backward_[i])))
-		  && layer_types_[i] != "Split")
-	  {
-		  //share cache meory.
-		  for (int ti = 0; ti < top_vecs_[i].size(); ti++)
-		  {
-			  int blob_id = top_id_vecs_[i][ti];
-			  int cache_idx = shared_blobs_index_[blob_id];
-			  // if in-place, don't borrow the shared memory again.
-			  if (bottom_vecs_[i].size()>ti && bottom_vecs_[i][ti] == top_vecs_[i][ti])
-			  {
-				  //blobs_[blob_id]->ShareData_LE(*shared_blobs_[cache_idx]);
-				  continue;
-			  }
+    if (((phase_ == TEST && opt_test_memory_) || (phase_ == TRAIN && opt_train_memory_&& (!layer_need_backward_[i])))
+	&& layer_types_[i] != "Split") {
+	//share cache meory.
+      for (int ti = 0; ti < top_vecs_[i].size(); ti++) {
+	int blob_id = top_id_vecs_[i][ti];
+	int cache_idx = shared_blobs_index_[blob_id];
+	// if in-place, don't borrow the shared memory again.
+	if (bottom_vecs_[i].size()>ti && bottom_vecs_[i][ti] == top_vecs_[i][ti]) {
+	  //blobs_[blob_id]->ShareData_LE(*shared_blobs_[cache_idx]);
+	  continue;
+	}
 
-			  if (shared_blobs_[cache_idx]->count() < blobs_[blob_id]->count())
-			  {
-				  shared_blobs_[cache_idx]->ReshapeLike(*blobs_[blob_id]);
-				  LOG_IF(INFO, Caffe::root_solver()) << "reshape " << layer_types_[i] << " " << shared_blobs_[cache_idx]->count();
-			  }
-			  blobs_[blob_id]->ShareData_LE(*shared_blobs_[cache_idx]);
-		  }
-	  }
+	// The data of input blobs must be kept.
+	if (std::find(net_input_blob_indices_.begin(), net_input_blob_indices_.end(), blob_id) != net_input_blob_indices_.end()) {
+	  CHECK_EQ(-1, cache_idx);
+	  continue;
+	}
+
+	if (shared_blobs_[cache_idx]->count() < blobs_[blob_id]->count()) {
+	  shared_blobs_[cache_idx]->ReshapeLike(*blobs_[blob_id]);
+	  LOG_IF(INFO, Caffe::root_solver()) << "reshape " << layer_types_[i] << " " << shared_blobs_[cache_idx]->count();
+	}
+
+
+	blobs_[blob_id]->ShareData_LE(*shared_blobs_[cache_idx]);
+      }
+    }
+
     // LOG(ERROR) << "Forwarding " << layer_names_[i];
-	PERF_INIT
+    PERF_INIT
     Dtype layer_loss = layers_[i]->Forward(bottom_vecs_[i], top_vecs_[i]);
-	PERF_UPDATE_FORWARD(i)
+    PERF_UPDATE_FORWARD(i)
     loss += layer_loss;
     if (debug_info_) { ForwardDebugInfo(i); }
     for (int c = 0; c < after_forward_.size(); ++c) {

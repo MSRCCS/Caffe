@@ -23,7 +23,7 @@ template <typename Dtype>
 class TsvDataLayer : public BasePrefetchingDataLayer<Dtype> {
 public:
 	explicit TsvDataLayer(const LayerParameter& param)
-		: BasePrefetchingDataLayer<Dtype>(param), offset_() {}
+		: BasePrefetchingDataLayer<Dtype>(param), offset_(), world_size_(1), world_rank_(0) {}
 	virtual ~TsvDataLayer();
 	virtual void DataLayerSetUp(const vector<Blob<Dtype>*>& bottom,
 		const vector<Blob<Dtype>*>& top);
@@ -38,14 +38,19 @@ protected:
     virtual void Next();
     virtual bool Skip();
     virtual void load_batch(Batch<Dtype>* batch);
-    virtual void on_load_batch(Batch<Dtype>* batch);
+    virtual void on_load_batch_start(Batch<Dtype>* batch);
+    virtual void on_load_batch_end(Batch<Dtype>* batch);
 
-    TsvRawDataFile tsv_;
-	TsvRawDataFile tsv_label_;
+    shared_ptr<ITsvDataFile> tsv_;
+	shared_ptr<ITsvDataFile> tsv_label_;
     uint64_t offset_;
 
     // mean values for pixel value subtraction
     std::vector<Dtype> mean_values_;
+
+    // world size and rank override
+    uint32_t world_size_;
+    uint32_t world_rank_;
 
 private:
     void load_kl(const string &kl_filename);
@@ -54,6 +59,7 @@ private:
     void CVMatToBlobBuffer(const cv::Mat &cv_img_float, Dtype *buffer);
 
     void process_one_image(const string &input_b64coded_data, const TsvDataParameter &tsv_param, Dtype *output_image_data);
+    void process_one_image(const cv::Mat &img_origin, const TsvDataParameter &tsv_param, Dtype *output_image_data);
     void process_one_label(const string &input_label_data, const TsvDataParameter &tsv_param, Dtype *output_label_data);
 
     // kl eigen values and vectors for color jittering

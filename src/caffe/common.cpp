@@ -10,6 +10,9 @@
 #include "caffe/common.hpp"
 #include "caffe/util/msvc.hpp"
 #include "caffe/util/rng.hpp"
+#ifdef USE_MPI
+#include "caffe/clusters.hpp"
+#endif
 
 namespace caffe {
 
@@ -54,6 +57,12 @@ void GlobalInit(int* pargc, char*** pargv) {
   ::google::InstallFailureSignalHandler();
 #endif
 }
+
+#ifdef USE_MPI
+bool Caffe::root_solver() {
+    return Caffe::local_root_solver() && (Clusters::proc_rank() == 0);
+}
+#endif
 
 #ifdef CPU_ONLY  // CPU-only Caffe.
 

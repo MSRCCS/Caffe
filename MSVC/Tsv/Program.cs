@@ -249,35 +249,41 @@ namespace TsvTool
         {
             [Argument(ArgumentType.Required, HelpText = "Input TSV file")]
             public string inTsv = null;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Output TSV file")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output folder")]
             public string outFolder = null;
             [Argument(ArgumentType.Required, HelpText = "Column index for base64 encoded image")]
             public int colImage = -1;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for sub folder name (default: use subfolder name in TSV)")]
             public int colSubFolder = -1;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for file name (default: use GUID as filename)")]
-            public int colFileName = -1;
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Column index for file name (e.g. 0,2,4,7 default: use GUID as filename), corresponded file names will be saved to filelist.txt in output folder")]
+            public string colFileName = "-1";
         }
 
         static void Tsv2Folder(ArgsTsv2Folder cmd)
         {
+            var colFileName_indices = cmd.colFileName.Split(',').Select(x => Convert.ToInt32(x)).ToArray();
+
             if (cmd.outFolder == null)
                 cmd.outFolder = Path.GetFileNameWithoutExtension(cmd.inTsv);
+
+            var outFileList = Path.Combine(cmd.outFolder, "fileslist.txt");
+            TextWriter textWriter = new StreamWriter(outFileList);
+
             var lines = File.ReadLines(cmd.inTsv)
                 .Select(line => line.Split('\t'));
             int count = 0;
+            var invalids = System.IO.Path.GetInvalidFileNameChars();
             foreach (var cols in lines)
             {
-                string subfolder = null, filename;
-                if (cmd.colFileName >= 0)
+                string subfolder = string.Empty, filename;
+                if (colFileName_indices[0] >= 0)
                 {
-                    filename = cols[cmd.colFileName];
+                    filename = String.Join("-", colFileName_indices.Select(idx => cols[idx]));
                     if (string.IsNullOrEmpty(Path.GetExtension(filename)))
                         filename = filename + ".jpg";
                     subfolder = Path.GetDirectoryName(filename);
                     if (string.IsNullOrEmpty(subfolder) && cmd.colSubFolder >= 0)
                         subfolder = cols[cmd.colSubFolder];
-                    var invalids = System.IO.Path.GetInvalidFileNameChars();
                     subfolder = String.Join("_", subfolder.Split(invalids, StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
                     filename = Path.GetFileName(filename);
                 }
@@ -285,15 +291,24 @@ namespace TsvTool
                 {
                     filename = Guid.NewGuid().ToString() + ".jpg";
                     if (cmd.colSubFolder >= 0)
+                    {
                         subfolder = cols[cmd.colSubFolder];
+                        subfolder = String.Join("_", subfolder.Split(invalids, StringSplitOptions.RemoveEmptyEntries)).TrimEnd('.');
+                    }
+
                 }
                 string image_file_name = Path.Combine(cmd.outFolder, subfolder, filename);
                 if (!Directory.Exists(Path.GetDirectoryName(image_file_name)))
                     Directory.CreateDirectory(Path.GetDirectoryName(image_file_name));
+                if (File.Exists(image_file_name))
+                    Console.WriteLine("Warning! overwrite existing file {0}", image_file_name);
                 File.WriteAllBytes(image_file_name, Convert.FromBase64String(cols[cmd.colImage]));
+                textWriter.WriteLine(image_file_name);
                 Console.Write("Images saved: {0}\r", ++count);
             }
+            textWriter.Close();
             Console.WriteLine("\nDone!");
+            Console.WriteLine("Corresponding file list saved to {0}", outFileList);
         }
 
         class ArgsTsv2CNTKImageReader
@@ -696,7 +711,7 @@ namespace TsvTool
             public string filterFile = null;
             [Argument(ArgumentType.AtMostOnce, HelpText = "by default reverse is off, filter file will be used as blacklist. When reverse is on, the filter file will be used as whitelist")]
             public bool  reverse = false;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Training data ratio, default = 0.8")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Training data ratio, default = 0.8. If ratio > 1, e.g. 100, then for each class, keep 100 samples as training data")]
             public double ratio = 0.8;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Minimal Training Sample Number: ignore the class with less than [min] samples (default: 1)")]
             public int min = 1;
@@ -704,11 +719,11 @@ namespace TsvTool
             public int max = -1;
             [Argument(ArgumentType.AtMostOnce, HelpText = "Repeat line numbers to get more virtual samples per class (default: 1, no repeat)")]
             public int minrepeat = 1;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Output Train Shuffle file (default: replace inTsv file ext. with .train.shuffle")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output Train Shuffle file (default: replace inTsv file ext. with .train.shuffle)")]
             public string outShuffleTrain = null;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Output Train Shuffle file (default: replace inTsv file ext. with .test.shuffle")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output Train Shuffle file (default: replace inTsv file ext. with .test.shuffle)")]
             public string outShuffleTest = null;
-            [Argument(ArgumentType.AtMostOnce, HelpText = "Output intermediate file (default: replace inTsv file ext. with .inter.tsv")]
+            [Argument(ArgumentType.AtMostOnce, HelpText = "Output intermediate file (default: replace inTsv file ext. with .inter.tsv)")]
             public string outIntermediate = null;
         }
 
@@ -823,10 +838,10 @@ namespace TsvTool
                         int num_to_insert = Math.Min(g_count, cmd.minrepeat - group_samples.Count());
                         group_samples.AddRange(g.AsEnumerable().Take(num_to_insert));
                     }
-
                     int total = group_samples.Count();
                     int sample_selected = (cmd.max >= cmd.min && cmd.max > 0) ? Math.Min(cmd.max, total) : total;
-                    int train_num = (int)(Math.Ceiling(sample_selected * cmd.ratio));
+                    //if 0 < cmd.ratio < 1, treat it as a trainign set ratio, if cmd.ratio > 1, treat it as a integer, i.e. number of samples in training set
+                    int train_num = (int)((cmd.ratio < 1.00f)? (Math.Ceiling(sample_selected * cmd.ratio)) : (Math.Min(cmd.ratio, total)));
                     int test_num = sample_selected - train_num;
                     int ignored_num = total - sample_selected;
                     if (total > sample_selected)

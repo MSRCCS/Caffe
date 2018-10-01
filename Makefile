@@ -178,7 +178,7 @@ ifneq ($(CPU_ONLY), 1)
 	LIBRARIES := cudart cublas curand
 endif
 
-LIBRARIES += glog gflags protobuf boost_system boost_filesystem m hdf5_hl hdf5
+LIBRARIES += glog gflags protobuf boost_system boost_filesystem boost_regex m hdf5_hl hdf5
 
 # handle IO dependencies
 USE_LEVELDB ?= 1
@@ -302,11 +302,17 @@ endif
 # Custom compiler
 ifdef CUSTOM_CXX
 	CXX := $(CUSTOM_CXX)
+else
+ifeq ($(USE_MPI), 1)
+	CXX := mpic++
+endif
 endif
 
 # Static linking
 ifneq (,$(findstring clang++,$(CXX)))
 	STATIC_LINK_COMMAND := -Wl,-force_load $(STATIC_NAME)
+else ifneq (,$(findstring mpic++,$(CXX)))
+	STATIC_LINK_COMMAND := -Wl,--whole-archive $(STATIC_NAME) -Wl,--no-whole-archive
 else ifneq (,$(findstring g++,$(CXX)))
 	STATIC_LINK_COMMAND := -Wl,--whole-archive $(STATIC_NAME) -Wl,--no-whole-archive
 else
@@ -348,6 +354,10 @@ ifeq ($(USE_LMDB), 1)
 ifeq ($(ALLOW_LMDB_NOLOCK), 1)
 	COMMON_FLAGS += -DALLOW_LMDB_NOLOCK
 endif
+endif
+
+ifeq ($(USE_MPI), 1)
+	COMMON_FLAGS += -DUSE_MPI
 endif
 
 # CPU-only configuration

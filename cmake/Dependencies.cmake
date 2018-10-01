@@ -94,7 +94,7 @@ endif()
 
 # ---[ OpenCV
 if(USE_OPENCV)
-  find_package(OpenCV QUIET COMPONENTS core highgui imgproc imgcodecs)
+  find_package(OpenCV QUIET COMPONENTS core highgui imgproc imgcodecs videoio)
   if(NOT OpenCV_FOUND) # if not OpenCV 3.x, then imgcodecs are not found
     find_package(OpenCV REQUIRED COMPONENTS core highgui imgproc)
   endif()
@@ -197,6 +197,14 @@ if(BUILD_matlab)
   endif()
 endif()
 
+if(USE_MPI)
+  find_package(MPI REQUIRED)
+  include_directories(SYSTEM ${MPI_CXX_INCLUDE_PATH})
+  list(APPEND Caffe_LINKER_LIBS ${MPI_CXX_LIBRARIES})
+  add_definitions(-DOMPI_SKIP_MPICXX)
+  add_definitions(-DUSE_MPI)
+  message(STATUS "MPI found (${MPI_CXX_LIBRARIES}, ${MPI_CXX_INCLUDE_PATH})")
+endif()
 # ---[ Doxygen
 if(BUILD_docs)
   find_package(Doxygen)

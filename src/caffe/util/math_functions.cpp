@@ -99,6 +99,7 @@ void caffe_copy(const int N, const Dtype* X, Dtype* Y) {
   }
 }
 
+template void caffe_copy<bool>(const int N, const bool* X, bool* Y);
 template void caffe_copy<int>(const int N, const int* X, int* Y);
 template void caffe_copy<unsigned int>(const int N, const unsigned int* X,
     unsigned int* Y);
@@ -197,6 +198,15 @@ void caffe_sqr<double>(const int n, const double* a, double* y) {
   vdSqr(n, a, y);
 }
 
+template <>
+void caffe_sqrt<float>(const int n, const float* a, float* y) {
+    vsSqrt(n, a, y);
+}
+
+template <>
+void caffe_sqrt<double>(const int n, const double* a, double* y) {
+    vdSqrt(n, a, y);
+}
 template <>
 void caffe_exp<float>(const int n, const float* a, float* y) {
   vsExp(n, a, y);

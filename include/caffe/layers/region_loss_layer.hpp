@@ -1,5 +1,5 @@
-#ifndef CAFFE_EUCLIDEAN_LOSS_LAYER_HPP_
-#define CAFFE_EUCLIDEAN_LOSS_LAYER_HPP_
+#ifndef CAFFE_REGION_LOSS_LAYER_HPP_
+#define CAFFE_REGION_LOSS_LAYER_HPP_
 
 #include <vector>
 
@@ -25,8 +25,16 @@ struct tree {
     char **name;
 
     int groups;
-    int *group_size;
+    int* group_size;
+    int* group_size_gpu;
     int *group_offset;
+    int* group_offset_gpu;
+
+public:
+    tree(): leaf(NULL), parent(NULL), child(NULL),
+        group(NULL), name(NULL), group_size(NULL), 
+        group_size_gpu(NULL),
+        group_offset(NULL) {}
 };
 
 struct layer {
@@ -102,12 +110,13 @@ protected:
       const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
 
 private:
-  Blob<Dtype> output_;
+  Blob<Dtype> output_, output_gpu_;
   vector<float> biases_;
   network net_;
   layer l_;
+  uint64_t anchor_aligned_images_;
 
-  uint64_t seen_images_;
+  Dtype* seen_images_;
   
   void prepare_net_layer(network &net, layer &l, const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top);
   void forward_for_loss(network &net, layer &l);
@@ -151,20 +160,28 @@ protected:
             if (propagate_down[i]) { NOT_IMPLEMENTED; }
         }
     }
+#ifdef CPU_ONLY
+    virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
+        const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom);
+#else
     virtual void Backward_gpu(const vector<Blob<Dtype>*>& top,
         const vector<bool>& propagate_down, const vector<Blob<Dtype>*>& bottom) {
         for (int i = 0; i < propagate_down.size(); ++i) {
             if (propagate_down[i]) { NOT_IMPLEMENTED; }
         }
     }
+#endif
 
 private:
-    Blob<Dtype> output_;
+    // this is to reduce the number of mutable*() calls. 
+    Blob<Dtype> output_, output_gpu_;
     layer l_;
     int net_w_;
     int net_h_;
     int classes_;
     vector<float> biases_;
+    vector<int> map_;
+    bool class_specific_nms_;
     float thresh_;
     float hier_thresh_;
     float nms_;
