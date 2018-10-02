@@ -33,9 +33,6 @@ void RegionTargetLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, co
     this->blobs_[0].reset(new Blob<Dtype>(1, 1, 1, 1));
     seen_images_ = this->blobs_[0]->mutable_cpu_data();
     *seen_images_ = 0;
-
-    CHECK_EQ(bottom.size(), 4);
-    CHECK_EQ(top.size(), 6);
 }
 
 template <typename Dtype>
@@ -80,7 +77,8 @@ void RegionTargetLayer<Dtype>::Reshape(
     CHECK_EQ(blob_truth->num(), num);
 
     ious_.Reshape({num, num_anchor, height, width, num_gt});
-    bbs_.Reshape({num, num_anchor, height, width, 4});
+    if (bottom.size() < 5)
+        bbs_.Reshape({num, num_anchor, height, width, 4});
     gt_target_.Reshape(num, num_gt, 3, 1);
 }
 
@@ -111,7 +109,7 @@ void RegionTargetLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
 
     auto biases = this->biases_.cpu_data();
     auto iou_data = this->ious_.mutable_cpu_data();
-    auto bbs_data = this->bbs_.mutable_cpu_data();
+
     auto gt_target_data = this->gt_target_.mutable_cpu_data();
 
     if ((*seen_images_) * Caffe::solver_count() < this->anchor_aligned_images_) {
@@ -147,22 +145,30 @@ void RegionTargetLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
     const int max_gt = blob_truth->channels() / 5;
     CHECK_EQ(blob_truth->height(), 1);
     CHECK_EQ(blob_truth->width(), 1);
+    const Dtype* bbs_data = NULL;
 
-    for (int b = 0; b < batches; b++) {
-        for (int n = 0; n < num_anchor; n++) {
-            for (int j = 0; j < height; j++) {
-                for (int i = 0; i < width; i++) {
-                    *(bbs_data + this->bbs_.offset({b, n, j, i, 0})) = 
-                        (blob_xy->data_at(b, n, j, i) + i) / width;
-                    *(bbs_data + this->bbs_.offset({b, n, j, i, 1})) = 
-                        (blob_xy->data_at(b, n + num_anchor, j, i) + j) / height;
-                    *(bbs_data + this->bbs_.offset({b, n, j, i, 2})) = 
-                        exp(blob_wh->data_at(b, n, j, i)) * biases[2 * n] / width;
-                    *(bbs_data + this->bbs_.offset({b, n, j, i, 3})) = 
-                        exp(blob_wh->data_at(b, n + num_anchor, j, i)) * biases[2 * n + 1] / height;
+    if (bottom.size() >= 5) {
+        bbs_data = bottom[4]->cpu_data();
+    } else {
+        // Calculate the bbs if it is not a bottom
+        auto mutable_bbs_data = this->bbs_.mutable_cpu_data();
+        for (int b = 0; b < batches; b++) {
+            for (int n = 0; n < num_anchor; n++) {
+                for (int j = 0; j < height; j++) {
+                    for (int i = 0; i < width; i++) {
+                        *(mutable_bbs_data + this->bbs_.offset({ b, n, j, i, 0 })) =
+                            (blob_xy->data_at(b, n, j, i) + i) / width;
+                        *(mutable_bbs_data + this->bbs_.offset({ b, n, j, i, 1 })) =
+                            (blob_xy->data_at(b, n + num_anchor, j, i) + j) / height;
+                        *(mutable_bbs_data + this->bbs_.offset({ b, n, j, i, 2 })) =
+                            exp(blob_wh->data_at(b, n, j, i)) * biases[2 * n] / width;
+                        *(mutable_bbs_data + this->bbs_.offset({ b, n, j, i, 3 })) =
+                            exp(blob_wh->data_at(b, n + num_anchor, j, i)) * biases[2 * n + 1] / height;
+                    }
                 }
             }
         }
+        bbs_data = this->bbs_.cpu_data();
     }
 
     // calculate the IOU
@@ -170,10 +176,11 @@ void RegionTargetLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
         for (int n = 0; n < num_anchor; ++n) {
             for (int j = 0; j < height; ++j) {
                 for (int i = 0; i < width; ++i) {
-                    Dtype px = bbs_.data_at({b, n, j, i, 0});
-                    Dtype py = bbs_.data_at({b, n, j, i, 1});
-                    Dtype pw = bbs_.data_at({b, n, j, i, 2});
-                    Dtype ph = bbs_.data_at({b, n, j, i, 3});
+                    int curr_index = (b * num_anchor * height * width + n * height * width + j * width + i) * 4;
+                    Dtype px = *(bbs_data + curr_index + 0);
+                    Dtype py = *(bbs_data + curr_index + 1);
+                    Dtype pw = *(bbs_data + curr_index + 2);
+                    Dtype ph = *(bbs_data + curr_index + 3);
                     for (int t = 0; t < max_gt; ++t) {
                         Dtype tx = blob_truth->data_at(b, t * 5 + 0, 0, 0);
                         Dtype ty = blob_truth->data_at(b, t * 5 + 1, 0, 0);
@@ -181,8 +188,13 @@ void RegionTargetLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
                         Dtype th = blob_truth->data_at(b, t * 5 + 3, 0, 0);
                         Dtype curr_iou = 0;
                         if (tx) {
-                            curr_iou = TBoxIou<Dtype>(px, py, pw, ph, 
-                                    tx, ty, tw, th);
+                            curr_iou = TBoxIou(px, py, pw, ph, 
+                                               tx, ty, tw, th);
+                            // if the iou is large enough, let's not penalize the objectiveness
+                            if (curr_iou > this->positive_thresh_) {
+                                *(target_obj_noobj_data + target_obj_noobj->offset(b, n, j, i)) =
+                                    blob_obj->data_at(b, n, j, i);
+                            } 
                         }
                         vector<int> index = {b, n, j, i, t};
                         *(iou_data + ious_.offset(index)) = curr_iou; 
@@ -192,26 +204,6 @@ void RegionTargetLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, c
         }
     }
     
-    // if the iou is large enough, let's not penalize the objectiveness
-    for (int b =0; b < batches; b++) {
-        for (int n = 0; n < num_anchor; n++) {
-            for (int j = 0; j < height; j++) {
-                for (int i = 0; i < width; i++) {
-                    for (int t = 0; t < max_gt; t++) {
-                        vector<int> index = {b, n, j, i, t};
-                        auto curr_iou = *(iou_data + ious_.offset(index));
-                        if (curr_iou > this->positive_thresh_) {
-                            *(target_obj_noobj_data + target_obj_noobj->offset(b, n, j, i)) = 
-                                blob_obj->data_at(b, n, j, i);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-
     caffe_set(this->gt_target_.count(), -1, gt_target_data);
     
     for (int b = 0; b < batches; b++) {

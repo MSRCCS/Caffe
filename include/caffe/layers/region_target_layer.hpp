@@ -20,6 +20,21 @@ class RegionTargetLayer : public Layer<Dtype> {
       const vector<Blob<Dtype>*>& top);
 
   virtual inline const char* type() const { return "RegionTarget"; }
+  virtual inline int ExactNumTopBlobs() const {
+      return 6;
+  }
+
+  virtual inline int ExactNumBottomBlobs() const {
+      return -1;
+  }
+
+  virtual inline int MinBottomBlobs() const {
+      return 4;
+  }
+
+  virtual inline int MaxBottomBlobs() const {
+      return 5;
+  }
 
 protected:
   /// @copydoc RegionLossLayer

@@ -25,10 +25,7 @@ protected:
       blob_xy_(new Blob<Dtype>(2, 3 * 2, 7, 7)),
       blob_wh_(new Blob<Dtype>(2, 3 * 2, 7, 7)),
       blob_imageinfo_(new Blob<Dtype>(1, 2, 1, 1)),
-      blob_objectness_(new Blob<Dtype>(2, 3, 7, 7)),
-      blob_conf_(new Blob<Dtype>({ 2, 5, 3, 7, 7 })),
-      blob_top_bbs_(new Blob<Dtype>()),
-      blob_top_conf_(new Blob<Dtype>()) {
+      blob_top_bbs_(new Blob<Dtype>()) {
       //// fill the values
       FillerParameter filler_param;
       filler_param.set_min(0);
@@ -36,8 +33,6 @@ protected:
       UniformFiller<Dtype> filler(filler_param);
       filler.Fill(blob_xy_);
       filler.Fill(blob_wh_);
-      filler.Fill(blob_objectness_);
-      filler.Fill(blob_conf_);
 
       SigmoidForward(*blob_xy_);
 
@@ -64,18 +59,12 @@ protected:
       delete blob_xy_;
       delete blob_wh_;
       delete blob_imageinfo_;
-      delete blob_objectness_;
-      delete blob_conf_;
       delete blob_top_bbs_;
-      delete blob_top_conf_;
   }
   Blob<Dtype>* const blob_xy_;
   Blob<Dtype>* const blob_wh_;
   Blob<Dtype>* const blob_imageinfo_;
-  Blob<Dtype>* const blob_objectness_;
-  Blob<Dtype>* const blob_conf_;
   Blob<Dtype>* const blob_top_bbs_;
-  Blob<Dtype>* const blob_top_conf_;
   vector<Blob<Dtype>*> blob_bottom_vec_;
   vector<Blob<Dtype>*> blob_top_vec_;
 };
@@ -146,36 +135,6 @@ TYPED_TEST(YoloBBsLayerTest, TestForward) {
           }
       }
   }
-
-  const float kThreshold = 0.1;
-  layer_param.mutable_yolobbs_param()->set_thresh(kThreshold);
-  layer.reset(new YoloBBsLayer<Dtype>(layer_param));
-  this->blob_bottom_vec_.push_back(this->blob_objectness_);
-  this->blob_bottom_vec_.push_back(this->blob_conf_);
-  this->blob_top_vec_.push_back(this->blob_top_conf_);
-  layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
-  layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
-
-  auto objectness_data = this->blob_objectness_->cpu_data();
-  auto conf_data = this->blob_conf_->cpu_data();
-  auto out_conf_data = this->blob_top_conf_->cpu_data();
-
-  auto count = this->blob_conf_->count();
-  auto channels = count / this->blob_objectness_->count();
-  auto outer_num = this->blob_objectness_->count(0, 1);
-  auto inner_num = this->blob_objectness_->count(1);
-  DCHECK_EQ(count, outer_num * channels * inner_num);
-  for (int i = 0; i < outer_num; ++i) {
-      for (int c = 0; c < channels; ++c) {
-          for (int j = 0; j < inner_num; ++j) {
-              auto p = objectness_data[i * inner_num + j] * conf_data[(i * channels + c) * inner_num + j];
-              if (p <= kThreshold)
-                  p = 0;
-              EXPECT_FLOAT_EQ(p, out_conf_data[(i * channels + c) * inner_num + j]);
-          }
-      }
-  }
-
 }
 
 }

@@ -25,8 +25,10 @@ __global__ void kernel_yolo_bbs(int batches, int num_anchor, int height, int wid
         int offset_double_bnji_next = offset_double_bnji + num_anchor * height * width;
         *(curr_bbs_data + 0) = (*(blob_xy_data + offset_double_bnji) + i) / width;
         *(curr_bbs_data + 1) = (*(blob_xy_data + offset_double_bnji_next) + j) / height;
-        *(curr_bbs_data + 2) = exp(*(blob_wh_data + offset_double_bnji)) * biases_data[2 * n] / width;
-        *(curr_bbs_data + 3) = exp(*(blob_wh_data + offset_double_bnji_next)) * biases_data[2 * n + 1] / height;
+        double w = *(blob_wh_data + offset_double_bnji);
+        double h = *(blob_wh_data + offset_double_bnji_next);
+        *(curr_bbs_data + 2) = exp(w) * biases_data[2 * n] / width;
+        *(curr_bbs_data + 3) = exp(h) * biases_data[2 * n + 1] / height;
     }
 }
 
@@ -57,27 +59,10 @@ __global__ void kernel_correct_bbs(int total,
 }
 
 template <typename Dtype>
-__global__ void kernel_yolo_threshold(int outer_num, int channels, int inner_num,
-                                      float thresh, 
-                                      const Dtype* objectness_data,
-                                      const Dtype* conf_data,
-                                      Dtype* top_data) {
-    CUDA_KERNEL_LOOP(index, outer_num * channels * inner_num) {
-        const int s = index % inner_num;
-        const int n = index / inner_num / channels;
-        const int obj_index = n * inner_num + s;
-        top_data[index] = objectness_data[obj_index] * conf_data[index];
-        if (top_data[index] <= thresh)
-            top_data[index] = 0;
-    }
-}
-
-template <typename Dtype>
 void YoloBBsLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
     int blob_idx = 0;
     auto blob_xy = bottom[blob_idx++];
     auto blob_wh = bottom[blob_idx++];
-    auto blob_imageinfo = bottom[blob_idx++];
 
     auto bbs = top[0];
 
@@ -92,6 +77,11 @@ void YoloBBsLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, const 
         biases_.gpu_data(),
         bbs->mutable_gpu_data());
     CUDA_POST_KERNEL_CHECK;
+
+    if (bottom.size() < 3)
+        return;
+
+    auto blob_imageinfo = bottom[2];
 
     int net_h = feat_stride_ * height;
     int net_w = feat_stride_ * width;
@@ -121,27 +111,6 @@ void YoloBBsLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, const 
         new_w, new_h,
         bbs->mutable_gpu_data());
     CUDA_POST_KERNEL_CHECK;
-
-    if (with_objectness_) {
-        auto blob_objectness = bottom[blob_idx++];
-        auto blob_conf = bottom[blob_idx++];
-        auto blob_top_conf = top[1];
-        auto thresh = this->layer_param().yolobbs_param().thresh();
-
-        auto count = blob_conf->count();
-        auto channels = count / blob_objectness->count();
-        auto outer_num = blob_objectness->count(0, 1);
-        auto inner_num = blob_objectness->count(1);
-        DCHECK_EQ(count, outer_num * channels * inner_num);
-
-        kernel_yolo_threshold << <CAFFE_GET_BLOCKS(count), CAFFE_CUDA_NUM_THREADS >> > (
-            outer_num, channels, inner_num,
-            thresh,
-            blob_objectness->gpu_data(),
-            blob_conf->gpu_data(),
-            blob_top_conf->mutable_gpu_data());
-        CUDA_POST_KERNEL_CHECK;
-    }
 }
 
 INSTANTIATE_LAYER_GPU_FUNCS(YoloBBsLayer);

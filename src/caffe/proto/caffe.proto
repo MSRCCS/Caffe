@@ -1562,10 +1562,7 @@ message RegionPredictionParameter {
 message YoloBBsParameter {
     repeated float biases = 1;
     optional uint32 feat_stride = 2 [default = 32]; // the feature stride for all the previous layers
-    // specify the threshold for removing low confidence detections. 
-    // The confidence score is defined as objectness * class_probability
-    // if threshold is specified, objectness and class_probability must also be provided
-    optional float thresh = 3 [default = 0.24];
+    // optional float thresh = 3 [default = 0.24]; // removed
 }
 
 message YoloEvalCompatParameter {
@@ -1580,6 +1577,10 @@ message RegionTargetParameter {
 	optional float thresh = 3 [default = 0.6];
 	repeated float biases = 4;
     optional uint32 anchor_aligned_images = 5 [default = 12800];
+    // specify a labelmap file so that to map class name to class id (used for cooccurence test)
+    //optional string labelmap = 6;
+	// Co-occurence thresholds file
+	//optional string cooccurence = 7;
 }
 
 // Message that stores parameters used by SoftmaxTreeLayer, SoftmaxTreeWithLossLayer
