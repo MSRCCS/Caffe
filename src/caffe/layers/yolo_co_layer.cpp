@@ -28,7 +28,7 @@ char *fgetl(FILE *fp) {
 
     size_t curr = strlen(line);
 
-    while ((line[curr - 1] != '\n') && !feof(fp)) {
+    while ((line[curr - 1] != '\n' || line[curr - 1] != '\r') && !feof(fp)) {
         if (curr == size - 1) {
             size *= 2;
             line = (char *)realloc(line, size * sizeof(char));
@@ -40,7 +40,7 @@ char *fgetl(FILE *fp) {
         fgets(&line[curr], readsize, fp);
         curr = strlen(line);
     }
-    if (line[curr - 1] == '\n')
+    if (line[curr - 1] == '\n' || line[curr - 1] == '\r')
         line[curr - 1] = '\0';
 
     return line;
@@ -75,6 +75,11 @@ void YoloCoOccurrenceLayer<Dtype>::load_labelmap(const string &filename) {
 
 template <typename Dtype>
 void YoloCoOccurrenceLayer<Dtype>::load_comap(const string &filename) {
+    const YoloCoParameter& yoloco_param = this->layer_param().yoloco_param();
+    float default_thresh = yoloco_param.thresh();
+    float default_obj_thresh = yoloco_param.obj_thresh();
+    float default_ix_thresh = yoloco_param.ix_thresh();
+
     FILE *fp = fopen(filename.c_str(), "r");
     CHECK(fp) << "Cannot open the co-occurrence map file: " << filename;
     comap_class_cpu_ptr_ = NULL;
@@ -95,24 +100,24 @@ void YoloCoOccurrenceLayer<Dtype>::load_comap(const string &filename) {
     char *line;
     int n = 0;
     while ((line = fgetl(fp)) != 0) {
-        float thresh = 0.6;
-        float obj_thresh = 0.2;
-        float ix = 0.9;
-        int count = sscanf(line, "%s %s %f %f %f", part, whole, &ix, &thresh, &obj_thresh);
+        float ix_thresh = default_ix_thresh;
+        float thresh = default_thresh;
+        float obj_thresh = default_obj_thresh;
+        int count = sscanf(line, "%[^\t]\t%[^\t]\t%f %f %f", part, whole, &ix_thresh, &thresh, &obj_thresh);
         CHECK_GE(count, 2) << "Few arguments reading line: " << n << " in file:" << filename;
         CHECK_LE(count, 5) << "Error reading line: " << n << " in file:" << filename;
 
         auto it = labelmap_.find(part);
-        CHECK(it != labelmap_.end()) << " line: " << n << " " << part << " is not in " << filename;
+        CHECK(it != labelmap_.end()) << " line: " << n << " " << part << " is not in labelmap";
         int c = it->second;
         if (c != last_c) {
+            last_c = c;
             // Append new class
             for (cidx = 0; cidx < co_classes; ++cidx) {
                 if (comap_class_cpu_ptr_[cidx] == c)
                     break;
-                cidx++;
             }
-            CHECK_EQ(cidx, co_classes) << " line: " << n << "class: " << part << " co-occurrence group discontinuity";
+            CHECK_EQ(cidx, co_classes) << " line: " << n << "class: '" << part << "' co-occurrence group discontinuity";
             co_classes++;
             offset = n;
             comap_class_cpu_ptr_ = (int *)realloc(comap_class_cpu_ptr_, co_classes * sizeof(int));
@@ -123,7 +128,7 @@ void YoloCoOccurrenceLayer<Dtype>::load_comap(const string &filename) {
             comap_size_cpu_ptr_[cidx] = 0;
         }
         it = labelmap_.find(whole);
-        CHECK(it != labelmap_.end()) << " line: " << n << " " << whole << " is not in " << filename;
+        CHECK(it != labelmap_.end()) << " line: " << n << " '" << whole << "' is not in labelmap";
         int co = it->second;
 
         int size = comap_size_cpu_ptr_[cidx];
@@ -134,7 +139,7 @@ void YoloCoOccurrenceLayer<Dtype>::load_comap(const string &filename) {
         comap_cpu_ptr_ = (int *)realloc(comap_cpu_ptr_, (n + 1) * sizeof(int));
         comap_cpu_ptr_[n] = co;
         comap_ixr_cpu_ptr_ = (float *)realloc(comap_ixr_cpu_ptr_, (n + 1) * sizeof(float));
-        comap_ixr_cpu_ptr_[n] = ix;
+        comap_ixr_cpu_ptr_[n] = ix_thresh;
         comap_thresh_cpu_ptr_ = (float *)realloc(comap_thresh_cpu_ptr_, (n + 1) * sizeof(float));
         comap_thresh_cpu_ptr_[n] = thresh;
         comap_obj_thresh_cpu_ptr_ = (float *)realloc(comap_obj_thresh_cpu_ptr_, (n + 1) * sizeof(float));
@@ -253,7 +258,7 @@ void YoloCoOccurrenceLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& botto
         // index == n * inner_num_ + s
         const int n = index / inner_num_;
         const int s = index % inner_num_;
-        auto obj_index = n * inner_num_ + s;
+        auto obj_index = index;
 
         // If this is a ground-truth already, nothing to do
         if (target_no_obj_data[obj_index] > 0)
@@ -269,11 +274,16 @@ void YoloCoOccurrenceLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& botto
         if (pw <= 0.00001 || ph <= 0.00001)
             continue;
 
-        for (int cidx = 0; cidx < co_classes; ++cidx) {
+        auto offset_pred = n * (classes + 1) * inner_num_ + s;
+        auto objectness = pred_data[offset_pred + classes * inner_num_];
+        bool found = false;
+        for (int cidx = 0; cidx < co_classes && !found; ++cidx) {
             auto size = comap_size_data[cidx];
             auto offset = comap_offset_data[cidx];
+            auto c = comap_class_data[cidx];
+            auto conf = pred_data[offset_pred + c * inner_num_];
 
-            for (int t = 0; t < max_gt_; ++t) {
+            for (int t = 0; t < max_gt_ && !found; ++t) {
                 auto offset_nt = n * 5 * max_gt_ + t * 5;
                 Dtype tx = *(truth_data + offset_nt + 0);
                 // If no ground-truth at this index
@@ -294,24 +304,21 @@ void YoloCoOccurrenceLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& botto
                     // c may co-occure with co only in one rule, so after this the loop will end
 
                     auto obj_thresh = comap_obj_thresh_data[offset + i];
-                    auto pred_idx = n * classes * inner_num_ + classes * inner_num_ + s;
-                    auto objectness = pred_data[pred_idx];
                     if (objectness < obj_thresh)
                         break;
-                    auto c = comap_class_data[cidx];
-                    pred_idx = n * classes * inner_num_ + c * inner_num_ + s;
-                    auto conf = pred_data[pred_idx];
 
                     auto thresh = comap_thresh_data[offset + i];
                     if (conf < thresh)
                         break;
                     // Check intersection with co-occured class
-                    auto ixr_thresh = comap_ixr_data[offset + 1];
+                    auto ixr_thresh = comap_ixr_data[offset + i];
                     auto ix = TBoxIntersection(px, py, pw, ph,
                                                tx, ty, tw, th);
                     ix /= (pw * ph); // intersection ratio
-                    if (ix >= ixr_thresh)
+                    if (ix >= ixr_thresh) {
                         target_no_obj_data[obj_index] = obj_data[obj_index];
+                        found = true;
+                    }
 
                     break;
                 }

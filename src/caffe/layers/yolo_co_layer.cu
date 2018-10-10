@@ -18,19 +18,19 @@ __global__ void yolo_co_kernel(
     const float* comap_thresh_data, const float* comap_obj_thresh_data, const float* comap_ixr_data,
     const Dtype* pred_data, const Dtype* bbs_data, const Dtype* truth_data,
     const Dtype* obj_data, Dtype* target_no_obj_data) {
-    // This index could handle 30 * 16 * 10000 * 13 * 13
     CUDA_KERNEL_LOOP(index, max_gt * outer_num * co_classes * inner_num) {
         const int s = index % inner_num;
-        auto remain = index / inner_num;
-        const int cidx = remain % co_classes;
-        remain /= co_classes;
-        const int n = remain % outer_num;
+        auto t = index / inner_num;
+        const int cidx = t % co_classes;
+        t /= co_classes;
+        const int n = t % outer_num;
+        t /= outer_num;
+
         auto obj_index = n * inner_num + s;
         // If this is a ground-truth already, nothing to do
         if (target_no_obj_data[obj_index] > 0)
             continue;
 
-        const int t = remain / outer_num;
         auto offset_nt = n * 5 * max_gt + t * 5;
         Dtype tx = *(truth_data + offset_nt + 0);
         // If no ground-truth at this index
@@ -63,19 +63,18 @@ __global__ void yolo_co_kernel(
             // c may co-occure with co only in one rule, so after this the loop will end
 
             auto obj_thresh = comap_obj_thresh_data[offset + i];
-            auto pred_idx = n * classes * inner_num + classes * inner_num + s;
-            auto objectness = pred_data[pred_idx];
+            auto offset_pred = n * (classes + 1) * inner_num + s;
+            auto objectness = pred_data[offset_pred + classes * inner_num];
             if (objectness < obj_thresh)
                 break;
             auto c = comap_class_data[cidx];
-            pred_idx = n * classes * inner_num + c * inner_num + s;
-            auto conf = pred_data[pred_idx];
+            auto conf = pred_data[offset_pred + c * inner_num];
 
             auto thresh = comap_thresh_data[offset + i];
             if (conf < thresh)
                 break;
             // Check intersection with co-occured class
-            auto ixr_thresh = comap_ixr_data[offset + 1];
+            auto ixr_thresh = comap_ixr_data[offset + i];
             auto ix = TBoxIntersection(px, py, pw, ph,
                                        tx, ty, tw, th);
             ix /= (pw * ph); // intersection ratio

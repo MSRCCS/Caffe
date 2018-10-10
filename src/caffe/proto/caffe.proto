@@ -1585,13 +1585,17 @@ message YoloCoParameter {
     optional string labelmap = 1;
     // Co-occurence mapping file
     // Format is:
-    // Part Whole [Intersection=0.9] [Threshold=0.6] [ObjectnessThreshold=0.2]
+    // Part\tWhole\t[Intersection=ix_thresh] [Threshold=thresh] [ObjectnessThreshold=obj_thresh]
     // Example:
     // Arm Person 0.95 0.5 0.25
     // Arm Boy 0.95 0.5
     // Wheel Car
     // Book Book 1.0
     optional string comap = 2;
+    // Default values for thresholds, when not specified in comap
+    optional float obj_thresh = 3 [default = 0.2];
+    optional float thresh = 4 [default = 0.6];
+    optional float ix_thresh = 5 [default = 0.9];
 }
 
 // Message that stores parameters used by SoftmaxTreeLayer, SoftmaxTreeWithLossLayer
