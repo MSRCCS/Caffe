@@ -264,6 +264,9 @@
     <ClCompile Include="..\src\caffe\test\test_softmaxtree_prediction_layer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\caffe\test\test_yolo_co_layer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\caffe\test\test_gradient_check_util.hpp">
