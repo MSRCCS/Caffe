@@ -39,8 +39,10 @@ void YoloBBsLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const vect
     CHECK_EQ(blob_wh->width(), width);
     CHECK_EQ(blob_wh->channels(), 2 * num_anchor);
 
-    auto blob_imageinfo = bottom[blob_idx++];
-    CHECK_EQ(blob_imageinfo->count(), 2);
+    if (bottom.size() >= 3) {
+        auto blob_imageinfo = bottom[blob_idx++];
+        CHECK_EQ(blob_imageinfo->count(), 2);
+    }
 
     // BBS output
     top[0]->Reshape({ blob_xy->num(), num_anchor, height, width, 4 });
