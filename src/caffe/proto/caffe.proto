@@ -1567,8 +1567,9 @@ message YoloBBsParameter {
 }
 
 message YoloEvalCompatParameter {
-    optional uint32 classes = 1 [default = 1];
+    // optional uint32 classes = 1 [default = 1];
     optional bool move_axis = 2 [default = true];
+	// If should append the max/objectness channel
     optional bool append_max = 3 [default = true];
 }
 
