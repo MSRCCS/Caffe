@@ -20,7 +20,7 @@ public:
 
     virtual inline const char* type() const { return "RegionPrediction"; }
 
-    virtual inline int ExactNumBottomBlobs() const { return 5; }
+    //virtual inline int ExactNumBottomBlobs() const { return 5; }
     virtual inline int ExactNumTopBlobs() const { return 2; }
 
 protected:
