@@ -47,7 +47,7 @@ include(cmake/Dependencies.cmake)
 # ---[ Flags
 if(UNIX OR APPLE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -std=c++11")
-  if (CMAKE_COMPILER_IS_GNUCC AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 5.0)
+  if (CMAKE_COMPILER_IS_GNUCC AND ${CMAKE_VERSION} VERSION_LESS "3.4.0")
     set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -std=c++11")
   endif()
 endif()

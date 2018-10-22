@@ -19,15 +19,6 @@ void YoloBBsLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, const v
     biases_.Reshape(yolobbs_param.biases_size(), 1, 1, 1);
     for (int i = 0; i < yolobbs_param.biases_size(); ++i)
         *(biases_.mutable_cpu_data() + i) = yolobbs_param.biases(i);
-
-    with_objectness_ = bottom.size() > 3;
-    if (with_objectness_) {
-        CHECK_EQ(bottom.size(), 5);
-        CHECK_EQ(top.size(), 2);
-    } else {
-        CHECK_EQ(bottom.size(), 3);
-        CHECK_EQ(top.size(), 1);
-    }
 }
 
 template <typename Dtype>
@@ -48,22 +39,13 @@ void YoloBBsLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const vect
     CHECK_EQ(blob_wh->width(), width);
     CHECK_EQ(blob_wh->channels(), 2 * num_anchor);
 
-    auto blob_imageinfo = bottom[blob_idx++];
-    CHECK_EQ(blob_imageinfo->count(), 2);
+    if (bottom.size() >= 3) {
+        auto blob_imageinfo = bottom[blob_idx++];
+        CHECK_EQ(blob_imageinfo->count(), 2);
+    }
 
     // BBS output
     top[0]->Reshape({ blob_xy->num(), num_anchor, height, width, 4 });
-
-    const YoloBBsParameter& yolobbs_param = this->layer_param().yolobbs_param();
-    if (with_objectness_) {
-        auto blob_objectness = bottom[blob_idx++];
-        auto blob_conf = bottom[blob_idx++];
-        CHECK_EQ(blob_objectness->count(), blob_xy->count() / 2);
-        auto channels = blob_conf->count() / blob_objectness->count();
-        CHECK_GE(channels * blob_objectness->count(), blob_conf->count());
-
-        top[1]->ReshapeLike(*blob_conf);
-    }
 }
 
 template <typename Dtype>
@@ -107,7 +89,6 @@ void YoloBBsLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, const 
     int blob_idx = 0;
     auto blob_xy = bottom[blob_idx++];
     auto blob_wh = bottom[blob_idx++];
-    auto blob_imageinfo = bottom[blob_idx++];
 
     auto bbs = top[0];
 
@@ -137,6 +118,11 @@ void YoloBBsLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, const 
         }
     }
 
+    if (bottom.size() < 3)
+        return;
+
+    auto blob_imageinfo = bottom[2];
+
     int net_h = feat_stride_ * height;
     int net_w = feat_stride_ * width;
 
@@ -150,43 +136,6 @@ void YoloBBsLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, const 
         im_h = net_h;
 
     correct_bbs<Dtype>(bbs, im_w, im_h, net_w, net_h);
-
-    if (with_objectness_) {
-        auto blob_objectness = bottom[blob_idx++];
-        auto blob_conf = bottom[blob_idx++];
-        auto blob_top_conf = top[1];
-        auto thresh = this->layer_param().yolobbs_param().thresh();
-
-        auto count = blob_conf->count();
-        auto channels = count / blob_objectness->count();
-        if (channels == 1) {
-            caffe_mul(count,
-                      blob_conf->cpu_data(), 
-                      blob_objectness->cpu_data(),
-                      blob_top_conf->mutable_cpu_data());
-        } else {
-            auto outer_num = blob_objectness->count(0, 1);
-            auto inner_num = blob_objectness->count(1);
-            DCHECK_EQ(count, outer_num * channels * inner_num);
-#pragma omp parallel for
-            for (int i = 0; i < outer_num; ++i) {
-                for (int c = 0; c < channels; ++c) {
-                    caffe_mul(inner_num,
-                              blob_conf->cpu_data() + (i * channels + c) * inner_num,
-                              blob_objectness->cpu_data() + i  * inner_num,
-                              blob_top_conf->mutable_cpu_data() + (i * channels + c) * inner_num);
-                }
-            }
-        }
-        // To avoid any thresholding, we can set a negative threshold
-        if (thresh >= 0) {
-            auto blob_top_conf_data = blob_top_conf->mutable_cpu_data();
-            for (int i = 0; i < count; ++i) {
-                if (blob_top_conf_data[i] <= thresh)
-                    blob_top_conf_data[i] = 0;
-            }
-        }
-    }
 }
 
 #ifdef CPU_ONLY

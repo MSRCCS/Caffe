@@ -121,6 +121,7 @@ namespace caffe {
   FUNC(TreePrediction); \
   FUNC(SoftmaxTreePrediction); \
   FUNC(NMSFilter); \
+  FUNC(YoloCoOccurrence); \
   FUNC(Split); \
   FUNC(SPP); \
   FUNC(TanH); \

@@ -34,7 +34,8 @@ __global__ void ExtractBoundingBox(int total, int num_anchor, int height, int wi
 }
 
 template <typename Dtype>
-__global__ void CalculateIOU(int total, Dtype* iou_data, const Dtype* bbs_data, const Dtype* truth_data, int num_anchor, int height, int width, int max_gt) {
+__global__ void CalculateIOU(int total, Dtype* iou_data, const Dtype* bbs_data, const Dtype* truth_data, int num_anchor, int height, int width, int max_gt, 
+                             Dtype positive_thresh, const Dtype* blob_obj_data, Dtype* target_obj_noobj_data) {
   CUDA_KERNEL_LOOP(index, total) {
       int b = index / (num_anchor * height * width * max_gt);
       int left = index % (num_anchor * height * width * max_gt);
@@ -55,27 +56,19 @@ __global__ void CalculateIOU(int total, Dtype* iou_data, const Dtype* bbs_data, 
           Dtype py = *(bbs_data + curr_index + 1);
           Dtype pw = *(bbs_data + curr_index + 2);
           Dtype ph = *(bbs_data + curr_index + 3);
-          curr_iou = TBoxIou(px, py, pw, ph, 
-                  tx, ty, tw, th);
+          curr_iou = TBoxIou(px, py, pw, ph,
+                             tx, ty, tw, th);
+          // if the iou is large enough, let's not penalize the objectiveness
+          if (curr_iou > positive_thresh) {
+              // multiple threads might write this address at the same time, but
+              // at least one will succeeds. It is safe to do this. 
+              *(target_obj_noobj_data + index / max_gt) =
+                  *(blob_obj_data + index / max_gt);
+          } 
       }
       *(iou_data + index) = curr_iou;
   }
 }
-
-template <typename Dtype>
-__global__ void NoPenaltyIfIouLargeEnough(int total, Dtype positive_thresh, 
-        const Dtype* iou_data, const Dtype* blob_obj_data, Dtype* target_obj_noobj_data, int max_gt) {
-    CUDA_KERNEL_LOOP(index, total) {
-        auto curr_iou = *(iou_data + index);
-        if (curr_iou > positive_thresh) {
-            // multiple threads might write this address at the same time, but
-            // at least one will succeeds. It is safe to do this. 
-            *(target_obj_noobj_data + index / max_gt) = 
-                *(blob_obj_data + index / max_gt);
-        }
-    }
-}
-
 
 template <typename Dtype> 
 __global__ void GroundTruthTarget(int total, int max_gt, 
@@ -241,7 +234,6 @@ void RegionTargetLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, c
 
     auto biases = this->biases_.gpu_data();
     auto iou_data = this->ious_.mutable_gpu_data();
-    auto bbs_data = this->bbs_.mutable_gpu_data();
     auto gt_target_data = this->gt_target_.mutable_gpu_data();
 
     // if the iou is large enough, let's not penalize the objectiveness
@@ -279,19 +271,23 @@ void RegionTargetLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& bottom, c
     CHECK_EQ(blob_truth->height(), 1);
     CHECK_EQ(blob_truth->width(), 1);
 
-    int total = batches * num_anchor * height * width;
+    const Dtype* bbs_data = NULL;
+    if (bottom.size() >= 5) {
+        bbs_data = bottom[4]->gpu_data();
+    } else {
+        // Calculate the bbs if it is not a bottom
+        int total = batches * num_anchor * height * width;
+        ExtractBoundingBox<Dtype> << <CAFFE_GET_BLOCKS(total), CAFFE_CUDA_NUM_THREADS >> >(
+            total, num_anchor, height, width,
+            this->bbs_.mutable_gpu_data(), blob_xy_data, blob_wh_data, biases);
+        CUDA_POST_KERNEL_CHECK;
+        bbs_data = this->bbs_.gpu_data();
+    }
 
-    ExtractBoundingBox<Dtype><<<CAFFE_GET_BLOCKS(total), CAFFE_CUDA_NUM_THREADS>>>(total, num_anchor, height, width, 
-        bbs_data, blob_xy_data, blob_wh_data, biases);
-    CUDA_POST_KERNEL_CHECK;
-
-    total = batches * num_anchor * height * width * max_gt;
+    int total = batches * num_anchor * height * width * max_gt;
     CalculateIOU<Dtype><<<CAFFE_GET_BLOCKS(total), CAFFE_CUDA_NUM_THREADS>>>(total, iou_data, 
-            bbs_data, truth_data, num_anchor, height, width, max_gt);
-    CUDA_POST_KERNEL_CHECK;
-
-    NoPenaltyIfIouLargeEnough<Dtype><<<CAFFE_GET_BLOCKS(total), CAFFE_CUDA_NUM_THREADS>>>(total, this->positive_thresh_, 
-        iou_data, blob_obj->gpu_data(), target_obj_noobj_data, max_gt);
+            bbs_data, truth_data, num_anchor, height, width, max_gt, 
+            this->positive_thresh_, blob_obj->gpu_data(), target_obj_noobj_data);
     CUDA_POST_KERNEL_CHECK;
 
     total = batches * max_gt;

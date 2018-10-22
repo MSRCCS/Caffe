@@ -444,6 +444,7 @@ message LayerParameter {
   optional CPMTransformationParameter cpm_transform_param = 0x0043504D; // "CPM"
   optional RegionTargetParameter region_target_param = 0x00524554; // "RET"
   optional RegionPredictionParameter region_prediction_param = 0x00524550; // "REP"
+  optional YoloCoParameter yoloco_param = 0x0059434F; // "YCO"
   optional YoloBBsParameter yolobbs_param = 0x00594242; // "YBB"
   optional YoloEvalCompatParameter yoloevalcompat_param = 0x0059454D; // "YEC"
   optional SoftmaxTreeParameter softmaxtree_param = 0x00534D54; // "SMT"
@@ -1562,10 +1563,7 @@ message RegionPredictionParameter {
 message YoloBBsParameter {
     repeated float biases = 1;
     optional uint32 feat_stride = 2 [default = 32]; // the feature stride for all the previous layers
-    // specify the threshold for removing low confidence detections. 
-    // The confidence score is defined as objectness * class_probability
-    // if threshold is specified, objectness and class_probability must also be provided
-    optional float thresh = 3 [default = 0.24];
+    // optional float thresh = 3 [default = 0.24]; // removed
 }
 
 message YoloEvalCompatParameter {
@@ -1580,6 +1578,24 @@ message RegionTargetParameter {
 	optional float thresh = 3 [default = 0.6];
 	repeated float biases = 4;
     optional uint32 anchor_aligned_images = 5 [default = 12800];
+}
+
+message YoloCoParameter {
+    // stnadard labelmap file to map class name to class id (used for cooccurence mapping)
+    optional string labelmap = 1;
+    // Co-occurence mapping file
+    // Format is:
+    // Part\tWhole\t[Intersection=ix_thresh] [Threshold=thresh] [ObjectnessThreshold=obj_thresh]
+    // Example:
+    // Arm Person 0.95 0.5 0.25
+    // Arm Boy 0.95 0.5
+    // Wheel Car
+    // Book Book 1.0
+    optional string comap = 2;
+    // Default values for thresholds, when not specified in comap
+    optional float obj_thresh = 3 [default = 0.2];
+    optional float thresh = 4 [default = 0.6];
+    optional float ix_thresh = 5 [default = 0.9];
 }
 
 // Message that stores parameters used by SoftmaxTreeLayer, SoftmaxTreeWithLossLayer

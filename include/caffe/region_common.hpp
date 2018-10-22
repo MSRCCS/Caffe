@@ -34,6 +34,14 @@ __host__ __device__ Dtype TBoxIntersection(Dtype ax, Dtype ay, Dtype aw, Dtype a
 }
 
 template <typename Dtype>
+__host__ __device__ Dtype TBoxUnion(Dtype aw, Dtype ah,
+                                    Dtype bw, Dtype bh,
+                                    Dtype i) {
+    auto u = aw * ah + bw * bh - i;
+    return u;
+}
+
+template <typename Dtype>
 __host__ __device__ Dtype TBoxIou(Dtype ax, Dtype ay, Dtype aw, Dtype ah, 
         Dtype bx, Dtype by, Dtype bw, Dtype bh) {
     auto i = TBoxIntersection(ax, ay, aw, ah, bx, by, bw, bh);

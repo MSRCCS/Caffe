@@ -18,20 +18,11 @@ namespace caffe {
 *      the xy block: 2 raw corrordinates (x,y) for each anchor (A)
 *   -# @f$ (N \times (2 \times A) \times H \times W) @f$
 *      the wh block: 2 raw corrordinates (w,h) for each anchor (A)
-*   -# @f$ (N \times 2 \times 1 \times 1) @f$
+*   -# (optional) @f$ (N \times 2 \times 1 \times 1) @f$
 *      the image_info block (height, width) for each batch ( 1 image per-batch)
-*   -# (optional) @f$ (N \times A \times H \times W) @f$
-*      the objectness probability (pre-condition)
-*   -# (optional) @f$ (N \times \times M \times A \times H \times W) @f$
-*      the hierarchical prediction probability (result of TreePrediction)
 * @param top output Blob vector (length 1 or 2 if with objectness)
 *   -# @f$ (N \times A \times H \times W \times 4) @f$
 *      the computed xywh bounding boxes
-*   -# if objectness and probability bottoms provided @f$ (N \times M \times A \times H \times W) @f$
-*      the elementwise multiplication of objectness input and hierarchical input, then tresholded
-*      this is equivalant of reshaping objectness to @f$ (N \times \times 1 \times A \times H \times W) @f$
-*      then tiling it to become @f$ (N \times \times M \times A \times H \times W) @f$
-*      then multiplying them and zeroing elements that are bwlow the threshold
 */
 template <typename Dtype>
 class YoloBBsLayer : public Layer<Dtype> {
@@ -49,45 +40,19 @@ public:
     }
 
     virtual inline int ExactNumTopBlobs() const { 
-        if (this->layer_param_.yolobbs_param().has_thresh()) {
-            return 2;
-        }
-        return -1;
-    }
-
-    virtual inline int MinTopBlobs() const {
-        if (this->layer_param_.yolobbs_param().has_thresh()) {
-            return 2;
-        }
         return 1;
     }
 
-    virtual inline int MaxTopBlobs() const {
-        if (this->layer_param_.yolobbs_param().has_thresh()) {
-            return 2;
-        }
-        return 2;
-    }
-
     virtual inline int ExactNumBottomBlobs() const { 
-        if (this->layer_param_.yolobbs_param().has_thresh()) {
-            return 5;
-        }
         return -1;
     }
 
     virtual inline int MinBottomBlobs() const {
-        if (this->layer_param_.yolobbs_param().has_thresh()) {
-            return 5;
-        }
-        return 3;
+        return 2;
     }
 
     virtual inline int MaxBottomBlobs() const {
-        if (this->layer_param_.yolobbs_param().has_thresh()) {
-            return 5;
-        }
-        return 5;
+        return 3;
     }
 
 protected:
@@ -115,7 +80,6 @@ protected:
 
 private:
     int feat_stride_;
-    bool with_objectness_;
     Blob<Dtype> biases_;
 };
 
