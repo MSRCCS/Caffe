@@ -9,6 +9,7 @@
 #include "caffe/common.hpp"
 #include "caffe/filler.hpp"
 #include "caffe/layers/softmaxtree_loss_layer.hpp"
+#include "caffe/layers/softmax_loss_layer.hpp"
 
 #include "caffe/test/test_caffe_main.hpp"
 #include "caffe/test/test_gradient_check_util.hpp"
@@ -275,6 +276,88 @@ TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardIgnoreLabelSubGroups) {
     Dtype full_loss = this->blob_top_loss_->cpu_data()[0];
     Dtype accum_loss = this->TestForwardIgnoreLabel(layer.get());
     EXPECT_NEAR(full_loss, accum_loss, 1e-4);
+}
+
+TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardRoot) {
+    typedef typename TypeParam::Dtype Dtype;
+    this->Initialize({ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
+                     CMAKE_SOURCE_DIR "caffe/test/test_data/15n_1g.tree");
+    LayerParameter softmax_loss_param;
+    softmax_loss_param.mutable_loss_param()->set_normalize(true);
+    softmax_loss_param.mutable_loss_param()->set_ignore_label(-1);
+    shared_ptr<SoftmaxWithLossLayer<Dtype>> softmax_loss_layer(new SoftmaxWithLossLayer<Dtype>(softmax_loss_param));
+    softmax_loss_layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    softmax_loss_layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    Dtype loss = this->blob_top_loss_->cpu_data()[0];
+
+    LayerParameter layer_param;
+    layer_param.mutable_softmaxtree_param()->set_tree(this->tree_file_name_);
+    layer_param.mutable_loss_param()->set_normalize(true);
+    layer_param.mutable_loss_param()->set_ignore_label(-1);
+    scoped_ptr<SoftmaxTreeWithLossLayer<Dtype>> layer(new SoftmaxTreeWithLossLayer<Dtype>(layer_param));
+    layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    Dtype full_loss = this->blob_top_loss_->cpu_data()[0];
+
+    EXPECT_FLOAT_EQ(full_loss, loss);
+}
+
+TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardRootIgnoreLabel) {
+    typedef typename TypeParam::Dtype Dtype;
+    this->Initialize({ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
+                     CMAKE_SOURCE_DIR "caffe/test/test_data/15n_1g.tree");
+    Dtype* label_data = this->blob_bottom_label_->mutable_cpu_data();
+    for (int i = 0; i < this->blob_bottom_label_->count() / 4; ++i) {
+        label_data[i] = -1;
+    }
+
+    LayerParameter softmax_loss_param;
+    softmax_loss_param.mutable_loss_param()->set_normalize(true);
+    softmax_loss_param.mutable_loss_param()->set_ignore_label(-1);
+    shared_ptr<SoftmaxWithLossLayer<Dtype>> softmax_loss_layer(new SoftmaxWithLossLayer<Dtype>(softmax_loss_param));
+    softmax_loss_layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    softmax_loss_layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    Dtype loss = this->blob_top_loss_->cpu_data()[0];
+
+    LayerParameter layer_param;
+    layer_param.mutable_softmaxtree_param()->set_tree(this->tree_file_name_);
+    layer_param.mutable_loss_param()->set_normalize(true);
+    layer_param.mutable_loss_param()->set_ignore_label(-1);
+    scoped_ptr<SoftmaxTreeWithLossLayer<Dtype>> layer(new SoftmaxTreeWithLossLayer<Dtype>(layer_param));
+    layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    Dtype full_loss = this->blob_top_loss_->cpu_data()[0];
+
+    EXPECT_FLOAT_EQ(full_loss, loss);
+}
+
+TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardRootIgnoreLabelBatchNormalization) {
+    typedef typename TypeParam::Dtype Dtype;
+    this->Initialize({ -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
+                     CMAKE_SOURCE_DIR "caffe/test/test_data/15n_1g.tree");
+    Dtype* label_data = this->blob_bottom_label_->mutable_cpu_data();
+    for (int i = 0; i < this->blob_bottom_label_->count() / 4; ++i) {
+        label_data[i] = -1;
+    }
+
+    LayerParameter softmax_loss_param;
+    softmax_loss_param.mutable_loss_param()->set_normalization(LossParameter_NormalizationMode_BATCH_SIZE);
+    softmax_loss_param.mutable_loss_param()->set_ignore_label(-1);
+    shared_ptr<SoftmaxWithLossLayer<Dtype>> softmax_loss_layer(new SoftmaxWithLossLayer<Dtype>(softmax_loss_param));
+    softmax_loss_layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    softmax_loss_layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    Dtype loss = this->blob_top_loss_->cpu_data()[0];
+
+    LayerParameter layer_param;
+    layer_param.mutable_softmaxtree_param()->set_tree(this->tree_file_name_);
+    layer_param.mutable_loss_param()->set_normalization(LossParameter_NormalizationMode_BATCH_SIZE);
+    layer_param.mutable_loss_param()->set_ignore_label(-1);
+    scoped_ptr<SoftmaxTreeWithLossLayer<Dtype>> layer(new SoftmaxTreeWithLossLayer<Dtype>(layer_param));
+    layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    layer->Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    Dtype full_loss = this->blob_top_loss_->cpu_data()[0];
+
+    EXPECT_FLOAT_EQ(full_loss, loss);
 }
 
 TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestGradientIgnoreLabel) {
