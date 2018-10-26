@@ -212,8 +212,9 @@ void YoloCoOccurrenceLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, c
 
     CHECK_GE(blob_pred->num_axes(), 4);
     channels_ = blob_pred->shape(1);
-    CHECK(channels_ == labelmap_.size() + 1) << 
-        "Channel count: " << channels_ << " must match label count + 1 = " << labelmap_.size() + 1;
+    classes_ = labelmap_.size();
+    CHECK(channels_ == classes_ || channels_ == classes_ + 1) <<
+        "Channel count: " << channels_ << " must match label count = " << classes_ << " [ + 1]";
     CHECK_EQ(blob_pred->count(2), inner_num_);
 
     auto target_no_obj = top[0];
@@ -250,8 +251,7 @@ void YoloCoOccurrenceLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& botto
     auto obj_data = blob_obj->cpu_data();
 
     auto target_no_obj_data = target_no_obj->mutable_cpu_data();
-
-    auto classes = channels_ - 1;
+    bool with_objectness = (channels_ == classes_ + 1);
 
 #pragma omp parallel for
     for (int index = 0; index < outer_num_ * inner_num_; ++index) {
@@ -274,8 +274,12 @@ void YoloCoOccurrenceLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& botto
         if (pw <= 0.00001 || ph <= 0.00001)
             continue;
 
-        auto offset_pred = n * (classes + 1) * inner_num_ + s;
-        auto objectness = pred_data[offset_pred + classes * inner_num_];
+        auto offset_pred = n * channels_ * inner_num_ + s;
+        Dtype objectness;
+        if (with_objectness)
+            objectness = pred_data[offset_pred + classes_ * inner_num_];
+        else
+            objectness = obj_data[obj_index];
         bool found = false;
         for (int cidx = 0; cidx < co_classes && !found; ++cidx) {
             auto size = comap_size_data[cidx];
