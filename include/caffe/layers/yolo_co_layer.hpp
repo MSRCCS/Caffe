@@ -88,6 +88,7 @@ private:
     int outer_num_;
     int inner_num_;
     int channels_;
+    int classes_;
     int max_gt_;
     map<string, int> labelmap_;
     int* comap_class_cpu_ptr_;

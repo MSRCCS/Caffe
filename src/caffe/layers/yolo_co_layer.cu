@@ -12,7 +12,7 @@ namespace caffe {
 
 template <typename Dtype>
 __global__ void yolo_co_kernel(
-    int outer_num, int inner_num, int co_classes, int classes, int max_gt,
+    int outer_num, int inner_num, int co_classes, int channels, int classes, int max_gt,
     const int* comap_class_data, const int* comap_offset_data, const int* comap_size_data,
     const int* comap_data,
     const float* comap_thresh_data, const float* comap_obj_thresh_data, const float* comap_ixr_data,
@@ -63,8 +63,13 @@ __global__ void yolo_co_kernel(
             // c may co-occure with co only in one rule, so after this the loop will end
 
             auto obj_thresh = comap_obj_thresh_data[offset + i];
-            auto offset_pred = n * (classes + 1) * inner_num + s;
-            auto objectness = pred_data[offset_pred + classes * inner_num];
+            auto offset_pred = n * channels * inner_num + s;
+            bool with_objectness = (channels == classes + 1);
+            Dtype objectness;
+            if (with_objectness)
+                objectness = pred_data[offset_pred + classes * inner_num];
+            else
+                objectness = obj_data[obj_index];
             if (objectness < obj_thresh)
                 break;
             auto c = comap_class_data[cidx];
@@ -102,9 +107,8 @@ void YoloCoOccurrenceLayer<Dtype>::Forward_gpu(const vector<Blob<Dtype>*>& botto
     auto co_classes = comap_class_.count();
     if (!co_classes)
         return;
-    auto classes = channels_ - 1;
     yolo_co_kernel << <CAFFE_GET_BLOCKS(max_gt_ * outer_num_ * co_classes * inner_num_),
-        CAFFE_CUDA_NUM_THREADS >> > (outer_num_, inner_num_, co_classes, classes, max_gt_,
+        CAFFE_CUDA_NUM_THREADS >> > (outer_num_, inner_num_, co_classes, channels_, classes_, max_gt_,
                                      comap_class_.gpu_data(), comap_offset_.gpu_data(), comap_size_.gpu_data(),
                                      comap_.gpu_data(),
                                      comap_thresh_.gpu_data(), comap_obj_thresh_.gpu_data(), comap_ixr_.gpu_data(),
