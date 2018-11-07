@@ -11,7 +11,6 @@ namespace caffe {
 template <typename Dtype>
 void YoloEvalCompatLayer<Dtype>::LayerSetUp(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
     const YoloEvalCompatParameter& yoloevalcompat_param = this->layer_param().yoloevalcompat_param();
-    classes_ = yoloevalcompat_param.classes();
     move_axis_ = yoloevalcompat_param.move_axis();
     append_max_ = yoloevalcompat_param.append_max();
 }
@@ -20,109 +19,99 @@ template <typename Dtype>
 void YoloEvalCompatLayer<Dtype>::Reshape(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
     Layer<Dtype>::LayerSetUp(bottom, top);
 
-    auto num_axes = bottom[0]->num_axes();
-    CHECK_GE(num_axes, 4);
+    const YoloEvalCompatParameter& yoloevalcompat_param = this->layer_param().yoloevalcompat_param();
+    sum_inner_num_ = 0;
+    sum_classes_ = 0;
     outer_num_ = bottom[0]->shape(0);
-    inner_num_ = bottom[0]->count(num_axes - 3);
-    bool has_classes = this->layer_param().yoloevalcompat_param().has_classes();
-    if (bottom.size() == 1) {
-        // Deduce the class number
-        if (!has_classes)
-            classes_ = bottom[0]->count() / (outer_num_ * inner_num_);
-        CHECK_EQ(bottom[0]->count(), outer_num_ * classes_ * inner_num_)
-            << "With no bottom indices, bottom[0] must have '" << classes_ << "' classes";
-    } else {
-        CHECK(has_classes) << "classes parameter must be provided when creating a dense output";
-        CHECK_EQ(bottom[0]->count(), bottom[1]->count()) << "There must be exactly one index for each probability in bottom[0]";
-        CHECK_EQ(bottom[0]->count(), outer_num_ * inner_num_);
-        CHECK_EQ(outer_num_, bottom[1]->shape(0));
+    auto bottom_count = bottom.size();
+    for (int i = 0; i < bottom_count; ++i) {
+        CHECK_EQ(bottom[i]->shape(0), outer_num_);
+        CHECK_GE(bottom[i]->num_axes(), 3);
+        auto classes = bottom[i]->shape(1);
+        // When not appending max, we assume the last column is already the objectness/max
+        if (!append_max_) {
+            CHECK_GT(classes, 1)
+                << "bottom: " << i << " not enough classes";
+            classes--;
+        }
+        sum_classes_ += classes;
+        sum_inner_num_ += bottom[i]->count(2);
     }
-    CHECK_GT(classes_, 0) << "invalid number of classes";
-
-    int num_anchor = bottom[0]->shape(num_axes - 3);
-    int height = bottom[0]->shape(num_axes - 2);
-    int width = bottom[0]->shape(num_axes - 1);
-    int channels = classes_;
-    if (append_max_)
-        channels = classes_ + 1;
+    int channels = sum_classes_ + 1;
     if (move_axis_)
-        top[0]->Reshape({ outer_num_, num_anchor, height, width, channels });
+        top[0]->Reshape({ outer_num_, sum_inner_num_, channels });
     else
-        top[0]->Reshape({ outer_num_, channels, num_anchor, height, width });
+        top[0]->Reshape({ outer_num_, channels, sum_inner_num_ });
 }
 
 template <typename Dtype>
 void YoloEvalCompatLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
-    auto bottom_data = bottom[0]->cpu_data();
     auto top_data = top[0]->mutable_cpu_data();
-    int count = bottom[0]->count();
-    int channels = classes_;
-    if (append_max_)
-        channels = classes_ + 1;
-    if (bottom.size() == 1) {
+    const int bottom_count = bottom.size();
+    if (bottom_count > 1)
+        caffe_set(top[0]->count(), Dtype(0), top_data);
+
+    int channels = sum_classes_ + 1;
+    int c_offset = 0;
+    int s_offset = 0;
+    for (int i = 0; i < bottom_count; ++i) {
+        auto bottom_data = bottom[i]->cpu_data();
+        auto inner_num = bottom[i]->count(2);
+        auto classes = bottom[i]->shape(1);
         if (!append_max_) {
-            if (!move_axis_) {
-                // Do not move the axis, nor append max column
-                caffe_copy(count, bottom_data, top_data);
-                return;
-            }
 #pragma omp parallel for
-            for (int index = 0; index < count; ++index) {
-                const int s = index % inner_num_;
-                const int c = (index / inner_num_) % classes_;
-                const int n = (index / inner_num_) / classes_;
+            for (int index = 0; index < outer_num_ * classes * inner_num; ++index) {
+                int s = index % inner_num;
+                int c = (index / inner_num) % classes;
+                const int n = (index / inner_num) / classes;
 
-                auto p = bottom_data[(n * classes_ + c) * inner_num_ + s];
-                top_data[(n * inner_num_ + s) * channels + c] = p;
-            }
-            return;
-        }
-#pragma omp parallel for
-        for (int index = 0; index < outer_num_ * inner_num_; ++index) {
-            // index == n * inner_num_ + s
-            const int n = index / inner_num_;
-            const int s = index % inner_num_;
-            Dtype maxval = -FLT_MAX;
-            for (int c = 0; c < classes_; ++c) {
-                auto p = bottom_data[(n * classes_ + c) * inner_num_ + s];
-                if (p > maxval)
-                    maxval = p;
-                if (move_axis_)
-                    top_data[(n * inner_num_ + s) * channels + c] = p;
+                auto p = bottom_data[(n * classes + c) * inner_num + s];
+
+                s += s_offset;
+                // concatenate objectness
+                if (c == classes - 1)
+                    c = sum_classes_;
                 else
-                    top_data[(n * channels + c) * inner_num_ + s] = p;
+                    c += c_offset;
+
+                if (move_axis_)
+                    top_data[(n * sum_inner_num_ + s) * channels + c] = p;
+                else
+                    top_data[(n * channels + c) * sum_inner_num_ + s] = p;
             }
-            if (move_axis_)
-                top_data[(n * inner_num_ + s) * channels + classes_] = maxval;
-            else
-                top_data[(n * channels + classes_) * inner_num_ + s] = maxval;
-        }
-        return;
-    }
-
-    auto class_data = bottom[1]->cpu_data();
-    caffe_set(top[0]->count(), Dtype(0), top_data);
-
-#pragma omp parallel for
-    for (int index = 0; index < count; ++index) {
-        auto p = bottom_data[index];
-        int c = (int)class_data[index];
-        DCHECK_GE(c, 0);
-        DCHECK_LT(c, classes_);
-
-        if (move_axis_) {
-            top_data[index * channels + c] = p;
-            if (append_max_)
-                top_data[index * channels + classes_] = p;
+            classes--;
         } else {
-            // index == n * inner_num_ + s
-            const int n = index / inner_num_;
-            const int s = index % inner_num_;
-
-            top_data[(n * channels + c) * inner_num_ + s] = p;
-            if (append_max_)
-                top_data[(n * channels + classes_) * inner_num_ + s] = p;
+#pragma omp parallel for
+            for (int index = 0; index < outer_num_ * inner_num; ++index) {
+                // index == n * sum_inner_num_ + s
+                const int n = index / inner_num;
+                const int s = index % inner_num;
+                auto s2 = s + s_offset;
+                Dtype maxval = -FLT_MAX;
+                if (i > 0) {
+                    if (move_axis_)
+                        maxval = top_data[(n * sum_inner_num_ + s2) * channels + sum_classes_];
+                    else
+                        maxval = top_data[(n * channels + sum_classes_) * sum_inner_num_ + s2];
+                }
+                for (int c = 0; c < classes; ++c) {
+                    auto p = bottom_data[(n * classes + c) * inner_num + s];
+                    if (p > maxval)
+                        maxval = p;
+                    auto c2 = c + c_offset;
+                    if (move_axis_)
+                        top_data[(n * sum_inner_num_ + s2) * channels + c2] = p;
+                    else
+                        top_data[(n * channels + c2) * sum_inner_num_ + s2] = p;
+                }
+                if (move_axis_)
+                    top_data[(n * sum_inner_num_ + s2) * channels + sum_classes_] = maxval;
+                else
+                    top_data[(n * channels + sum_classes_) * sum_inner_num_ + s2] = maxval;
+            }
         }
+        s_offset += inner_num;
+        c_offset += classes;
     }
 }
 

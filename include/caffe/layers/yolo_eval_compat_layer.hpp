@@ -11,17 +11,17 @@ namespace caffe {
 
 /**
 * @brief Convert probability shape to old Yolo format by moving axis and appending max column
+* Merge multiple probability heads into one
 *
-* @param bottom input Blob vector (length 3 or 5 if with objectness)
-*   -# @f$ (N \times M \times \prod\limits_{d=1}^{D}S_d) @f$
-*      the computed probabilities.
-*      Either M must be equal to C (the number classes provided as a parameter)
-*      Or the argmax indices (corresponding to each member of bottom[0]) must be provided by bottom[1]
-*   -# (optional) @f$ (N \times \times 1 \times \prod\limits_{d=1}^{D}S_d) @f$
-*      The argmax indices
+* @param bottom input Blob vector (1 or more bottoms)
+*   -# @f$ (N \times C \times \prod\limits_{d=1}^{D}S_d) @f$
+*      the computed probabilities
+*   ...
+*   -# @f$ (N \times C \times \prod\limits_{d=1}^{D}S_d) @f$
+*      the computed probabilities
 * @param top output Blob vector (length 1 or 2 if with objectness)
 *   -# When both append_max and move_axis are required:
-*          @f$ (N \times \prod\limits_{d=1}^{D}S_d \times (C + 1)) @f$
+*          @f$ (N \times \sum\prod\limits_{d=1}^{D}S_d \times (\sum C + 1)) @f$
 *      The converted probabilities compatible with Yolo.
 *      C is the number classes provided as a parameter.
 */
@@ -52,10 +52,6 @@ public:
         return 1;
     }
 
-    virtual inline int MaxBottomBlobs() const {
-        return 2;
-    }
-
 protected:
     virtual void Forward_cpu(const vector<Blob<Dtype>*>& bottom,
                              const vector<Blob<Dtype>*>& top);
@@ -81,8 +77,8 @@ protected:
 
 private:
     int outer_num_;
-    int inner_num_;
-    int classes_;
+    int sum_inner_num_; // Total number of spatial dimensions
+    int sum_classes_;   // Total number of classes
     bool move_axis_;
     bool append_max_;
 };
