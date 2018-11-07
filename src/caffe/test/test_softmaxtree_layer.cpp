@@ -7,6 +7,7 @@
 #include "caffe/common.hpp"
 #include "caffe/filler.hpp"
 #include "caffe/layers/softmaxtree_layer.hpp"
+#include "caffe/layers/softmax_layer.hpp"
 
 #include "caffe/test/test_caffe_main.hpp"
 #include "caffe/test/test_gradient_check_util.hpp"
@@ -123,6 +124,37 @@ TYPED_TEST(SoftmaxTreeLayerTest, TestGradientSubGroups) {
     GradientChecker<Dtype> checker(1e-2, 1e-3);
     checker.CheckGradientExhaustive(&layer, this->blob_bottom_vec_,
                                     this->blob_top_vec_);
+}
+
+TYPED_TEST(SoftmaxTreeLayerTest, TestForwardRoot) {
+    typedef typename TypeParam::Dtype Dtype;
+    this->Initialize({ 15 }, CMAKE_SOURCE_DIR "caffe/test/test_data/15n_1g.tree");
+    LayerParameter layer_param;
+    layer_param.mutable_softmaxtree_param()->set_tree(this->tree_file_name_);
+    SoftmaxTreeLayer<Dtype> layer(layer_param);
+    layer.SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
+    layer.Forward(this->blob_bottom_vec_, this->blob_top_vec_);
+    this->TestForward();
+
+    std::vector<Blob<Dtype>*> softmax_top_vec;
+    Blob<Dtype> blob_top_softmax;
+    softmax_top_vec.push_back(&blob_top_softmax);
+    LayerParameter softmax_param;
+    shared_ptr<SoftmaxLayer<Dtype>> softmax_layer(new SoftmaxLayer<Dtype>(softmax_param));
+    softmax_layer->SetUp(this->blob_bottom_vec_, softmax_top_vec);
+    softmax_layer->Forward(this->blob_bottom_vec_, softmax_top_vec);
+
+    EXPECT_EQ(blob_top_->shape(), blob_top_softmax.shape());
+    for (int i = 0; i < this->blob_bottom_->num(); ++i) {
+        for (int j = 0; j < this->blob_top_->channels(); ++j) {
+            for (int k = 0; k < this->blob_bottom_->height(); ++k) {
+                for (int l = 0; l < this->blob_bottom_->width(); ++l) {
+                    EXPECT_FLOAT_EQ(blob_top_softmax.data_at(i, j, k, l),
+                                    this->blob_top_->data_at(i, j, k, l));
+                }
+            }
+        }
+    }
 }
 
 }  // namespace caffe
