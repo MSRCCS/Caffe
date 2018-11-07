@@ -11,7 +11,14 @@ template <typename Dtype>
 void SoftmaxWithLossLayer<Dtype>::LayerSetUp(
     const vector<Blob<Dtype>*>& bottom, const vector<Blob<Dtype>*>& top) {
   LossLayer<Dtype>::LayerSetUp(bottom, top);
+  if (this->layer_param_.loss_weight_size() == 1 && top.size() > 1) {
+      // only the first top is loss
+      auto ignored_tops = std::min((int)top.size(), MaxTopBlobs());
+      for (int i = 1; i < ignored_tops; ++i)
+          this->layer_param_.add_loss_weight(Dtype(0));
+  }
   LayerParameter softmax_param(this->layer_param_);
+  softmax_param.clear_loss_weight(); // Ignore loss_weight if set
   softmax_param.set_type("Softmax");
   softmax_layer_ = LayerRegistry<Dtype>::CreateLayer(softmax_param);
   softmax_bottom_vec_.clear();
