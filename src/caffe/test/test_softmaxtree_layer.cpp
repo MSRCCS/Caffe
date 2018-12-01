@@ -144,7 +144,7 @@ TYPED_TEST(SoftmaxTreeLayerTest, TestForwardRoot) {
     softmax_layer->SetUp(this->blob_bottom_vec_, softmax_top_vec);
     softmax_layer->Forward(this->blob_bottom_vec_, softmax_top_vec);
 
-    EXPECT_EQ(blob_top_->shape(), blob_top_softmax.shape());
+    EXPECT_EQ(this->blob_top_->shape(), blob_top_softmax.shape());
     for (int i = 0; i < this->blob_bottom_->num(); ++i) {
         for (int j = 0; j < this->blob_top_->channels(); ++j) {
             for (int k = 0; k < this->blob_bottom_->height(); ++k) {

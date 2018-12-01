@@ -312,7 +312,7 @@ TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardRootIgnoreLabel) {
     }
 
     LayerParameter softmax_loss_param;
-    softmax_loss_param.mutable_loss_param()->set_normalize(true);
+    softmax_loss_param.mutable_loss_param()->set_normalization(LossParameter_NormalizationMode_VALID);
     softmax_loss_param.mutable_loss_param()->set_ignore_label(-1);
     shared_ptr<SoftmaxWithLossLayer<Dtype>> softmax_loss_layer(new SoftmaxWithLossLayer<Dtype>(softmax_loss_param));
     softmax_loss_layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
@@ -321,7 +321,7 @@ TYPED_TEST(SoftmaxTreeWithLossLayerTest, TestForwardRootIgnoreLabel) {
 
     LayerParameter layer_param;
     layer_param.mutable_softmaxtree_param()->set_tree(this->tree_file_name_);
-    layer_param.mutable_loss_param()->set_normalize(true);
+    layer_param.mutable_loss_param()->set_normalization(LossParameter_NormalizationMode_VALID);
     layer_param.mutable_loss_param()->set_ignore_label(-1);
     scoped_ptr<SoftmaxTreeWithLossLayer<Dtype>> layer(new SoftmaxTreeWithLossLayer<Dtype>(layer_param));
     layer->SetUp(this->blob_bottom_vec_, this->blob_top_vec_);
